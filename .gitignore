@@ -201,3 +201,8 @@ dist
 ### OpenNext ###
 .open-next/
 next-env.d.ts
+
+# Prisma clients (regenerated on install by `prisma generate`)
+src/generated/
+prisma/generated/
+.neon

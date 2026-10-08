@@ -1,0 +1,6 @@
+# Local secrets for `npm run preview` (wrangler dev). Copy to .dev.vars.
+BETTER_AUTH_SECRET=
+BETTER_AUTH_URL=http://localhost:8787
+APP_URL=http://localhost:8787
+RESEND_API_KEY=
+ANTHROPIC_API_KEY=

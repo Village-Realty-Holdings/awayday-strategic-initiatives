@@ -1,0 +1,491 @@
+// Awayday Strategic Initiatives — data model
+// Canonical source: Awayday_Strategic_Initiatives_Tracker.xlsx (Initiatives Master + Sources-CIM).
+// Fresh baseline extracted from awayday-platform. Auth models (User/Session/Account/
+// Verification/TwoFactor/RateLimit) back Better Auth; user references elsewhere are
+// plain strings, not FKs.
+
+// The app runs on Workers: the cloudflare runtime imports the query compiler as
+// a WASM module (Workers forbid compiling WASM at runtime).
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+  runtime  = "cloudflare"
+}
+
+// Node client for the CLI scripts in prisma/ (seed-admin, set-password).
+generator node {
+  provider = "prisma-client"
+  output   = "../prisma/generated/node"
+  runtime  = "nodejs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum InitiativeStatus {
+  NOT_STARTED
+  PLANNING
+  IN_PROGRESS
+  AT_RISK
+  DONE
+}
+
+enum ImpactLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// Six Sigma DMAIC delivery stage (Jakob's framework). Control = completed.
+// Color progression runs red -> orange -> yellow -> green -> purple.
+enum DmaicStage {
+  DEFINE
+  MEASURE
+  ANALYZE
+  IMPROVE
+  CONTROL
+}
+
+// Derived from Value × Lift, stored denormalized for fast filtering/sorting.
+
+enum Quadrant {
+  BIG_BET // high value, high lift  (top-left)
+  QUICK_WIN // high value, low lift  (top-right)
+  FILL_IN // low value, low lift   (bottom-right)
+  AVOID // low value, high lift  (bottom-left)
+}
+
+enum AttachmentKind {
+  FILE
+  LINK
+}
+
+model Initiative {
+  id                 String              @id @default(cuid())
+  code               String              @unique // e.g. "M&A-01"
+  name               String
+  cimDriver          String? // broad driver ("M&A", "Owner retention", ...) — grouping + code prefix
+  cimItemCode        String? // specific CIM register item (e.g. "CIM-02") — ties the initiative's KPIs to that item
+  // "VALUE" = creates measurable $ value (targeted/realized $, scored, on the
+  // Lift×Value map). "NON_VALUE" = enabler/milestone (e.g. a key hire): no
+  // dollars, tracked by status, excluded from the quadrant.
+  valueType          String              @default("VALUE")
+  boardTheme         String? // deprecated (replaced by cimDriver link); retained for legacy data
+  teamLead           String? // primary lead — role title or person name, e.g. "Head of M&A"
+  secondaryLead      String? // optional second lead (person name / role)
+  supports           String? // free text; "(DEV)" marks developing-career talent
+  problem            String?             @db.Text // Problem statement: what's broken, for whom, what it costs
+  valueWhenComplete  String?             @db.Text // Objective: one measurable closeout sentence
+  workRequired       String?             @db.Text // Deliverables: concrete outputs
+  scopeOut           String?             @db.Text // Out of scope: adjacent work to exclude
+  plan               String?             @db.Text // High-level plan: 3-5 milestones / partners
+  value              Int // 1-5 (strategic value)
+  lift               Int // 1-5 (effort)
+  quadrant           Quadrant
+  startDate          DateTime?
+  endDate            DateTime?
+  status             InitiativeStatus    @default(NOT_STARTED)
+  stage              DmaicStage? // Six Sigma DMAIC delivery stage (Jakob's framework)
+  pctComplete        Float               @default(0) // 0..1
+  qualImpact         ImpactLevel?
+  quantMetric        String? // "TTM owner churn"
+  quantTarget        String? // "<12%"
+  progressActual     Float? // numeric current value, for actual/target auto-% in the charter
+  progressTarget     Float? // numeric goal value; pctComplete derives from actual/target when both set
+  // EBITDA run-rate impact (from OSI); powers the EBITDA Gap & Risk-Coverage view.
+  estEbitdaImpact    Decimal?            @db.Decimal(14, 2)
+  actualEbitdaImpact Decimal?            @db.Decimal(14, 2)
+  ownerUserId        String? // FK to User added with Better Auth (role-wide edit for now)
+  risks              RiskInitiative[]
+  attachments        Attachment[]
+  groups             InitiativeGroup[]
+  subInitiatives     SubInitiative[]
+  comments           InitiativeComment[]
+  riskLog            InitiativeRisk[]
+  milestones         InitiativeMilestone[]
+  actionItems        InitiativeActionItem[]
+  eltRequests        InitiativeEltRequest[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([status])
+  @@index([cimDriver])
+  @@index([ownerUserId])
+}
+
+// Lightweight sub-tasks under an initiative. Roll up into the parent's progress.
+model SubInitiative {
+  id           String           @id @default(cuid())
+  initiative   Initiative       @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  initiativeId String
+  title        String
+  owner        String? // person name / role
+  status       InitiativeStatus @default(NOT_STARTED)
+  pctComplete  Float            @default(0) // 0..1
+  order        Int              @default(0)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([initiativeId])
+}
+
+// Discussion thread on an initiative. Author captured by name + optional user id.
+// Alex's SI punch list (8/31 email): per-initiative risk log with
+// mitigations, dated milestones, dependencies/actions with owners, and ELT
+// support/investment requests. Statuses are strings with app-level constants
+// (valueType convention) so these stay pure additive tables on the live DB.
+
+model InitiativeRisk {
+  id           String     @id @default(cuid())
+  initiative   Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  initiativeId String
+  risk         String     @db.Text
+  mitigation   String?    @db.Text // the mitigating actions
+  owner        String?
+  status       String     @default("OPEN") // OPEN | MITIGATED | ACCEPTED
+  order        Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([initiativeId])
+}
+
+model InitiativeMilestone {
+  id           String     @id @default(cuid())
+  initiative   Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  initiativeId String
+  title        String
+  owner        String?
+  dueAt        DateTime?
+  completedAt  DateTime?
+  order        Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([initiativeId])
+}
+
+// One model covers both of Alex's owner-carrying lists: dependencies (what
+// this initiative needs from someone) and actions (what someone owes it).
+model InitiativeActionItem {
+  id           String     @id @default(cuid())
+  initiative   Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  initiativeId String
+  kind         String     @default("ACTION") // DEPENDENCY | ACTION
+  title        String
+  owner        String
+  dueAt        DateTime?
+  status       String     @default("OPEN") // OPEN | DONE
+  order        Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([initiativeId])
+}
+
+model InitiativeEltRequest {
+  id           String     @id @default(cuid())
+  initiative   Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  initiativeId String
+  request      String     @db.Text
+  kind         String     @default("SUPPORT") // SUPPORT | INVESTMENT
+  amount       Decimal?   @db.Decimal(14, 2) // investment asks carry a dollar figure
+  status       String     @default("REQUESTED") // REQUESTED | APPROVED | DECLINED
+  decidedNote  String?
+  order        Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([initiativeId])
+}
+
+model InitiativeComment {
+  id           String     @id @default(cuid())
+  initiative   Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  initiativeId String
+  authorUserId String?
+  authorName   String
+  body         String     @db.Text
+  createdAt    DateTime   @default(now())
+
+  @@index([initiativeId])
+}
+
+// User-defined groupings of initiatives (e.g. "Q3 Board Meeting"). Many-to-many.
+model InitiativeGroup {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  archived    Boolean      @default(false) // achieved/past groups: hidden from active filters, kept for history
+  initiatives Initiative[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+// The Financial & Operating Scorecard rows shown on the Overview, editable
+// in-app (moved out of the hardcoded sheet). color: green|amber|red|grey.
+model ScorecardGoal {
+  id        String   @id @default(cuid())
+  category  String
+  name      String
+  goal      String? // target, e.g. "<11.0%"
+  ltm       String? // latest actual
+  ytdBud    String? // YTD budget
+  status    String? // short status label
+  color     String   @default("grey")
+  owner     String?
+  cim       String[] @default([]) // linked CIM codes
+  sis       String[] @default([]) // linked SI codes
+  notes     String?  @db.Text
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([order])
+}
+
+model CimRisk {
+  id           String           @id @default(cuid())
+  code         String           @unique // "CIM-01"
+  category     String // "Business risks", "M&A risks", "Market risks", ...
+  risk         String
+  owner        String?
+  targetDate   DateTime?
+  prize        String? // display string, e.g. "$5M EBITDA"
+  prizeNum     Float? // rough $M EBITDA-equivalent for sorting/rollups
+  currentState String?          @db.Text
+  targetState  String?          @db.Text
+  focus        Boolean          @default(false) // boxed/near-term focus
+  critical     Boolean          @default(false) // leadership attention this quarter
+  initiatives  RiskInitiative[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([category])
+}
+
+// Many-to-many: which initiatives mitigate which CIM risks (the `sis` links).
+
+model RiskInitiative {
+  cimRisk      CimRisk    @relation(fields: [cimRiskId], references: [id], onDelete: Cascade)
+  cimRiskId    String
+  initiative   Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  initiativeId String
+
+  @@id([cimRiskId, initiativeId])
+  @@index([initiativeId])
+}
+
+model Attachment {
+  id           String         @id @default(cuid())
+  initiative   Initiative     @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  initiativeId String
+  kind         AttachmentKind
+  label        String
+  // LINK: the external URL. FILE: the app's download route (/api/attachments/<id>).
+  url          String         @db.Text
+  // FILE only: R2 object key in the ATTACHMENTS bucket, plus its metadata.
+  storageKey   String?
+  contentType  String?
+  size         Int?
+  createdAt    DateTime       @default(now())
+
+  @@index([initiativeId])
+}
+
+model RosterMember {
+  id         String   @id @default(cuid())
+  name       String
+  position   String?
+  department String?
+  email      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// Reference lists for the roster's position/department pickers.
+
+model Department {
+  id   String @id @default(cuid())
+  name String @unique
+}
+
+model Position {
+  id   String @id @default(cuid())
+  name String @unique
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String? // FK to User added with Better Auth
+  action    String // CREATE | UPDATE | DELETE
+  entity    String // "Initiative", "CimRisk", ...
+  entityId  String
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+// ---- AI invocation telemetry (docs/ai-telemetry-schema.md) ----------------
+// One record per server-side AI invocation, platform-wide. Classification and
+// measurement only: no prompts, no responses, no PII. Dark-launched: written
+// best-effort behind the AI_TELEMETRY env flag, read by no product UI.
+
+enum AiModule {
+  INITIATIVES
+  PLATFORM
+}
+
+enum AiOutcome {
+  OK
+  ERROR
+  TIMEOUT
+  RATE_LIMITED
+  FALLBACK // deterministic path served instead of the model
+}
+
+enum AiAcceptance {
+  ACCEPTED
+  EDITED
+  DISMISSED
+  NOT_APPLICABLE
+}
+
+model AiInvocation {
+  id           String    @id @default(cuid())
+  occurredAt   DateTime  @default(now())
+  module       AiModule
+  feature      String // stable slug per AI job, from fixed sets in code
+  model        String // full model id as sent to the API
+  latencyMs    Int
+  // From the API usage block; null when the call failed before a response.
+  inputTokens  Int?
+  outputTokens Int?
+  // Computed from the versioned price table at write time (src/lib/ai-pricing.ts);
+  // null for unknown models or missing usage.
+  costUsd      Decimal?  @db.Decimal(10, 6)
+  outcome      AiOutcome
+  errorClass   String? // machine class only (e.g. overloaded_error), never messages
+  userId       String? // requesting user id; null for system jobs and public token flows
+  sessionKey   String? // opaque per-request correlation key for multi-call features
+  // Follow-up update by id when a human accepts/edits/dismisses the output.
+  acceptance   AiAcceptance?
+  downstreamAction String? // slug of the concrete action the output led to
+
+  @@index([occurredAt])
+  @@index([module, feature])
+  @@index([userId])
+  @@map("ai_invocation")
+}
+
+// Key/value org config: ebitda_goal, ebitda_current, fiscal_year, etc.
+
+model Setting {
+  key   String @id
+  value String @db.Text
+}
+
+model User {
+  id                 String          @id
+  name               String
+  email              String
+  emailVerified      Boolean         @default(false)
+  image              String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  twoFactorEnabled   Boolean?        @default(false)
+  role               String? // platform role: admin | editor | viewer
+  // Per-app entitlement. Only "initiatives" exists in this app; admins always pass.
+  appAccess          String[]        @default(["initiatives"])
+  banned             Boolean?        @default(false)
+  banReason          String?
+  banExpires         DateTime?
+  sessions           Session[]
+  accounts           Account[]
+  twofactors         TwoFactor[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id             String   @id
+  expiresAt      DateTime
+  token          String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  userAgent      String?
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  impersonatedBy String?
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model TwoFactor {
+  id                      String    @id
+  secret                  String
+  backupCodes             String
+  userId                  String
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verified                Boolean?  @default(true)
+  // Required by better-auth's two-factor plugin (>= 1.6). Without these the
+  // plugin's enable/verify writes fail, which 500s /setup-mfa for any user who
+  // has not enrolled yet. Existing enrolled users are unaffected.
+  failedVerificationCount Int?      @default(0)
+  lockedUntil             DateTime?
+
+  @@index([secret])
+  @@index([userId])
+  @@map("twoFactor")
+}
+
+// Better Auth rate-limit storage ("database"). Workers isolates don't share
+// memory, so the default in-memory limiter would be per-isolate.
+model RateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+
+  @@map("rateLimit")
+}

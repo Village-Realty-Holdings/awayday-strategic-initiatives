@@ -1,12 +1,23 @@
 /**
- * For more details on how to configure Wrangler, refer to:
- * https://developers.cloudflare.com/workers/wrangler/configuration/
+ * Wrangler config: https://developers.cloudflare.com/workers/wrangler/configuration/
+ *
+ * Top level = production (deploys from `master`). `env.development` =
+ * development (deploys from `development`). Bindings and vars are NOT inherited by named
+ * environments, so each block lists its own.
+ *
+ * Secrets (never in this file): `npx wrangler secret put <NAME> [--env development]`
+ *   BETTER_AUTH_SECRET, RESEND_API_KEY, ANTHROPIC_API_KEY, AI_BUDGET_ALERT_TO
+ *
+ * Local dev: Hyperdrive connects to the URL in
+ * CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE (set in .env).
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "awayday-strategic-initiatives",
+	// Tech@vrobx.com's Account
+	"account_id": "dd8b87f7b0a6209f5191b365d1ba3472",
 	"main": ".open-next/worker.js",
-	"compatibility_date": "2025-10-08",
+	"compatibility_date": "2026-09-01",
 	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
 	"assets": {
 		"binding": "ASSETS",
@@ -15,5 +26,53 @@
 	"observability": {
 		"enabled": true
 	},
-	"upload_source_maps": true
+	"upload_source_maps": true,
+	"workers_dev": true,
+	"hyperdrive": [
+		{
+			"binding": "HYPERDRIVE",
+			// live-awayday-strategic-initiatives → Neon `production` branch, DIRECT (non-pooler) host.
+			"id": "ffc277cab38c490ca1afb2e02c6e52e8"
+		}
+	],
+	"r2_buckets": [
+		{
+			// attachments/<initiativeId>/… ; imports/ is reserved for FY27 files.
+			"binding": "ATTACHMENTS",
+			"bucket_name": "si-attachments-prod"
+		}
+	],
+	"vars": {
+		"APP_URL": "https://awayday-strategic-initiatives.REPLACE_WITH_SUBDOMAIN.workers.dev",
+		"BETTER_AUTH_URL": "https://awayday-strategic-initiatives.REPLACE_WITH_SUBDOMAIN.workers.dev",
+		"EMAIL_FROM": "Awayday <notifications@mail.vacationhr.com>",
+		"ANTHROPIC_MODEL": "claude-sonnet-5-5",
+		"AI_MONTHLY_BUDGET_USD": "250"
+	},
+	"env": {
+		"development": {
+			"name": "awayday-strategic-initiatives-development",
+			"workers_dev": true,
+			"hyperdrive": [
+				{
+					"binding": "HYPERDRIVE",
+					// dev-awayday-strategic-initiatives → Neon `development` branch, DIRECT (non-pooler) host.
+					"id": "23af5e39ab084458bd9a44368c7e2ca9"
+				}
+			],
+			"r2_buckets": [
+				{
+					"binding": "ATTACHMENTS",
+					"bucket_name": "si-attachments-development"
+				}
+			],
+			"vars": {
+				"APP_URL": "https://awayday-strategic-initiatives-development.REPLACE_WITH_SUBDOMAIN.workers.dev",
+				"BETTER_AUTH_URL": "https://awayday-strategic-initiatives-development.REPLACE_WITH_SUBDOMAIN.workers.dev",
+				"EMAIL_FROM": "Awayday <notifications@mail.vacationhr.com>",
+				"ANTHROPIC_MODEL": "claude-sonnet-5-5",
+				"AI_MONTHLY_BUDGET_USD": "250"
+			}
+		}
+	}
 }
