@@ -31,10 +31,10 @@ docker compose up -d   # Postgres 18 on localhost:5433
 Local development uses its own Postgres, not a Neon branch. Create `.env.local` (gitignored):
 
 ```bash
-DIRECT_URL=postgresql://si:si@localhost:5433/si
-DATABASE_URL=postgresql://si:si@localhost:5433/si
+DIRECT_URL=postgresql://awayday:password@localhost:5433/awayday_strategic_initiatives
+DATABASE_URL=postgresql://awayday:password@localhost:5433/awayday_strategic_initiatives
 # What the HYPERDRIVE binding connects to locally
-CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://si:si@localhost:5433/si
+CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://awayday:password@localhost:5433/awayday_strategic_initiatives
 BETTER_AUTH_SECRET=…            # openssl rand -base64 32
 BETTER_AUTH_URL=http://localhost:3000
 # Optional
