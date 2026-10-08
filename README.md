@@ -15,6 +15,9 @@ GitHub → Workers Builds → Worker (Next.js) ─┬─ HYPERDRIVE → Neon (pr
 | --- | --- | --- | --- | --- |
 | production | `awayday-strategic-initiatives` | `master` | `production` | `si-attachments-prod` |
 | development | `awayday-strategic-initiatives-development` | `development` | `development` | `si-attachments-development` |
+| local | `npm run dev` | any | none: local Postgres (`compose.yaml`) | local, in-memory |
+
+Hyperdrive configs (Cloudflare account in `wrangler.jsonc`): `live-awayday-strategic-initiatives` → Neon `production`, `dev-awayday-strategic-initiatives` → Neon `development`. Both use the direct (non-pooler) host with caching disabled. The Neon `production` branch is protected.
 
 Bindings and non-secret vars live in `wrangler.jsonc` (top level = production, `env.development`). After editing it, run `npm run cf-typegen`.
 
@@ -22,15 +25,16 @@ Bindings and non-secret vars live in `wrangler.jsonc` (top level = production, `
 
 ```bash
 npm install            # also runs `prisma generate` (Worker client + Node client)
+docker compose up -d   # Postgres 18 on localhost:5433
 ```
 
-Create `.env.local` (gitignored):
+Local development uses its own Postgres, not a Neon branch. Create `.env.local` (gitignored):
 
 ```bash
-# Neon development branch, DIRECT (non-pooler) host
-DIRECT_URL=postgresql://…
+DIRECT_URL=postgresql://si:si@localhost:5433/si
+DATABASE_URL=postgresql://si:si@localhost:5433/si
 # What the HYPERDRIVE binding connects to locally
-CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://…
+CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://si:si@localhost:5433/si
 BETTER_AUTH_SECRET=…            # openssl rand -base64 32
 BETTER_AUTH_URL=http://localhost:3000
 # Optional
@@ -38,6 +42,8 @@ RESEND_API_KEY=…
 ANTHROPIC_API_KEY=…
 DEV_AUTH_AS=you@awayday.com     # skip sign-in locally (never set on a deployment)
 ```
+
+Then `npm run db:migrate:deploy` and `npm run db:seed:admin` (see below).
 
 - `npm run dev`: Next dev server on :3000 with Cloudflare bindings emulated (R2 is local and in-memory).
 - `npm run preview`: builds the real Worker bundle and serves it in workerd on :8787. Put `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL=http://localhost:8787` and `APP_URL` in `.dev.vars`. Export the Hyperdrive variable in the shell.
@@ -57,7 +63,7 @@ DIRECT_URL=postgresql://… npm run db:migrate:deploy
 DIRECT_URL=postgresql://… npm run db:migrate:status
 ```
 
-To create a migration: edit the schema, then `DIRECT_URL=<dev branch> npx prisma migrate dev --name <change>`.
+To create a migration: edit the schema, then `npx prisma migrate dev --name <change>` against local Postgres. Apply it to the Neon `development` branch, then `production`, with `migrate deploy`.
 
 ### First admin
 

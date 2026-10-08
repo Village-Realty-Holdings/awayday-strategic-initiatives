@@ -1,0 +1,22 @@
+# Local Postgres for development (matches Neon's Postgres 18). `docker compose up -d`.
+# Deployed environments use Neon: `production` and `development` branches via Hyperdrive.
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: awayday-si-postgres
+    environment:
+      POSTGRES_USER: si
+      POSTGRES_PASSWORD: si
+      POSTGRES_DB: si
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U si -d si"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  pgdata:
