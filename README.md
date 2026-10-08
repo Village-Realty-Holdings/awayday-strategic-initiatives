@@ -25,16 +25,16 @@ Bindings and non-secret vars live in `wrangler.jsonc` (top level = production, `
 
 ```bash
 npm install            # also runs `prisma generate` (Worker client + Node client)
-docker compose up -d   # Postgres 18 on localhost:5433
+docker compose up -d   # Postgres 18 on localhost:5432
 ```
 
 Local development uses its own Postgres, not a Neon branch. Create `.env.local` (gitignored):
 
 ```bash
-DIRECT_URL=postgresql://awayday:password@localhost:5433/awayday_strategic_initiatives
-DATABASE_URL=postgresql://awayday:password@localhost:5433/awayday_strategic_initiatives
+DIRECT_URL=postgresql://awayday:password@localhost:5432/awayday_strategic_initiatives
+DATABASE_URL=postgresql://awayday:password@localhost:5432/awayday_strategic_initiatives
 # What the HYPERDRIVE binding connects to locally
-CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://awayday:password@localhost:5433/awayday_strategic_initiatives
+CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://awayday:password@localhost:5432/awayday_strategic_initiatives
 BETTER_AUTH_SECRET=…            # openssl rand -base64 32
 BETTER_AUTH_URL=http://localhost:3000
 # Optional

@@ -1,4 +1,5 @@
 # Local Postgres for development (matches Neon's Postgres 18). `docker compose up -d`.
+# On 5432 so it can double as the shared local server for other dev projects.
 # Deployed environments use Neon: `production` and `development` branches via Hyperdrive.
 services:
   postgres:
@@ -9,7 +10,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: awayday_strategic_initiatives
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql
     healthcheck:
