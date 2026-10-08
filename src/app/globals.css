@@ -1,26 +1,221 @@
 @import "tailwindcss";
 
-:root {
-	--background: #ffffff;
-	--foreground: #171717;
+/*
+ * Awayday Strategic Initiatives — design tokens (see /DESIGN.md)
+ * Palette tuned to Awayday's real brand (awayday.com): teal-slate #2D4447,
+ * gold #F2CE3D, light teal #84BEC6, on true-neutral light surfaces.
+ * Sharp & modern UI type (Geist) kept for board-grade legibility — their
+ * rounded display font (all-round-gothic) is Typekit-licensed to their domain.
+ * (Token names navy/navy-deep are kept for stability but now carry the teal brand.)
+ */
+@theme {
+  /* Surfaces — true neutral, faint teal cast */
+  --color-bg: oklch(0.992 0.003 205);
+  --color-surface: oklch(1 0 0);
+  --color-surface-2: oklch(0.974 0.004 205);
+  --color-border: oklch(0.91 0.005 205);
+  --color-border-strong: oklch(0.84 0.007 205);
+
+  /* Ink — dark teal-slate (≈ #2D4447), darker for body contrast */
+  --color-ink: oklch(0.29 0.022 200);
+  --color-ink-muted: oklch(0.49 0.018 200);
+  --color-ink-faint: oklch(0.57 0.014 200);
+
+  /* Brand — Awayday teal + gold, accents only */
+  --color-navy: oklch(0.5 0.06 200); /* primary accent: mid teal-slate */
+  --color-navy-deep: oklch(0.34 0.022 199); /* ≈ #2D4447, deep brand */
+  --color-teal: oklch(0.76 0.045 210); /* ≈ #84BEC6, light logo teal */
+  --color-gold: oklch(0.85 0.15 92); /* ≈ #F2CE3D */
+  --color-gold-deep: oklch(0.62 0.12 84); /* deeper gold for text/labels on light */
+
+  /* Status — always pair with icon/label, never color alone */
+  --color-ok: oklch(0.62 0.13 150);
+  --color-warn: oklch(0.76 0.14 75);
+  --color-risk: oklch(0.54 0.19 28);
+  --color-done: oklch(0.55 0.15 295);
+
+  /* Soft status fills for pill backgrounds */
+  --color-ok-soft: oklch(0.95 0.04 150);
+  --color-warn-soft: oklch(0.96 0.05 80);
+  --color-risk-soft: oklch(0.95 0.04 28);
+  --color-done-soft: oklch(0.95 0.04 295);
+
+  /* Radii — small, sharp */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  /* Named type steps. */
+  --text-meta: 0.75rem;
+  --text-note: 0.6875rem;
+  --text-stat: 1.5rem;
+  --text-h1: 1.5rem;
+  --text-h1--line-height: 2rem;
+  --text-stat--line-height: 2rem;
+
+  /* Motion — fast, ease-out, no bounce */
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Fonts come from next/font (see layout.tsx); resolved inline */
 @theme inline {
-	--color-background: var(--background);
-	--color-foreground: var(--foreground);
-	--font-sans: var(--font-geist-sans);
-	--font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-	:root {
-		--background: #0a0a0a;
-		--foreground: #ededed;
-	}
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 }
 
 body {
-	background: var(--background);
-	color: var(--foreground);
-	font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Financial figures align in columns and don't jitter on update */
+.tabular {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-family: var(--font-mono);
+}
+
+::selection {
+  background: color-mix(in oklch, var(--color-navy) 22%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Print: drop the app shell and anything tagged .no-print, keep brand colors so
+   the 9-box, bars, and badges survive print-to-PDF (EXP-01). Elements tagged
+   .print-only exist only in the print export — used to render scrollable
+   editors (textareas) as their full text on paper (Adam 8/17 #2). */
+.print-only {
+  display: none !important;
+}
+@media print {
+  [data-chrome],
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  body {
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print-avoid-break {
+    break-inside: avoid;
+  }
+}
+
+/* DatePicker popover enter: fast fade + settle (see components/onboarding/date-picker.tsx).
+   The global prefers-reduced-motion rule above collapses this to instant. */
+@keyframes dp-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.dp-pop {
+  animation: dp-in 140ms var(--ease-out-quint);
+  transform-origin: top;
+}
+
+/* Transient highlight when you click a CIM risk in the scorecard/heat-map and
+   jump to its row in the list below (see RiskTargetHighlight). */
+@keyframes risk-flash {
+  0%, 75% {
+    background-color: color-mix(in oklch, var(--color-gold) 28%, transparent);
+    box-shadow: inset 0 0 0 2px color-mix(in oklch, var(--color-gold) 60%, transparent);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 2px transparent;
+  }
+}
+.risk-flash {
+  /* Hold the highlight, then fade out so it is fully gone by 5s. */
+  animation: risk-flash 5s ease-out forwards;
+  border-radius: 8px;
+}
+
+/* Board Narrative: render the generated markdown as a polished, board-grade
+   document (on screen and in the print-to-PDF export). Reuses the shared
+   [data-chrome] / .no-print print rules above. */
+.bn-doc {
+  color: var(--color-ink);
+  font-size: 0.92rem;
+}
+.bn-doc h2 {
+  color: var(--color-navy-deep);
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 1.35rem 0 0.45rem;
+}
+.bn-doc > :first-child { margin-top: 0; }
+.bn-doc h3 {
+  color: var(--color-navy-deep);
+  font-size: 0.92rem;
+  font-weight: 600;
+  margin: 1rem 0 0.3rem;
+}
+.bn-doc p { margin: 0 0 0.65rem; line-height: 1.6; }
+.bn-doc ul, .bn-doc ol { margin: 0 0 0.75rem 1.2rem; }
+.bn-doc ul { list-style: disc; }
+.bn-doc ol { list-style: decimal; }
+.bn-doc li { margin: 0.2rem 0; line-height: 1.55; }
+.bn-doc li::marker { color: var(--color-gold-deep); }
+.bn-doc strong { color: var(--color-navy-deep); font-weight: 700; }
+
+@media print {
+  .bn-card {
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  .bn-doc h2, .bn-doc h3 { break-after: avoid; }
+  .bn-doc p, .bn-doc li { break-inside: avoid; }
+  @page { margin: 0.85in 0.8in; }
+}
+
+/* LOI approval memo (partners/deals/[id]/ic-snapshot): prints as the
+   committee's document. The app shell drops via [data-chrome] / .no-print. */
+@media print {
+  .memo-doc {
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    font-size: 10.5pt;
+  }
+  .memo-doc h1 { font-size: 20pt; }
+  .memo-section { break-inside: auto; margin-top: 18pt !important; padding-top: 12pt !important; }
+  .memo-section h2 { break-after: avoid; }
+  .memo-table, .memo-figures, .memo-callout, .memo-doc dl > div, .memo-doc li { break-inside: avoid; }
+  .memo-contents a { text-decoration: none; }
+  @page { margin: 0.7in 0.75in; }
 }

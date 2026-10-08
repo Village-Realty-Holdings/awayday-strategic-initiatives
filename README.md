@@ -1,63 +1,95 @@
-# Next.js Framework Starter
+# Awayday Strategic Initiatives
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/templates/tree/main/next-starter-template)
+The strategic-initiatives tracker and CIM risk register, extracted from `awayday-platform` into its own app.
 
-<!-- dash-content-start -->
+Next.js 16 on **Cloudflare Workers** (via [OpenNext](https://opennext.js.org/cloudflare)), **Neon Postgres** through **Hyperdrive**, files in **R2**, auth by **Better Auth** (invite-only email/password + TOTP MFA, magic link via Resend).
 
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app). It's deployed on Cloudflare Workers as a [static website](https://developers.cloudflare.com/workers/static-assets/).
-
-This template uses [OpenNext](https://opennext.js.org/) via the [OpenNext Cloudflare adapter](https://opennext.js.org/cloudflare), which works by taking the Next.js build output and transforming it, so that it can run in Cloudflare Workers.
-
-<!-- dash-content-end -->
-
-Outside of this repo, you can start a new project with this template using [C3](https://developers.cloudflare.com/pages/get-started/c3/) (the `create-cloudflare` CLI):
-
-```bash
-npm create cloudflare@latest -- --template=cloudflare/templates/next-starter-template
+```
+GitHub → Workers Builds → Worker (Next.js) ─┬─ HYPERDRIVE → Neon (production / development branch)
+                                            └─ ATTACHMENTS → R2 (si-attachments-prod / -development)
 ```
 
-A live public deployment of this template is available at [https://next-starter-template.templates.workers.dev](https://next-starter-template.templates.workers.dev)
+## Environments
 
-## Getting Started
+| | Worker | Git branch | Neon branch | R2 bucket |
+| --- | --- | --- | --- | --- |
+| production | `awayday-strategic-initiatives` | `master` | `production` | `si-attachments-prod` |
+| development | `awayday-strategic-initiatives-development` | `development` | `development` | `si-attachments-development` |
 
-First, run:
+Bindings and non-secret vars live in `wrangler.jsonc` (top level = production, `env.development`). After editing it, run `npm run cf-typegen`.
 
-```bash
-npm install
-# or
-yarn install
-# or
-pnpm install
-# or
-bun install
-```
-
-Then run the development server (using the package manager of your choice):
+## Local development
 
 ```bash
-npm run dev
+npm install            # also runs `prisma generate` (Worker client + Node client)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Create `.env.local` (gitignored):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Neon development branch, DIRECT (non-pooler) host
+DIRECT_URL=postgresql://…
+# What the HYPERDRIVE binding connects to locally
+CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgresql://…
+BETTER_AUTH_SECRET=…            # openssl rand -base64 32
+BETTER_AUTH_URL=http://localhost:3000
+# Optional
+RESEND_API_KEY=…
+ANTHROPIC_API_KEY=…
+DEV_AUTH_AS=you@awayday.com     # skip sign-in locally (never set on a deployment)
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+- `npm run dev`: Next dev server on :3000 with Cloudflare bindings emulated (R2 is local and in-memory).
+- `npm run preview`: builds the real Worker bundle and serves it in workerd on :8787. Put `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL=http://localhost:8787` and `APP_URL` in `.dev.vars`. Export the Hyperdrive variable in the shell.
+- `npm test`, `npm run lint`, `npm run typecheck`.
 
-## Deploying To Production
+## Database
 
-| Command                           | Action                                       |
-| :-------------------------------- | :------------------------------------------- |
-| `npm run build`                   | Build your production site                   |
-| `npm run preview`                 | Preview your build locally, before deploying |
-| `npm run build && npm run deploy` | Deploy your production site to Cloudflare    |
-| `npm wrangler tail`               | View real-time logs for all Workers          |
+The schema is in `prisma/schema.prisma`. The baseline migration is `prisma/migrations/0_init`. Two clients are generated:
 
-## Learn More
+- `src/generated/prisma`: the Workers runtime client, used by the app. It connects per request through `env.HYPERDRIVE` (`src/lib/prisma.ts`).
+- `prisma/generated/node`: the Node client, used by the CLI scripts in `prisma/`.
 
-To learn more about Next.js, take a look at the following resources:
+Migrations are applied **manually**, per Neon branch, against the **direct** URL:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+DIRECT_URL=postgresql://… npm run db:migrate:deploy
+DIRECT_URL=postgresql://… npm run db:migrate:status
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+To create a migration: edit the schema, then `DIRECT_URL=<dev branch> npx prisma migrate dev --name <change>`.
+
+### First admin
+
+```bash
+DIRECT_URL=postgresql://… ADMIN_EMAIL=you@awayday.com ADMIN_NAME="Your Name" npm run db:seed:admin
+```
+
+This prints a temporary password, or you can pass `ADMIN_PASSWORD`. MFA enrolment is forced on first sign-in. Admins invite everyone else from **People & access**.
+
+Break-glass password reset: `DIRECT_URL=… PW_EMAIL=… PW_NEW=… npm run db:set-password`.
+
+## Deploying
+
+Each Worker is connected to this repo in Cloudflare **Workers Builds**:
+
+- Build command: `npm ci && npx opennextjs-cloudflare build`
+- Deploy command (production): `npx opennextjs-cloudflare deploy`
+- Deploy command (development): `npx opennextjs-cloudflare deploy -- --env development`
+
+Secrets, per environment (add `--env development` for development):
+
+```bash
+npx wrangler secret put BETTER_AUTH_SECRET
+npx wrangler secret put RESEND_API_KEY
+npx wrangler secret put ANTHROPIC_API_KEY
+npx wrangler secret put AI_BUDGET_ALERT_TO
+```
+
+**Order of operations for a release with a schema change:** apply the migration to the Neon branch first, then merge so that Workers Builds deploys.
+
+## Notes
+
+- **Attachments:** files are stored at `attachments/<initiativeId>/<attachmentId>` in R2. They are served only through `/api/attachments/<id>`, which checks the session, always downloads rather than displaying inline, and is audited. The `imports/` prefix is reserved for FY27 imports.
+- **Rate limits:** Better Auth's limiter uses the `rateLimit` table, because Workers isolates don't share memory. Client IP comes from `cf-connecting-ip`.
+- **Entra SSO:** the code is present but inert until `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` and `MICROSOFT_TENANT_ID` are set.
