@@ -44,7 +44,7 @@ export function LoginForm({ ssoEnabled = false, initialError = "" }: { ssoEnable
     const redirectTo = params.get("redirect");
     const { error } = await authClient.signIn.magicLink({
       email,
-      callbackURL: redirectTo && redirectTo.startsWith("/") ? redirectTo : "/talent/home",
+      callbackURL: redirectTo && redirectTo.startsWith("/") ? redirectTo : "/apps",
     });
     setLoading(false);
     if (error) {
