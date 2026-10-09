@@ -6,15 +6,15 @@ Next.js 16 on **Cloudflare Workers** (via [OpenNext](https://opennext.js.org/clo
 
 ```
 GitHub → Workers Builds → Worker (Next.js) ─┬─ HYPERDRIVE → Neon (production / development branch)
-                                            └─ ATTACHMENTS → R2 (si-attachments-prod / -development)
+                                            └─ ATTACHMENTS → R2 (live- / dev-awayday-strategic-initiatives)
 ```
 
 ## Environments
 
 | | Worker | Git branch | Neon branch | R2 bucket |
 | --- | --- | --- | --- | --- |
-| production | `awayday-strategic-initiatives` | `master` | `production` | `si-attachments-prod` |
-| development | `awayday-strategic-initiatives-development` | `development` | `development` | `si-attachments-development` |
+| production | `awayday-strategic-initiatives` | `master` | `production` | `live-awayday-strategic-initiatives` |
+| development | `awayday-strategic-initiatives-development` | `development` | `development` | `dev-awayday-strategic-initiatives` |
 | local | `npm run dev` | any | none: local Postgres (`compose.yaml`) | local, in-memory |
 
 Hyperdrive configs (Cloudflare account in `wrangler.jsonc`): `live-awayday-strategic-initiatives` → Neon `production`, `dev-awayday-strategic-initiatives` → Neon `development`. Both use the direct (non-pooler) host with caching disabled. The Neon `production` branch is protected.

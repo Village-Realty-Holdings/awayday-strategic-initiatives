@@ -39,7 +39,7 @@
 		{
 			// attachments/<initiativeId>/… ; imports/ is reserved for FY27 files.
 			"binding": "ATTACHMENTS",
-			"bucket_name": "si-attachments-prod"
+			"bucket_name": "live-awayday-strategic-initiatives"
 		}
 	],
 	"vars": {
@@ -63,7 +63,7 @@
 			"r2_buckets": [
 				{
 					"binding": "ATTACHMENTS",
-					"bucket_name": "si-attachments-development"
+					"bucket_name": "dev-awayday-strategic-initiatives"
 				}
 			],
 			"vars": {
