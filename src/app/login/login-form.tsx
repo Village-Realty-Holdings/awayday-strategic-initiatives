@@ -28,7 +28,7 @@ export function LoginForm({ ssoEnabled = false, initialError = "" }: { ssoEnable
     // Redirects to Microsoft; better-auth returns to callbackURL after the handshake.
     const { error } = await authClient.signIn.social({
       provider: "microsoft",
-      callbackURL: redirectTo && redirectTo.startsWith("/") ? redirectTo : "/apps",
+      callbackURL: redirectTo && redirectTo.startsWith("/") ? redirectTo : "/",
     });
     if (error) {
       setSsoLoading(false);
@@ -44,7 +44,7 @@ export function LoginForm({ ssoEnabled = false, initialError = "" }: { ssoEnable
     const redirectTo = params.get("redirect");
     const { error } = await authClient.signIn.magicLink({
       email,
-      callbackURL: redirectTo && redirectTo.startsWith("/") ? redirectTo : "/apps",
+      callbackURL: redirectTo && redirectTo.startsWith("/") ? redirectTo : "/",
     });
     setLoading(false);
     if (error) {
