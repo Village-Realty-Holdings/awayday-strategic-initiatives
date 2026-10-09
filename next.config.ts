@@ -38,6 +38,17 @@ const nextConfig: NextConfig = {
   // stub, workerd gets the real CloudflareSocket. Next's tracing follows the
   // Node condition, so ship the whole package for the Worker bundle.
   outputFileTracingIncludes: { "/**": ["./node_modules/pg-cloudflare/**/*"] },
+  // @opennextjs/cloudflare loads wrangler through a computed import() on its
+  // dev-only path. Turbopack can't resolve it and traces all of node_modules,
+  // which drags CLI/dev tooling (and their .wasm files) into the Worker upload
+  // past the 64 MiB limit. None of it is imported at runtime.
+  outputFileTracingExcludes: {
+    "/**": [
+      "./node_modules/{wrangler,miniflare,workerd,prisma,cloudflare,effect,tsx,typescript,vitest,esbuild,rolldown,sharp,tailwindcss,lightningcss}/**/*",
+      "./node_modules/{@cloudflare/workerd-*,@electric-sql,@prisma/dev,@prisma/studio-core,@prisma/engines,@prisma/fetch-engine,@prisma/streams-local,@neon,@vitest,@esbuild,@rolldown,@img,@tailwindcss,@ast-grep,@next/swc-*}/**/*",
+      "./node_modules/{eslint,eslint-*,@eslint,@typescript-eslint,typescript-eslint}/**/*",
+    ],
+  },
   // Attachment uploads go through a server action (3 MB file cap + form fields).
   experimental: { serverActions: { bodySizeLimit: "4mb" } },
   async headers() {

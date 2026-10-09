@@ -14,7 +14,7 @@ GitHub → Workers Builds → Worker (Next.js) ─┬─ HYPERDRIVE → Neon (pr
 | | Worker | Git branch | Neon branch | R2 bucket |
 | --- | --- | --- | --- | --- |
 | production | `awayday-strategic-initiatives` | `master` | `production` | `live-awayday-strategic-initiatives` |
-| development | `awayday-strategic-initiatives-development` | `development` | `development` | `dev-awayday-strategic-initiatives` |
+| development | `dev-awayday-strategic-initiatives` | `development` | `development` | `dev-awayday-strategic-initiatives` |
 | local | `npm run dev` | any | none: local Postgres (`compose.yaml`) | local, in-memory |
 
 Hyperdrive configs (Cloudflare account in `wrangler.jsonc`): `live-awayday-strategic-initiatives` → Neon `production`, `dev-awayday-strategic-initiatives` → Neon `development`. Both use the direct (non-pooler) host with caching disabled. The Neon `production` branch is protected.
@@ -72,7 +72,7 @@ Fill the placeholders in `.env` for local development. `.env.example` documents 
 | `MICROSOFT_TENANT_ID` | Your organization tenant ID. All three Microsoft values are required; otherwise SSO stays disabled. |
 | `DEV_AUTH_AS` | Optional local-only bypass for an already-existing user. Leave unset when testing the actual login flow. |
 
-For Microsoft sign-in, the Entra web redirect URI is `<BETTER_AUTH_URL>/api/auth/callback/microsoft`, including `http://localhost:3000/api/auth/callback/microsoft` for local testing. Registering redirect URIs, creating credentials, verifying a Resend domain, and configuring Worker secrets/vars are external settings changes requiring approval. Local `.env` values are not automatically deployed to Workers. The deployed origins in `wrangler.jsonc` still contain `REPLACE_WITH_SUBDOMAIN` and must be confirmed before deployment.
+For Microsoft sign-in, the Entra web redirect URI is `<BETTER_AUTH_URL>/api/auth/callback/microsoft`, including `http://localhost:3000/api/auth/callback/microsoft` for local testing. Registering redirect URIs, creating credentials, verifying a Resend domain, and configuring Worker secrets/vars are external settings changes requiring approval. Local `.env` values are not automatically deployed to Workers. The deployed origins are set in `wrangler.jsonc`: `https://awayday-strategic-initiatives.tech-dd8.workers.dev` (production) and `https://dev-awayday-strategic-initiatives.tech-dd8.workers.dev` (development).
 
 The inherited MFA policy requires app TOTP for accounts with a password; passwordless accounts are exempt, and Microsoft-only accounts rely on Entra enforcing MFA. Entra can create a new least-privileged Initiatives user on first sign-in. Test SSO only after approving account creation and confirming the tenant's MFA policy. Password sign-up is disabled.
 

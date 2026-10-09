@@ -8,8 +8,9 @@
  * Secrets (never in this file): `npx wrangler secret put <NAME> [--env development]`
  *   BETTER_AUTH_SECRET, RESEND_API_KEY, ANTHROPIC_API_KEY, AI_BUDGET_ALERT_TO
  *
- * Local dev: Hyperdrive connects to the URL in
- * CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE (set in .env).
+ * Local dev: Hyperdrive connects to each binding's localConnectionString (the
+ * compose.yaml Postgres), unless CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE
+ * is set, which takes precedence.
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
@@ -32,7 +33,9 @@
 		{
 			"binding": "HYPERDRIVE",
 			// live-awayday-strategic-initiatives → Neon `production` branch, DIRECT (non-pooler) host.
-			"id": "ffc277cab38c490ca1afb2e02c6e52e8"
+			"id": "ffc277cab38c490ca1afb2e02c6e52e8",
+			// Local Postgres (compose.yaml). Also lets CI deploys run without a build variable.
+			"localConnectionString": "postgresql://awayday:password@localhost:5432/awayday_strategic_initiatives"
 		}
 	],
 	"r2_buckets": [
@@ -43,21 +46,23 @@
 		}
 	],
 	"vars": {
-		"APP_URL": "https://awayday-strategic-initiatives.REPLACE_WITH_SUBDOMAIN.workers.dev",
-		"BETTER_AUTH_URL": "https://awayday-strategic-initiatives.REPLACE_WITH_SUBDOMAIN.workers.dev",
+		"APP_URL": "https://awayday-strategic-initiatives.tech-dd8.workers.dev",
+		"BETTER_AUTH_URL": "https://awayday-strategic-initiatives.tech-dd8.workers.dev",
 		"EMAIL_FROM": "Awayday <notifications@mail.vacationhr.com>",
 		"ANTHROPIC_MODEL": "claude-sonnet-5-5",
 		"AI_MONTHLY_BUDGET_USD": "250"
 	},
 	"env": {
 		"development": {
-			"name": "awayday-strategic-initiatives-development",
+			"name": "dev-awayday-strategic-initiatives",
 			"workers_dev": true,
 			"hyperdrive": [
 				{
 					"binding": "HYPERDRIVE",
 					// dev-awayday-strategic-initiatives → Neon `development` branch, DIRECT (non-pooler) host.
-					"id": "23af5e39ab084458bd9a44368c7e2ca9"
+					"id": "23af5e39ab084458bd9a44368c7e2ca9",
+					// Local Postgres (compose.yaml). Also lets CI deploys run without a build variable.
+					"localConnectionString": "postgresql://awayday:password@localhost:5432/awayday_strategic_initiatives"
 				}
 			],
 			"r2_buckets": [
@@ -67,8 +72,8 @@
 				}
 			],
 			"vars": {
-				"APP_URL": "https://awayday-strategic-initiatives-development.REPLACE_WITH_SUBDOMAIN.workers.dev",
-				"BETTER_AUTH_URL": "https://awayday-strategic-initiatives-development.REPLACE_WITH_SUBDOMAIN.workers.dev",
+				"APP_URL": "https://dev-awayday-strategic-initiatives.tech-dd8.workers.dev",
+				"BETTER_AUTH_URL": "https://dev-awayday-strategic-initiatives.tech-dd8.workers.dev",
 				"EMAIL_FROM": "Awayday <notifications@mail.vacationhr.com>",
 				"ANTHROPIC_MODEL": "claude-sonnet-5-5",
 				"AI_MONTHLY_BUDGET_USD": "250"
