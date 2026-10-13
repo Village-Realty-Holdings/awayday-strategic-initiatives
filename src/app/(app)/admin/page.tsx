@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LineChart, Users, ChevronRight } from "lucide-react";
+import { LineChart, Users, ChevronRight, ClipboardCheck, PanelsTopLeft } from "lucide-react";
 import { requireSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -20,10 +20,22 @@ export default async function AdminPage() {
 
       <div className="flex flex-col gap-3">
         <SettingCard
+          href="/admin/plans"
+          icon={<PanelsTopLeft size={18} className="text-navy" aria-hidden />}
+          title="Plan versions"
+          sub="Switch the active dashboard between imported planning periods such as FY26 and FY27."
+        />
+        <SettingCard
           href="/admin/scoreboard"
           icon={<LineChart size={18} className="text-navy" aria-hidden />}
           title="Overview scoreboard"
           sub="Advanced EBITDA edits: the LTM trend and the build bridge. Headline figures and the scorecard are edited inline on the Overview."
+        />
+        <SettingCard
+          href="/admin/completeness"
+          icon={<ClipboardCheck size={18} className="text-navy" aria-hidden />}
+          title="FY27 completeness report"
+          sub="Review TBD owners, missing KPI definitions, incomplete charters, and integration gaps."
         />
         <SettingCard
           href="/people"

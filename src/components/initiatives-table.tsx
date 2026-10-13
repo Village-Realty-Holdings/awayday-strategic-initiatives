@@ -104,7 +104,7 @@ export function InitiativesTable({
             {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
         )}
-        <Sel value={cim} onChange={setCim} label="CIM driver" options={cims} />
+        <Sel value={cim} onChange={setCim} label="Pillar / enabler" options={cims} />
         <Sel value={status} onChange={setStatus} label="Status" options={STATUSES} render={(s) => STATUS_META[s as InitiativeStatus].label} />
         <Sel value={quadrant} onChange={setQuadrant} label="Priority" options={QUADRANTS} render={(qd) => QUADRANT_META[qd as Quadrant].label} />
         <Sel value={owner} onChange={setOwner} label="Owner" options={owners} />

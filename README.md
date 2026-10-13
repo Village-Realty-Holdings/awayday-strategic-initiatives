@@ -128,3 +128,21 @@ npx wrangler secret put AI_BUDGET_ALERT_TO
 - **Attachments:** files are stored at `attachments/<initiativeId>/<attachmentId>` in R2. They are served only through `/api/attachments/<id>`, which checks the session, always downloads rather than displaying inline, and is audited. The `imports/` prefix is reserved for FY27 imports.
 - **Rate limits:** Better Auth's limiter uses the `rateLimit` table, because Workers isolates don't share memory. Client IP comes from `cf-connecting-ip`.
 - **Entra SSO:** the code is present but inert until `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` and `MICROSOFT_TENANT_ID` are set.
+
+## FY27 strategic plan
+
+The FY27 refresh uses an explicit `PlanVersion` (`FY27`) and `StrategicArea` records rather than replacing or deleting the legacy FY26 initiatives. The repeatable import manifest is derived from the supplied September 2026 refresh deck and assigns stable identifiers in the `FY27-SI-###` format.
+
+Administrators can switch the active plan from **Admin → Plan versions**. The switch is transactional: it deactivates the current plan, activates the selected version, writes an audit record, and refreshes the Overview and Initiative List. It does not delete or modify initiatives belonging to the inactive plan.
+
+After applying the migration to the intended database branch, run:
+
+```bash
+DIRECT_URL=postgresql://… npm run db:import:fy27
+```
+
+The import is safe to rerun: it deactivates prior plan versions, assigns unversioned legacy records to an archived FY26 version, upserts FY27 areas and initiatives, preserves existing dashboard-owned status/update fields on matching records, and records an `ImportRun` summary. Deck fields that are blank or marked TBD remain visible as TBD and are listed under **Admin → FY27 completeness report**.
+
+The KPI service (`src/lib/kpi.ts`) resolves active manual overrides before the latest automated observation and otherwise returns an explicit unavailable/stale state. Snowflake and Finance SharePoint workbook refresh jobs still require source identifiers, credentials, permissions, and query/workbook mappings; no production integration is claimed until those external prerequisites are configured and tested.
+
+Initiative-owner notifications are intentionally a follow-on phase after the FY27 dashboard, import workflow, and KPI foundation.

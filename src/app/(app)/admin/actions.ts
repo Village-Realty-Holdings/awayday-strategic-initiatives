@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
@@ -30,6 +31,39 @@ function s(fd: FormData, k: string): string {
   return typeof v === "string" ? v.trim() : "";
 }
 const plain = (o: unknown) => JSON.parse(JSON.stringify(o));
+
+export async function adminActivatePlan(fd: FormData): Promise<void> {
+  const session = await requireSession({ role: "admin" });
+  const id = s(fd, "planVersionId");
+  if (!id) redirect("/admin/plans?error=missing");
+
+  const selected = await prisma.planVersion.findUnique({
+    where: { id },
+    select: { id: true, code: true, title: true, active: true },
+  });
+  if (!selected) redirect("/admin/plans?error=not-found");
+  if (selected.active) redirect("/admin/plans");
+
+  await prisma.$transaction(async (tx) => {
+    await tx.planVersion.updateMany({ data: { active: false } });
+    await tx.planVersion.update({ where: { id }, data: { active: true } });
+    await tx.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "UPDATE",
+        entity: "PlanVersion",
+        entityId: id,
+        before: { activePlan: "unknown" },
+        after: { activePlan: selected.code },
+      },
+    });
+  });
+
+  revalidatePath("/");
+  revalidatePath("/initiatives");
+  revalidatePath("/admin/plans");
+  redirect(`/admin/plans?saved=${encodeURIComponent(selected.code)}`);
+}
 
 async function hash(password: string): Promise<string> {
   const ctx = await auth.$context;

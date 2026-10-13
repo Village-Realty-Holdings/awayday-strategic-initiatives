@@ -425,10 +425,42 @@ const RISK_STATUSES = ["OPEN", "MITIGATED", "ACCEPTED"];
 const ACTION_KINDS = ["DEPENDENCY", "ACTION"];
 const ELT_KINDS = ["SUPPORT", "INVESTMENT"];
 const ELT_STATUSES = ["REQUESTED", "APPROVED", "DECLINED"];
+const UPDATE_STATUSES = ["NOT_STARTED", "PLANNING", "IN_PROGRESS", "AT_RISK", "DONE"];
 
 function pick(fd: FormData, key: string, allowed: string[], fallback: string): string {
   const v = String(fd.get(key) ?? "");
   return allowed.includes(v) ? v : fallback;
+}
+
+export async function addInitiativeUpdate(formData: FormData) {
+  const session = await requireEditor();
+  const initiativeId = String(formData.get("initiativeId"));
+  const existing = await prisma.initiative.findUnique({ where: { id: initiativeId }, select: { id: true, status: true } });
+  if (!existing) redirect("/initiatives");
+  const status = pick(formData, "status", UPDATE_STATUSES, existing.status) as InitiativeStatus;
+  const update = str(formData, "update");
+  const pathForward = str(formData, "pathForward");
+  const nextMilestone = str(formData, "nextMilestone");
+  const reportingPeriod = str(formData, "reportingPeriod");
+  const milestoneDueAt = date(formData, "milestoneDueAt");
+  const created = await prisma.initiativeUpdate.create({
+    data: {
+      initiativeId,
+      status,
+      update,
+      pathForward,
+      nextMilestone,
+      milestoneDueAt,
+      reportingPeriod,
+      updatedBy: session.user.name,
+    },
+  });
+  await prisma.initiative.update({ where: { id: initiativeId }, data: { status } });
+  await audit(session.user.id, "CREATE", "InitiativeUpdate", created.id, { after: { initiativeId, status, reportingPeriod } });
+  revalidatePath(`/initiatives/${initiativeId}`);
+  revalidatePath("/");
+  revalidatePath("/initiatives");
+  redirect(`/initiatives/${initiativeId}`);
 }
 
 export async function addInitiativeRisk(formData: FormData) {

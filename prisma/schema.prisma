@@ -65,6 +65,12 @@ model Initiative {
   id                 String              @id @default(cuid())
   code               String              @unique // e.g. "M&A-01"
   name               String
+  planVersionId      String?
+  planVersion        PlanVersion?        @relation(fields: [planVersionId], references: [id], onDelete: SetNull)
+  strategicAreaId    String?
+  strategicArea      StrategicArea?      @relation(fields: [strategicAreaId], references: [id], onDelete: SetNull)
+  sourceKey          String?
+  sourceManaged      Boolean             @default(false)
   cimDriver          String? // broad driver ("M&A", "Owner retention", ...) — grouping + code prefix
   cimItemCode        String? // specific CIM register item (e.g. "CIM-02") — ties the initiative's KPIs to that item
   // "VALUE" = creates measurable $ value (targeted/realized $, scored, on the
@@ -106,12 +112,15 @@ model Initiative {
   milestones         InitiativeMilestone[]
   actionItems        InitiativeActionItem[]
   eltRequests        InitiativeEltRequest[]
+  updates          InitiativeUpdate[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
   @@index([status])
   @@index([cimDriver])
   @@index([ownerUserId])
+  @@index([planVersionId])
+  @@index([strategicAreaId])
 }
 
 // Lightweight sub-tasks under an initiative. Roll up into the parent's progress.
@@ -387,6 +396,121 @@ model AiInvocation {
 model Setting {
   key   String @id
   value String @db.Text
+}
+
+model PlanVersion {
+  id             String       @id @default(cuid())
+  code           String       @unique // e.g. FY27
+  title          String
+  sourceFileName String?
+  sourceHash     String?
+  active         Boolean      @default(false)
+  importedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  initiatives    Initiative[]
+  strategicAreas StrategicArea[]
+  importRuns     ImportRun[]
+
+  @@index([active])
+}
+
+model StrategicArea {
+  id           String            @id @default(cuid())
+  planVersionId String
+  planVersion  PlanVersion       @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+  kind         String            // VALUE_DRIVER | ENABLER
+  code         String
+  name         String
+  goal         String?
+  kpiName      String?
+  kpiTarget   String?
+  owner        String?
+  order        Int               @default(0)
+  initiatives Initiative[]
+  kpis         KpiDefinition[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@unique([planVersionId, code])
+  @@index([planVersionId, kind, order])
+}
+
+model InitiativeUpdate {
+  id             String           @id @default(cuid())
+  initiativeId   String
+  initiative     Initiative       @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  status         InitiativeStatus
+  update         String?          @db.Text
+  pathForward    String?          @db.Text
+  nextMilestone  String?
+  milestoneDueAt DateTime?
+  reportingPeriod String?
+  updatedBy      String?
+  createdAt      DateTime         @default(now())
+
+  @@index([initiativeId, createdAt])
+}
+
+model KpiDefinition {
+  id              String          @id @default(cuid())
+  metricKey       String          @unique
+  name            String
+  unit            String?
+  displayFormat   String?
+  target          String?
+  sourceType      String          // SNOWFLAKE | SHAREPOINT_EXCEL | MANUAL
+  sourceIdentifier String?
+  strategicAreaId String?
+  strategicArea   StrategicArea?  @relation(fields: [strategicAreaId], references: [id], onDelete: SetNull)
+  observations    KpiObservation[]
+  overrides       KpiOverride[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model KpiObservation {
+  id             String        @id @default(cuid())
+  kpiId          String
+  kpi            KpiDefinition @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  value          String
+  reportingPeriod String
+  observedAt     DateTime
+  refreshedAt    DateTime      @default(now())
+  quality        String        @default("VALID") // VALID | STALE | UNAVAILABLE | INVALID
+  sourceRef      String?
+
+  @@index([kpiId, observedAt])
+}
+
+model KpiOverride {
+  id             String        @id @default(cuid())
+  kpiId          String
+  kpi            KpiDefinition @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  value          String
+  reportingPeriod String
+  reason         String         @db.Text
+  editorUserId   String
+  active         Boolean       @default(true)
+  createdAt      DateTime       @default(now())
+  removedAt      DateTime?
+
+  @@index([kpiId, active, createdAt])
+}
+
+model ImportRun {
+  id             String       @id @default(cuid())
+  planVersionId  String
+  planVersion    PlanVersion  @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+  sourceFileName String
+  sourceHash     String?
+  status         String       // PREVIEW | CONFIRMED | FAILED
+  summary        Json?
+  warnings       Json?
+  createdBy      String?
+  createdAt      DateTime     @default(now())
+
+  @@index([planVersionId, createdAt])
 }
 
 model User {
