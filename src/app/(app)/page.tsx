@@ -1,98 +1,165 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { requireApp, canEdit } from "@/lib/session";
-import { pace } from "@/lib/initiatives";
-import { getEbitdaBuild, getScorecardGoals, getPillars, getQ2Board } from "@/lib/overview-data";
-import { EbitdaBuildSection } from "@/components/ebitda-build-section";
-import { ScorecardSection } from "@/components/scorecard-section";
-import { PillarsSection } from "@/components/pillars-section";
-import { Q2BoardSection } from "@/components/q2board-section";
-import { ScorecardTable, Q2Scorecard, type SiMap } from "@/components/overview-sections";
+import { requireApp } from "@/lib/session";
+import { FY27_PLAN, type Fy27Area } from "@/lib/fy27-plan";
+import { STATUS_META } from "@/lib/initiatives";
+import type { InitiativeStatus } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
+type InitiativeSummary = {
+  id: string;
+  code: string;
+  name: string;
+  status: InitiativeStatus;
+  owner: string | null;
+  update: string | null;
+  pathForward: string | null;
+  nextMilestone: string | null;
+  milestoneDueAt: Date | null;
+};
+
 export default async function OverviewPage() {
-  const session = await requireApp("initiatives");
-  const editable = canEdit(session.user.role);
-  const [initiatives, risks, ebitda, goals, pillars, q2board] = await Promise.all([
-    prisma.initiative.findMany({
-      select: { id: true, code: true, name: true, pctComplete: true, status: true, quadrant: true, valueType: true, startDate: true, endDate: true },
-    }),
-    prisma.cimRisk.findMany({ include: { initiatives: { include: { initiative: true } } } }),
-    getEbitdaBuild(),
-    getScorecardGoals(),
-    getPillars(),
-    getQ2Board(),
-  ]);
-  const now = new Date();
+  await requireApp("initiatives");
 
-  // code -> initiative, for SI-progress + deep links in the scorecard/pillars/Q2.
-  const siMap: SiMap = {};
-  for (const i of initiatives) siMap[i.code] = { id: i.id, pct: i.pctComplete, status: i.status };
+  const active = await prisma.planVersion.findFirst({
+    where: { active: true },
+    orderBy: { updatedAt: "desc" },
+    include: {
+      strategicAreas: {
+        orderBy: [{ kind: "asc" }, { order: "asc" }],
+        include: {
+          initiatives: {
+            orderBy: { code: "asc" },
+            include: { updates: { orderBy: { createdAt: "desc" }, take: 1 } },
+          },
+        },
+      },
+    },
+  });
 
-  // Selectable options for the CIM / SI pickers in the inline editors.
-  const siOptions = [...initiatives]
-    .sort((a, b) => a.code.localeCompare(b.code))
-    .map((i) => ({ code: i.code, label: i.name }));
-  const cimOptions = [...risks]
-    .sort((a, b) => a.code.localeCompare(b.code))
-    .map((r) => ({ code: r.code, label: r.risk }));
+  const areas = active?.strategicAreas ?? FY27_PLAN.areas;
+  const sourceInitiatives = active
+    ? active.strategicAreas.flatMap((area) =>
+        area.initiatives.map((initiative) => ({
+          id: initiative.id,
+          code: initiative.code,
+          name: initiative.name,
+          status: initiative.status,
+          owner: initiative.teamLead,
+          update: initiative.updates[0]?.update ?? null,
+          pathForward: initiative.updates[0]?.pathForward ?? null,
+          nextMilestone: initiative.updates[0]?.nextMilestone ?? null,
+          milestoneDueAt: initiative.updates[0]?.milestoneDueAt ?? null,
+        })),
+      )
+    : await prisma.initiative.findMany({
+        where: { code: { in: FY27_PLAN.initiatives.map((initiative) => initiative.code) } },
+        select: { id: true, code: true, name: true, status: true, teamLead: true },
+        orderBy: { code: "asc" },
+      }).then((rows) =>
+        rows.map((initiative) => ({
+          id: initiative.id,
+          code: initiative.code,
+          name: initiative.name,
+          status: initiative.status,
+          owner: initiative.teamLead,
+          update: null,
+          pathForward: null,
+          nextMilestone: null,
+          milestoneDueAt: null,
+        })),
+      );
 
-  // KPIs (Portfolio at a glance)
-  const count = (fn: (i: (typeof initiatives)[number]) => boolean) => initiatives.filter(fn).length;
-  const inProgress = count((i) => i.status === "IN_PROGRESS");
-  const quickWins = count((i) => i.valueType === "VALUE" && i.quadrant === "QUICK_WIN");
-  const bigBets = count((i) => i.valueType === "VALUE" && i.quadrant === "BIG_BET");
-  const completed = count((i) => i.status === "DONE");
+  const byArea = new Map<string, InitiativeSummary[]>();
+  for (const initiative of sourceInitiatives) {
+    const source = FY27_PLAN.initiatives.find((item) => item.code === initiative.code);
+    const areaCode = source?.areaCode ?? active?.strategicAreas.find((area) => area.initiatives.some((item) => item.id === initiative.id))?.code;
+    if (areaCode) byArea.set(areaCode, [...(byArea.get(areaCode) ?? []), initiative]);
+  }
 
-  const behind = initiatives
-    .map((i) => ({ i, p: pace(i.startDate, i.endDate, i.pctComplete, now) }))
-    .filter((x): x is { i: (typeof initiatives)[number]; p: NonNullable<typeof x.p> } =>
-      x.i.status !== "DONE" && x.p !== null && x.p.lag < -0.15)
-    .sort((a, b) => a.p.lag - b.p.lag)
-    .slice(0, 5);
+  const drivers = areas.filter((area) => area.kind === "VALUE_DRIVER");
+  const enablers = areas.filter((area) => area.kind === "ENABLER");
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-8">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight text-ink">Overview</h1>
-        <p className="mt-1 text-sm text-ink-muted">Where Awayday stands on the path to the $150M EBITDA goal.</p>
-      </div>
+      <header>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold-deep">Active plan · {active?.code ?? FY27_PLAN.code}</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">{active?.title ?? FY27_PLAN.title}</h1>
+        <p className="mt-1 max-w-3xl text-sm text-ink-muted">
+          $200M FY27 BHAG / $180M budget context, aligned to the $300M EBITDA north star by 12/31/28.
+        </p>
+      </header>
 
-      {/* Portfolio at a glance */}
-      <section className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-4 lg:grid-cols-7">
-        <Metric label="Initiatives" value={String(initiatives.length)} />
-        <Metric label="In progress" value={String(inProgress)} />
-        <Metric label="Quick wins" value={String(quickWins)} />
-        <Metric label="Big bets" value={String(bigBets)} />
-        <Metric label="Behind pace" value={String(behind.length)} tone={behind.length ? "risk" : "ok"} />
-        <Metric label="Critical risks" value={String(risks.filter((r) => r.critical).length)} />
-        <Metric label="Completed" value={String(completed)} />
+      <section className="rounded-xl border border-navy/20 bg-navy px-6 py-5 text-white">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold">North star</p>
+        <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-semibold tracking-tight">$300M EBITDA</h2>
+            <p className="mt-1 text-sm text-white/70">Goal by 12/31/28 · FY27 plan contribution tracked below</p>
+          </div>
+          <Link href="/initiatives" className="rounded-md border border-white/25 bg-white/10 px-3 py-2 text-xs font-medium text-white hover:bg-white/20">
+            View all FY27 initiatives
+          </Link>
+        </div>
       </section>
 
-      {/* EBITDA — building a $150M business by 12/31/2027 */}
-      <EbitdaBuildSection data={ebitda} editable={editable} />
-
-      {/* 2026 Goals — the bright future */}
-      <PillarsSection pillars={pillars} siMap={siMap} editable={editable} siOptions={siOptions} cimOptions={cimOptions} />
-
-      {/* Financial & Operating Scorecard */}
-      <ScorecardSection goals={goals} editable={editable} siOptions={siOptions} cimOptions={cimOptions}>
-        <ScorecardTable goals={goals} siMap={siMap} />
-      </ScorecardSection>
-
-      {/* Q2 2026 Board Initiatives */}
-      <Q2BoardSection items={q2board} editable={editable} siOptions={siOptions} cimOptions={cimOptions}>
-        <Q2Scorecard items={q2board} siMap={siMap} />
-      </Q2BoardSection>
+      <AreaGrid title="Value creation pillars" areas={drivers} initiativesByArea={byArea} />
+      <AreaGrid title="Enablers" areas={enablers} initiativesByArea={byArea} />
     </div>
   );
 }
 
-function Metric({ label, value, tone }: { label: string; value: string; tone?: "ok" | "risk" }) {
+function AreaGrid({ title, areas, initiativesByArea }: { title: string; areas: (Fy27Area | { code: string; kind: string; name: string; goal: string | null; kpiName: string | null; kpiTarget: string | null; owner: string | null })[]; initiativesByArea: Map<string, InitiativeSummary[]> }) {
   return (
-    <div className="bg-surface px-4 py-3.5">
-      <p className={`tabular text-xl font-semibold ${tone === "risk" ? "text-risk" : tone === "ok" ? "text-ok" : "text-ink"}`}>{value}</p>
-      <p className="mt-0.5 text-[11px] text-ink-faint">{label}</p>
-    </div>
+    <section>
+      <h2 className="mb-3 text-sm font-semibold text-ink">{title}</h2>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {areas.map((area) => {
+          const initiatives = initiativesByArea.get(area.code) ?? [];
+          return (
+            <article key={area.code} className="rounded-xl border border-border bg-surface p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-faint">{area.code}</p>
+                  <h3 className="mt-1 text-base font-semibold text-ink">{area.name}</h3>
+                </div>
+                <span className="rounded bg-surface-2 px-2 py-1 text-[11px] text-ink-muted">{area.owner ?? "Owner: TBD"}</span>
+              </div>
+              <p className="mt-3 text-sm leading-5 text-ink-muted">{area.goal ?? "Goal: TBD"}</p>
+              <div className="mt-3 grid gap-2 border-y border-border/70 py-3 text-xs sm:grid-cols-2">
+                <div><span className="font-semibold text-ink">Leading measure:</span> {area.kpiName ?? "TBD"}</div>
+                <div><span className="font-semibold text-ink">Target:</span> {area.kpiTarget ?? "TBD"}</div>
+              </div>
+              <ul className="mt-3 flex flex-col gap-2">
+                {initiatives.length === 0 && <li className="text-xs text-ink-faint">No imported initiatives yet.</li>}
+                {initiatives.map((initiative) => {
+                  const status = STATUS_META[initiative.status];
+                  return (
+                    <li key={initiative.id} className="rounded-lg border border-border/70 bg-surface-2/30 px-3 py-2.5">
+                      <Link href={`/initiatives/${initiative.id}`} className="group block">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-sm font-medium text-ink group-hover:text-navy-deep">
+                            <span className="mr-2 tabular text-[10px] text-ink-faint">{initiative.code}</span>{initiative.name}
+                          </span>
+                          <span className={`inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[10px] font-medium ${status.fg}`}>
+                            <span aria-hidden>{status.glyph}</span>{status.label}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-ink-muted">{initiative.update ?? "Recent update: TBD"}</p>
+                        <p className="mt-1 text-[11px] text-ink-faint">
+                          Path forward: {initiative.pathForward ?? "TBD"} · Next milestone: {initiative.nextMilestone ?? "TBD"}
+                          {initiative.milestoneDueAt ? ` (${initiative.milestoneDueAt.toLocaleDateString()})` : ""}
+                        </p>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }

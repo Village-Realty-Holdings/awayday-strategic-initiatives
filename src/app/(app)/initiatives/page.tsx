@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, canEdit } from "@/lib/session";
 import { formatDateDay, pace } from "@/lib/initiatives";
 import { InitiativesTable, type InitiativeRow } from "@/components/initiatives-table";
+import { FY27_PLAN } from "@/lib/fy27-plan";
 
 export const dynamic = "force-dynamic";
 
@@ -15,10 +16,14 @@ export default async function InitiativesPage({
   const session = await requireSession();
   const editable = canEdit(session.user.role);
   const { group } = await searchParams;
+  const activePlan = await prisma.planVersion.findFirst({ where: { active: true }, orderBy: { updatedAt: "desc" }, select: { id: true, code: true, title: true } });
   const [initiatives, groups] = await Promise.all([
     // Project only what the table needs (#34) — avoids pulling the large text
     // columns (problem / objective / deliverables) on every list load.
     prisma.initiative.findMany({
+      where: activePlan
+        ? { planVersionId: activePlan.id }
+        : { code: { in: FY27_PLAN.initiatives.map((initiative) => initiative.code) } },
       orderBy: { code: "asc" },
       select: {
         id: true, code: true, name: true, cimDriver: true, teamLead: true, supports: true,
@@ -68,7 +73,7 @@ export default async function InitiativesPage({
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-ink">Strategic Initiatives</h1>
           <p className="mt-1 text-sm text-ink-muted">
-            All active strategic work across Awayday, scored on value and effort.
+            {activePlan?.title ?? FY27_PLAN.title}. Dashboard-owned status updates and charter details are maintained here.
           </p>
         </div>
         <div className="flex items-center gap-6 text-sm">

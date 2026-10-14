@@ -12,6 +12,7 @@
 		"db:generate": "prisma generate",
 		"db:migrate:deploy": "prisma migrate deploy",
 		"db:migrate:status": "prisma migrate status",
+		"db:import:fy27": "tsx prisma/import-fy27.ts",
 		"db:seed:admin": "tsx prisma/seed-admin.ts",
 		"db:set-password": "tsx prisma/set-password.ts",
 		"preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",

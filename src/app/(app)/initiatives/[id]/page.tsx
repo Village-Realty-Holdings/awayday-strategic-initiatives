@@ -22,6 +22,7 @@ import {
   updateSubInitiative,
   removeSubInitiative,
   addComment,
+  addInitiativeUpdate,
   removeComment,
   addInitiativeRisk,
   updateInitiativeRisk,
@@ -40,7 +41,6 @@ import { CharterAssistButton } from "@/components/charter-assist";
 import { DatePicker } from "@/components/date-picker";
 import {
   ArrowLeft,
-  ShieldAlert,
   Pencil,
   Paperclip,
   ExternalLink,
@@ -89,6 +89,8 @@ export default async function InitiativeDetail({
       milestones: { orderBy: [{ dueAt: "asc" }, { order: "asc" }] },
       actionItems: { orderBy: { order: "asc" } },
       eltRequests: { orderBy: { order: "asc" } },
+      strategicArea: true,
+      updates: { orderBy: { createdAt: "desc" } },
     },
   });
   if (!i) notFound();
@@ -147,6 +149,9 @@ export default async function InitiativeDetail({
                 )}
                 {i.cimItemCode && (
                   <span className="tabular rounded bg-white/10 px-1.5 py-0.5 text-[11px] font-medium text-white/80">{i.cimItemCode}</span>
+                )}
+                {i.strategicArea && (
+                  <span className="rounded bg-white/10 px-1.5 py-0.5 text-xs text-white/80">{i.strategicArea.name}</span>
                 )}
               </div>
             </div>
@@ -591,30 +596,42 @@ export default async function InitiativeDetail({
           ))}
         </datalist>
 
-        {/* CIM risks */}
-        {i.risks.length > 0 && (
-          <div className="border-t border-border px-6 py-5">
-            <h2 className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
-              <ShieldAlert size={14} className="text-navy" aria-hidden /> Mitigates CIM risks
-            </h2>
+        {/* FY27 status update history */}
+        <div className="border-t border-border px-6 py-5">
+          <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+            FY27 status updates {i.updates.length > 0 && <span>· {i.updates.length}</span>}
+          </h2>
+          {i.updates.length === 0 ? (
+            <p className="text-sm text-ink-faint">No status updates yet.</p>
+          ) : (
             <ul className="flex flex-col gap-2">
-              {i.risks.map(({ cimRisk }) => (
-                <li
-                  key={cimRisk.id}
-                  className="flex items-center justify-between rounded-lg border border-border bg-surface-2/40 px-3.5 py-2.5"
-                >
-                  <Link href={`/risks#${cimRisk.code}`} className="text-sm text-ink hover:text-navy-deep">
-                    <span className="tabular text-xs text-ink-faint">{cimRisk.code}</span> {cimRisk.risk}
-                  </Link>
-                  <span className="text-[11px] text-ink-faint">
-                    {cimRisk.category}
-                    {cimRisk.prize ? ` · ${cimRisk.prize}` : ""}
-                  </span>
+              {i.updates.map((u) => (
+                <li key={u.id} className="rounded-lg border border-border bg-surface-2/40 px-3.5 py-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className={`text-xs font-medium ${STATUS_META[u.status].fg}`}><span aria-hidden>{STATUS_META[u.status].glyph}</span> {STATUS_META[u.status].label}</span>
+                    <span className="text-[11px] text-ink-faint">{u.reportingPeriod ?? "Unspecified period"} · {formatDateDay(u.createdAt)}</span>
+                  </div>
+                  {u.update && <p className="mt-1 text-sm text-ink-muted">{u.update}</p>}
+                  <p className="mt-1 text-[11px] text-ink-faint">Path forward: {u.pathForward ?? "TBD"} · Next milestone: {u.nextMilestone ?? "TBD"}{u.milestoneDueAt ? ` (${formatDateDay(u.milestoneDueAt)})` : ""}</p>
                 </li>
               ))}
             </ul>
-          </div>
-        )}
+          )}
+          {editable && (
+            <form action={addInitiativeUpdate} className="mt-3 grid gap-2 sm:grid-cols-2">
+              <input type="hidden" name="initiativeId" value={i.id} />
+              <select name="status" defaultValue={i.status} className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy">
+                {(["NOT_STARTED", "PLANNING", "IN_PROGRESS", "AT_RISK", "DONE"] as const).map((status) => <option key={status} value={status}>{STATUS_META[status].label}</option>)}
+              </select>
+              <input name="reportingPeriod" placeholder="Reporting period (e.g. October 2026)" className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy" />
+              <textarea name="update" rows={2} placeholder="Latest meaningful update" className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-navy sm:col-span-2" />
+              <textarea name="pathForward" rows={2} placeholder="Path forward / next priorities" className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-navy sm:col-span-2" />
+              <input name="nextMilestone" placeholder="Next milestone" className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy" />
+              <input name="milestoneDueAt" type="date" className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy" />
+              <button type="submit" className="w-fit rounded-md bg-navy px-3 py-1.5 text-xs font-medium text-white hover:bg-navy-deep sm:col-span-2">Save status update</button>
+            </form>
+          )}
+        </div>
 
         {/* Comments */}
         <div className="border-t border-border px-6 py-5">

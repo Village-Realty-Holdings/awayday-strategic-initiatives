@@ -7,15 +7,12 @@ import {
   LayoutDashboard,
   ChevronDown,
   Target,
-  ShieldAlert,
   GanttChartSquare,
-  Grid2x2,
   FileText,
   Compass,
   MonitorCog,
   ShieldCheck,
   Layers,
-  BarChart3,
   type LucideIcon,
 } from "lucide-react";
 
@@ -27,17 +24,14 @@ const NAV: Group[] = [
   {
     label: "Strategic Initiatives",
     items: [
-      { label: "CIM Risks", href: "/risks", icon: ShieldAlert },
       { label: "Initiatives", href: "/initiatives", icon: Target },
       { label: "Groups", href: "/groups", icon: Layers },
-      { label: "Owner Scorecard", href: "/scorecard", icon: BarChart3 },
       { label: "Strategy Sources", href: "/sources", icon: Compass },
     ],
   },
   {
     label: "Reporting",
     items: [
-      { label: "Lift × Value", href: "/quadrant", icon: Grid2x2 },
       { label: "Gantt", href: "/gantt", icon: GanttChartSquare },
       { label: "Board Narrative", href: "/narrative", icon: FileText },
     ],
@@ -126,4 +120,3 @@ export function SidebarNav({ isAdmin = false }: { isAdmin?: boolean }) {
     </nav>
   );
 }
-
