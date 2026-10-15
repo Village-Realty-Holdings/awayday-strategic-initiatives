@@ -13,8 +13,15 @@ import {
   MonitorCog,
   ShieldCheck,
   Layers,
+  FlaskConical,
+  ClipboardCheck,
+  UserCheck,
+  CalendarDays,
+  Inbox,
+  Users,
   type LucideIcon,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 type Item = { label: string; href?: string; icon: LucideIcon; soon?: boolean };
 type Group = { label?: string; items: Item[]; collapsible?: boolean };
@@ -37,6 +44,17 @@ const NAV: Group[] = [
     ],
   },
   { label: "Modules", items: [{ label: "IT Dashboard", icon: MonitorCog, soon: true }] },
+  {
+    label: "V2 preview",
+    items: [
+      { label: "V2 home", href: "/v2", icon: FlaskConical },
+      { label: "Strategy Review", href: "/v2/review", icon: ClipboardCheck },
+      { label: "My SIs", href: "/v2/my", icon: UserCheck },
+      { label: "Timeline", href: "/v2/timeline", icon: CalendarDays },
+      { label: "Inbox", href: "/v2/inbox", icon: Inbox },
+      { label: "Asks by leader", href: "/v2/asks", icon: Users },
+    ],
+  },
 ];
 
 const ADMIN_GROUP: Group = {
@@ -92,9 +110,9 @@ export function SidebarNav({ isAdmin = false }: { isAdmin?: boolean }) {
                     <Icon size={16} strokeWidth={1.75} aria-hidden />
                     {item.label}
                   </span>
-                  <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-ink-faint">
+                  <Badge variant="secondary" className="rounded px-1.5 text-[10px] text-ink-faint">
                     Soon
-                  </span>
+                  </Badge>
                 </span>
               );
             }
