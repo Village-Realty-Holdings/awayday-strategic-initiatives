@@ -2,17 +2,15 @@
 
 import type { InitiativeStatus, Quadrant, DmaicStage } from "@/generated/prisma/client";
 import { STATUS_META, QUADRANT_META, DMAIC_META } from "@/lib/initiatives";
+import { Badge } from "@/components/ui/badge";
 
 export function DmaicBadge({ stage, showStep = true }: { stage: DmaicStage; showStep?: boolean }) {
   const m = DMAIC_META[stage];
   return (
-    <span
-      title={`DMAIC stage ${m.n} of 5: ${m.label}`}
-      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ${m.bg} ${m.fg}`}
-    >
+    <Badge variant="custom" title={`DMAIC stage ${m.n} of 5: ${m.label}`} className={`${m.bg} ${m.fg}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${m.dot}`} aria-hidden />
       {showStep && <span className="tabular opacity-70">{m.n}</span>} {m.label}
-    </span>
+    </Badge>
   );
 }
 
@@ -31,12 +29,9 @@ export function StatusBadge({ status }: { status: InitiativeStatus }) {
 export function QuadrantBadge({ quadrant }: { quadrant: Quadrant }) {
   const m = QUADRANT_META[quadrant];
   return (
-    <span
-      title={m.hint}
-      className={`inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ${m.bg} ${m.fg}`}
-    >
+    <Badge variant="custom" title={m.hint} className={`${m.bg} ${m.fg}`}>
       {m.label}
-    </span>
+    </Badge>
   );
 }
 

@@ -4,6 +4,8 @@ import { useState } from "react";
 import Image from "next/image";
 import { Sparkles, Loader2, Copy, Check, TriangleAlert, FileDown, Pencil, Eye } from "lucide-react";
 import { generateBoardNarrative } from "@/app/(app)/ai-actions";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
 // --- tiny markdown renderer for the constrained output the prompt produces
 // (## / ### headings, - or * bullets, 1. numbered, **bold**, paragraphs). ---
@@ -85,32 +87,25 @@ export function BoardNarrative() {
     setTimeout(() => window.print(), 80);
   };
 
-  const btn = "inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-2";
-
   return (
     <div className="flex flex-col gap-4">
       <div className="no-print flex flex-wrap items-center gap-2.5">
-        <button
-          type="button"
-          onClick={generate}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-md bg-navy px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-navy-deep disabled:opacity-60"
-        >
+        <Button type="button" onClick={generate} disabled={loading} className="gap-2">
           {loading ? <Loader2 size={15} className="animate-spin" aria-hidden /> : <Sparkles size={15} aria-hidden />}
           {loading ? "Drafting…" : text ? "Regenerate" : "Generate board narrative"}
-        </button>
+        </Button>
         {text && !loading && (
           <>
-            <button type="button" onClick={savePdf} className={btn}>
+            <Button type="button" variant="outline" onClick={savePdf} className="px-3">
               <FileDown size={14} aria-hidden /> Save as PDF
-            </button>
-            <button type="button" onClick={() => setEditing((v) => !v)} className={btn}>
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setEditing((v) => !v)} className="px-3">
               {editing ? <><Eye size={14} aria-hidden /> Preview</> : <><Pencil size={14} aria-hidden /> Edit</>}
-            </button>
-            <button type="button" onClick={copy} className={btn}>
+            </Button>
+            <Button type="button" variant="outline" onClick={copy} className="px-3">
               {copied ? <Check size={14} className="text-ok" aria-hidden /> : <Copy size={14} aria-hidden />}
               {copied ? "Copied" : "Copy"}
-            </button>
+            </Button>
           </>
         )}
         <span className="text-[11px] text-ink-faint">Drafted from the live portfolio. Review and edit before sharing.</span>
@@ -129,12 +124,12 @@ export function BoardNarrative() {
       )}
 
       {text && editing && (
-        <textarea
+        <Textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={26}
           spellCheck={false}
-          className="no-print w-full rounded-xl border border-border bg-surface p-5 font-mono text-[13px] leading-relaxed text-ink outline-none transition-colors focus:border-navy"
+          className="no-print w-full rounded-xl p-5 font-mono text-[13px] leading-relaxed"
           aria-label="Board narrative source (editable markdown)"
         />
       )}

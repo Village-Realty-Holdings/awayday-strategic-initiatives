@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { flash } from "@/lib/flash";
 import { requireEditor } from "@/lib/session";
 
 function str(fd: FormData, key: string): string | null {
@@ -72,6 +73,7 @@ export async function createCimRisk(formData: FormData) {
   });
   revalidatePath("/risks");
   revalidatePath("/");
+  await flash("Risk created");
   redirect("/risks");
 }
 
@@ -99,6 +101,7 @@ export async function updateCimRisk(formData: FormData) {
   });
   revalidatePath("/risks");
   revalidatePath("/");
+  await flash("Risk saved");
   redirect("/risks");
 }
 
@@ -113,5 +116,6 @@ export async function deleteCimRisk(formData: FormData) {
   });
   revalidatePath("/risks");
   revalidatePath("/");
+  await flash("Risk deleted");
   redirect("/risks");
 }

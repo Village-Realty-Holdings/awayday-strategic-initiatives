@@ -2,6 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireApp } from "@/lib/session";
 import { STATUS_META } from "@/lib/initiatives";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { InitiativeStatus } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -87,9 +89,9 @@ export default async function OverviewPage() {
             <h2 className="text-3xl font-semibold tracking-tight">$300M EBITDA</h2>
             <p className="mt-1 text-sm text-white/70">Goal by 12/31/28 · FY27 plan contribution tracked below</p>
           </div>
-          <Link href="/initiatives" className="rounded-md border border-white/25 bg-white/10 px-3 py-2 text-xs font-medium text-white hover:bg-white/20">
-            View all initiatives
-          </Link>
+          <Button asChild variant="onDark" className="px-3 text-xs">
+            <Link href="/initiatives">View all initiatives</Link>
+          </Button>
         </div>
       </section>
 
@@ -113,7 +115,7 @@ function AreaGrid({ title, areas, initiativesByArea }: { title: string; areas: A
                   <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-faint">{area.code}</p>
                   <h3 className="mt-1 text-base font-semibold text-ink">{area.name}</h3>
                 </div>
-                <span className="rounded bg-surface-2 px-2 py-1 text-[11px] text-ink-muted">{area.owner ?? "Owner: TBD"}</span>
+                <Badge variant="secondary" className="rounded py-1 text-[11px] font-normal">{area.owner ?? "Owner: TBD"}</Badge>
               </div>
               <p className="mt-3 text-sm leading-5 text-ink-muted">{area.goal ?? "Goal: TBD"}</p>
               <div className="mt-3 grid gap-2 border-y border-border/70 py-3 text-xs sm:grid-cols-2">
@@ -131,9 +133,9 @@ function AreaGrid({ title, areas, initiativesByArea }: { title: string; areas: A
                           <span className="text-sm font-medium text-ink group-hover:text-navy-deep">
                             <span className="mr-2 tabular text-[10px] text-ink-faint">{initiative.code}</span>{initiative.name}
                           </span>
-                          <span className={`inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[10px] font-medium ${status.fg}`}>
+                          <Badge variant="outline" className={`rounded px-1.5 text-[10px] ${status.fg}`}>
                             <span aria-hidden>{status.glyph}</span>{status.label}
-                          </span>
+                          </Badge>
                         </div>
                         <p className="mt-1 text-xs text-ink-muted">{initiative.update ?? "Recent update: TBD"}</p>
                         <p className="mt-1 text-[11px] text-ink-faint">

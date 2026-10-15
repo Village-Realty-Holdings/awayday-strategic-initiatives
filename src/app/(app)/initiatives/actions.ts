@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { flash } from "@/lib/flash";
 import { requireEditor } from "@/lib/session";
 import { audit } from "@/lib/audit";
 import { getActivePlan } from "@/lib/active-plan";
@@ -143,6 +144,7 @@ export async function updateInitiative(formData: FormData) {
   revalidatePath("/initiatives");
   revalidatePath(`/initiatives/${id}`);
   revalidatePath("/");
+  await flash("Initiative saved");
   redirect(`/initiatives/${id}`);
 }
 
@@ -171,6 +173,7 @@ export async function createInitiative(formData: FormData) {
 
   revalidatePath("/initiatives");
   revalidatePath("/");
+  await flash("Initiative created");
   redirect(`/initiatives/${created.id}`);
 }
 
@@ -205,6 +208,7 @@ export async function updateProgress(formData: FormData) {
   revalidatePath(`/initiatives/${id}`);
   revalidatePath("/initiatives");
   revalidatePath("/");
+  await flash("Progress updated");
   redirect(`/initiatives/${id}`);
 }
 
@@ -231,6 +235,7 @@ export async function addAttachment(formData: FormData) {
     data: { userId: session.user.id, action: "CREATE", entity: "Attachment", entityId: created.id, after: plain(created) },
   });
   revalidatePath(`/initiatives/${initiativeId}`);
+  await flash("Link added");
   redirect(`/initiatives/${initiativeId}`);
 }
 
@@ -295,6 +300,7 @@ export async function addFileAttachment(formData: FormData) {
     data: { userId: session.user.id, action: "CREATE", entity: "Attachment", entityId: created.id, after: plain(created) },
   });
   revalidatePath(`/initiatives/${initiativeId}`);
+  await flash("File uploaded");
   redirect(`/initiatives/${initiativeId}`);
 }
 
@@ -310,6 +316,7 @@ export async function removeAttachment(formData: FormData) {
     data: { userId: session.user.id, action: "DELETE", entity: "Attachment", entityId: id, before: plain(before) },
   });
   revalidatePath(`/initiatives/${before.initiativeId}`);
+  await flash("Attachment removed");
   redirect(`/initiatives/${before.initiativeId}`);
 }
 
@@ -356,6 +363,7 @@ export async function addSubInitiative(formData: FormData) {
   await audit(session.user.id, "CREATE", "SubInitiative", created.id, { after: { initiativeId, title } });
   await rollUpParent(initiativeId, session.user.id);
   revalidatePath(`/initiatives/${initiativeId}`);
+  await flash("Sub-initiative added");
   redirect(`/initiatives/${initiativeId}`);
 }
 
@@ -374,6 +382,7 @@ export async function updateSubInitiative(formData: FormData) {
   await audit(session.user.id, "UPDATE", "SubInitiative", id, { after: { status: updated.status, pctComplete: updated.pctComplete } });
   await rollUpParent(before.initiativeId, session.user.id);
   revalidatePath(`/initiatives/${before.initiativeId}`);
+  await flash("Sub-initiative updated");
   redirect(`/initiatives/${before.initiativeId}`);
 }
 
@@ -386,6 +395,7 @@ export async function removeSubInitiative(formData: FormData) {
   await audit(session.user.id, "DELETE", "SubInitiative", id, { before: { title: before.title } });
   await rollUpParent(before.initiativeId, session.user.id);
   revalidatePath(`/initiatives/${before.initiativeId}`);
+  await flash("Sub-initiative removed");
   redirect(`/initiatives/${before.initiativeId}`);
 }
 
@@ -406,6 +416,7 @@ export async function addComment(formData: FormData) {
   });
   await audit(session.user.id, "CREATE", "InitiativeComment", created.id, { after: { initiativeId, authorName: created.authorName } });
   revalidatePath(`/initiatives/${initiativeId}`);
+  await flash("Comment posted");
   redirect(`/initiatives/${initiativeId}`);
 }
 
@@ -421,6 +432,7 @@ export async function removeComment(formData: FormData) {
   await prisma.initiativeComment.delete({ where: { id } });
   await audit(session.user.id, "DELETE", "InitiativeComment", id, { before: { authorName: before.authorName, body: before.body.slice(0, 120) } });
   revalidatePath(`/initiatives/${before.initiativeId}`);
+  await flash("Comment deleted");
   redirect(`/initiatives/${before.initiativeId}`);
 }
 
@@ -443,6 +455,7 @@ export async function deleteInitiative(formData: FormData) {
 
   revalidatePath("/initiatives");
   revalidatePath("/");
+  await flash("Initiative deleted");
   redirect("/initiatives");
 }
 
@@ -489,6 +502,7 @@ export async function addInitiativeUpdate(formData: FormData) {
   revalidatePath(`/initiatives/${initiativeId}`);
   revalidatePath("/");
   revalidatePath("/initiatives");
+  await flash("Status update saved");
   redirect(`/initiatives/${initiativeId}`);
 }
 
@@ -503,6 +517,7 @@ export async function addInitiativeRisk(formData: FormData) {
   });
   await audit(session.user.id, "CREATE", "InitiativeRisk", created.id, { after: { initiativeId, risk } });
   revalidatePath(`/initiatives/${initiativeId}`);
+  await flash("Risk added");
   redirect(`/initiatives/${initiativeId}`);
 }
 
@@ -516,6 +531,7 @@ export async function updateInitiativeRisk(formData: FormData) {
   await prisma.initiativeRisk.update({ where: { id }, data: { status, mitigation } });
   await audit(session.user.id, "UPDATE", "InitiativeRisk", id, { before: { status: existing.status }, after: { status } });
   revalidatePath(`/initiatives/${existing.initiativeId}`);
+  await flash("Risk updated");
   redirect(`/initiatives/${existing.initiativeId}`);
 }
 
@@ -527,6 +543,7 @@ export async function removeInitiativeRisk(formData: FormData) {
   await prisma.initiativeRisk.delete({ where: { id } });
   await audit(session.user.id, "DELETE", "InitiativeRisk", id, { before: { risk: existing.risk } });
   revalidatePath(`/initiatives/${existing.initiativeId}`);
+  await flash("Risk removed");
   redirect(`/initiatives/${existing.initiativeId}`);
 }
 
@@ -541,6 +558,7 @@ export async function addInitiativeMilestone(formData: FormData) {
   });
   await audit(session.user.id, "CREATE", "InitiativeMilestone", created.id, { after: { initiativeId, title } });
   revalidatePath(`/initiatives/${initiativeId}`);
+  await flash("Milestone added");
   redirect(`/initiatives/${initiativeId}`);
 }
 
@@ -567,6 +585,7 @@ export async function removeInitiativeMilestone(formData: FormData) {
   await prisma.initiativeMilestone.delete({ where: { id } });
   await audit(session.user.id, "DELETE", "InitiativeMilestone", id, { before: { title: existing.title } });
   revalidatePath(`/initiatives/${existing.initiativeId}`);
+  await flash("Milestone removed");
   redirect(`/initiatives/${existing.initiativeId}`);
 }
 
@@ -583,6 +602,7 @@ export async function addInitiativeActionItem(formData: FormData) {
   });
   await audit(session.user.id, "CREATE", "InitiativeActionItem", created.id, { after: { initiativeId, kind, title, owner } });
   revalidatePath(`/initiatives/${initiativeId}`);
+  await flash("Action item added");
   redirect(`/initiatives/${initiativeId}`);
 }
 
@@ -606,6 +626,7 @@ export async function removeInitiativeActionItem(formData: FormData) {
   await prisma.initiativeActionItem.delete({ where: { id } });
   await audit(session.user.id, "DELETE", "InitiativeActionItem", id, { before: { title: existing.title } });
   revalidatePath(`/initiatives/${existing.initiativeId}`);
+  await flash("Action item removed");
   redirect(`/initiatives/${existing.initiativeId}`);
 }
 
@@ -621,6 +642,7 @@ export async function addInitiativeEltRequest(formData: FormData) {
   });
   await audit(session.user.id, "CREATE", "InitiativeEltRequest", created.id, { after: { initiativeId, kind, request } });
   revalidatePath(`/initiatives/${initiativeId}`);
+  await flash("ELT request added");
   redirect(`/initiatives/${initiativeId}`);
 }
 
@@ -633,6 +655,7 @@ export async function updateInitiativeEltRequest(formData: FormData) {
   await prisma.initiativeEltRequest.update({ where: { id }, data: { status, decidedNote: str(formData, "decidedNote") ?? existing.decidedNote } });
   await audit(session.user.id, "UPDATE", "InitiativeEltRequest", id, { before: { status: existing.status }, after: { status } });
   revalidatePath(`/initiatives/${existing.initiativeId}`);
+  await flash("ELT request updated");
   redirect(`/initiatives/${existing.initiativeId}`);
 }
 
@@ -644,5 +667,6 @@ export async function removeInitiativeEltRequest(formData: FormData) {
   await prisma.initiativeEltRequest.delete({ where: { id } });
   await audit(session.user.id, "DELETE", "InitiativeEltRequest", id, { before: { request: existing.request } });
   revalidatePath(`/initiatives/${existing.initiativeId}`);
+  await flash("ELT request removed");
   redirect(`/initiatives/${existing.initiativeId}`);
 }

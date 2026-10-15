@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { activePlanInitiativeWhere } from "@/lib/active-plan";
+import { Badge } from "@/components/ui/badge";
 
 export const dynamic = "force-dynamic";
 
@@ -128,9 +129,9 @@ export default async function ScorecardPage() {
                       {r.owner}
                     </Link>
                     {!r.inDirectory && (
-                      <span className="ml-1.5 rounded bg-warn-soft px-1.5 py-0.5 text-[10px] font-medium text-warn" title="This owner is not in the People directory">
+                      <Badge variant="custom" className="ml-1.5 rounded bg-warn-soft px-1.5 text-[10px] text-warn" title="This owner is not in the People directory">
                         not in People
-                      </span>
+                      </Badge>
                     )}
                   </div>
                   {(r.position || r.department) && (

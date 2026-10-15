@@ -4,6 +4,7 @@ import { ArrowLeft, Trash2, TriangleAlert } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireEditor } from "@/lib/session";
 import { CimForm } from "@/components/cim-form";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { updateCimRisk, deleteCimRisk } from "@/app/(app)/risks/actions";
 
 export const dynamic = "force-dynamic";
@@ -45,12 +46,9 @@ export default async function EditCimRiskPage({
         </div>
         <form action={deleteCimRisk}>
           <input type="hidden" name="id" value={risk.id} />
-          <button
-            type="submit"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-risk transition-colors hover:bg-risk-soft"
-          >
+          <SubmitButton variant="destructive" size="sm" className="px-2.5">
             <Trash2 size={13} aria-hidden /> Delete
-          </button>
+          </SubmitButton>
         </form>
       </div>
 

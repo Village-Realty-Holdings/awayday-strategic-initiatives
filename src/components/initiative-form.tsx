@@ -4,6 +4,13 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Sparkles, Loader2 } from "lucide-react";
 import { DatePicker } from "@/components/date-picker";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { Textarea } from "@/components/ui/textarea";
 import type { Initiative } from "@/generated/prisma/client";
 import {
   QUADRANT_META,
@@ -209,34 +216,34 @@ export function InitiativeForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="CIM driver / theme" required={isNew} hint="Broad strategic driver. Used for grouping and the code prefix.">
-          <select value={cim} onChange={(e) => onCimChange(e.target.value)} name="cimDriver" className={input}>
+          <NativeSelect value={cim} onChange={(e) => onCimChange(e.target.value)} name="cimDriver">
             {!CIM_DRIVERS.includes(cim) && <option value={cim}>{cim}</option>}
             {CIM_DRIVERS.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
+          </NativeSelect>
         </Field>
         <Field label="CIM item" hint="The CIM register item this ties back to. Sets the KPI options below.">
-          <select value={cimItem} onChange={(e) => setCimItem(e.target.value)} name="cimItemCode" className={input}>
+          <NativeSelect value={cimItem} onChange={(e) => setCimItem(e.target.value)} name="cimItemCode">
             <option value="">— none —</option>
             {cimItem && !cimItems.some((c) => c.code === cimItem) && <option value={cimItem}>{cimItem}</option>}
             {cimItems.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
-          </select>
+          </NativeSelect>
         </Field>
         {areas.length > 0 && (
           <Field label="Area" hint="Strategic area in this initiative's plan. Initiatives without an area don't appear on the Overview.">
-            <select name="strategicAreaId" defaultValue={i?.strategicAreaId ?? ""} className={input}>
+            <NativeSelect name="strategicAreaId" defaultValue={i?.strategicAreaId ?? ""}>
               <option value="">— none —</option>
               {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
+            </NativeSelect>
           </Field>
         )}
         <Field label="Code" required={isNew}>
           {isNew ? (
-            <input
+            <Input
               name="code"
               required
               value={code}
               onChange={(e) => { setCode(e.target.value); setCodeTouched(true); }}
-              className={`${input} tabular`}
+              className="tabular"
             />
           ) : (
             <>
@@ -246,21 +253,21 @@ export function InitiativeForm({
           )}
         </Field>
         <Field label="Initiative name" required>
-          <input name="name" required value={name2} onChange={(e) => setName(e.target.value)} placeholder="Plain-English name" className={input} />
+          <Input name="name" required value={name2} onChange={(e) => setName(e.target.value)} placeholder="Plain-English name" />
         </Field>
         <Field label="Lead">
-          <select name="teamLead" defaultValue={i?.teamLead ?? ""} className={input}>
+          <NativeSelect name="teamLead" defaultValue={i?.teamLead ?? ""}>
             <option value="">— unassigned —</option>
             {i?.teamLead && !ownerOptions.includes(i.teamLead) && <option value={i.teamLead}>{i.teamLead}</option>}
             {ownerOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
+          </NativeSelect>
         </Field>
         <Field label="Secondary lead">
-          <select name="secondaryLead" defaultValue={i?.secondaryLead ?? ""} className={input}>
+          <NativeSelect name="secondaryLead" defaultValue={i?.secondaryLead ?? ""}>
             <option value="">— none —</option>
             {i?.secondaryLead && !ownerOptions.includes(i.secondaryLead) && <option value={i.secondaryLead}>{i.secondaryLead}</option>}
             {ownerOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
+          </NativeSelect>
         </Field>
       </div>
 
@@ -322,35 +329,35 @@ export function InitiativeForm({
         {isValue && (
           <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Targeted value ($/yr)" hint="Annualized value created when complete. Sets the Value score.">
-              <input
+              <Input
                 name="targetedValue"
                 value={targetedRaw}
                 onChange={(e) => setTargetedRaw(e.target.value)}
                 onBlur={() => setTargetedRaw(formatDollarsInput(targetedRaw))}
                 placeholder="e.g. 1,500,000 or 1.5M"
-                className={`${input} tabular`}
+                className="tabular"
               />
             </Field>
             <Field label="Value realized ($)" hint="Value captured so far. Drives % complete when both are set.">
-              <input
+              <Input
                 name="valueRealized"
                 value={realizedRaw}
                 onChange={(e) => setRealizedRaw(e.target.value)}
                 onBlur={() => setRealizedRaw(formatDollarsInput(realizedRaw))}
                 placeholder="e.g. 500,000 or 500K"
-                className={`${input} tabular`}
+                className="tabular"
               />
             </Field>
             <Field label="Effort" hint={EFFORT_OPTS.find((o) => o.v === effort)?.hint}>
-              <select value={effort} onChange={(e) => setEffort(e.target.value as Effort)} className={input}>
+              <NativeSelect value={effort} onChange={(e) => setEffort(e.target.value as Effort)}>
                 {EFFORT_OPTS.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
-              </select>
+              </NativeSelect>
             </Field>
             <Field label="Priority (derived)">
               <div className="flex items-center gap-2 py-1.5">
-                <span className={`rounded px-2 py-0.5 text-xs font-medium ${QUADRANT_META[quadrant].bg} ${QUADRANT_META[quadrant].fg}`}>
+                <Badge variant="custom" className={`rounded ${QUADRANT_META[quadrant].bg} ${QUADRANT_META[quadrant].fg}`}>
                   {QUADRANT_META[quadrant].label}
-                </span>
+                </Badge>
                 <span className="text-[11px] text-ink-faint">
                   Value {value} · {targeted != null ? formatMoney(targeted) : "set $"}
                 </span>
@@ -362,9 +369,9 @@ export function InitiativeForm({
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Status">
-          <select name="status" defaultValue={i?.status ?? "IN_PROGRESS"} className={input}>
+          <NativeSelect name="status" defaultValue={i?.status ?? "IN_PROGRESS"}>
             {STATUSES.map((s) => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
-          </select>
+          </NativeSelect>
         </Field>
         {isValue ? (
           <Field label="% complete (calculated)" hint="Value realized ÷ targeted value.">
@@ -391,59 +398,49 @@ export function InitiativeForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Primary KPI" hint={cimItem ? `Scoped to ${cimItem}.` : `Pick a CIM item to scope these, or by ${cim}.`}>
-          <select onChange={(e) => onKpiPick(e.target.value)} defaultValue="" className={`${input} mb-1.5`}>
+          <NativeSelect onChange={(e) => onKpiPick(e.target.value)} defaultValue="" className="mb-1.5">
             <option value="">— pick a KPI for this driver —</option>
             {kpiOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-          <input name="quantMetric" value={metric} onChange={(e) => setMetric(e.target.value)} placeholder="The one number this moves" className={input} />
+          </NativeSelect>
+          <Input name="quantMetric" value={metric} onChange={(e) => setMetric(e.target.value)} placeholder="The one number this moves" />
         </Field>
         <Field label="KPI target">
-          <input name="quantTarget" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="e.g. ≥4.65" className={input} />
+          <Input name="quantTarget" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="e.g. ≥4.65" />
         </Field>
       </div>
 
       <div className="rounded-lg border border-border bg-surface-2/30 p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Charter</p>
-          <button
-            type="button"
-            onClick={draft}
-            disabled={drafting}
-            className="inline-flex items-center gap-1.5 rounded-full border border-gold/60 bg-gold/10 px-2.5 py-1 text-[11px] font-medium text-navy-deep transition-colors hover:bg-gold/20 disabled:opacity-60"
-          >
+          <Button type="button" variant="accent" size="xs" onClick={draft} disabled={drafting} className="px-2.5">
             {drafting ? <Loader2 size={12} className="animate-spin" aria-hidden /> : <Sparkles size={12} aria-hidden />}
             Draft from name + CIM with Claude
-          </button>
+          </Button>
         </div>
         {draftError && <p className="mb-2 text-[11px] text-risk">{draftError}</p>}
         {problemError && <p className="mb-2 text-[11px] text-risk">A problem statement is required before saving.</p>}
         <div className="flex flex-col gap-4">
           <Field label="Problem statement" required hint="Required. What is broken, for whom, and what it costs us.">
-            <textarea name="problem" required rows={2} placeholder="What is broken, for whom, and what does it cost us?" value={problem} onChange={(e) => setProblem(e.target.value)} className={input} />
+            <Textarea name="problem" required rows={2} placeholder="What is broken, for whom, and what does it cost us?" value={problem} onChange={(e) => setProblem(e.target.value)} />
           </Field>
           <Field label="Objective">
-            <textarea name="valueWhenComplete" rows={2} placeholder="One measurable sentence: clearly done or not done at closeout." value={objective} onChange={(e) => setObjective(e.target.value)} className={input} />
+            <Textarea name="valueWhenComplete" rows={2} placeholder="One measurable sentence: clearly done or not done at closeout." value={objective} onChange={(e) => setObjective(e.target.value)} />
           </Field>
           <Field label="Deliverables">
-            <textarea name="workRequired" rows={2} placeholder="Concrete outputs: a doc, tool, dashboard, recommendation." value={deliverables} onChange={(e) => setDeliverables(e.target.value)} className={input} />
+            <Textarea name="workRequired" rows={2} placeholder="Concrete outputs: a doc, tool, dashboard, recommendation." value={deliverables} onChange={(e) => setDeliverables(e.target.value)} />
           </Field>
         </div>
       </div>
 
       <div className="flex items-center gap-3">
-        <button type="submit" className="rounded-md bg-navy px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-navy-deep">
-          {submitLabel}
-        </button>
-        <Link href={cancelHref} className="text-sm text-ink-muted transition-colors hover:text-ink">
-          Cancel
-        </Link>
+        <SubmitButton>{submitLabel}</SubmitButton>
+        <Button asChild variant="link" className="font-normal text-ink-muted hover:text-ink hover:no-underline">
+          <Link href={cancelHref}>Cancel</Link>
+        </Button>
       </div>
     </form>
   );
 }
-
-const input =
-  "rounded-md border border-border bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-navy";
 
 function Field({
   label,
@@ -460,9 +457,11 @@ function Field({
    *  where a wrapping label would forward the click and double-activate them. */
   asDiv?: boolean;
 }) {
-  const Wrap = asDiv ? "div" : "label";
+  // Label's own caption styling is reset so children inherit the same text
+  // as the old plain <label>; the caption span below carries the caption look.
+  const Wrap = asDiv ? "div" : Label;
   return (
-    <Wrap className="flex flex-col gap-1.5">
+    <Wrap className={asDiv ? "flex flex-col gap-1.5" : "flex flex-col gap-1.5 text-base font-normal text-ink"}>
       <span className="text-xs font-medium text-ink-muted">
         {label}
         {required && <span className="text-risk"> *</span>}

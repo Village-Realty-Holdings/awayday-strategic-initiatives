@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Pencil, X } from "lucide-react";
 import type { Goal } from "@/lib/sources";
+import { Button } from "@/components/ui/button";
 import { ScorecardEditor } from "@/components/scorecard-editor";
 import type { CodeOption } from "@/components/code-multiselect";
 
@@ -28,13 +29,15 @@ export function ScorecardSection({
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-ink">Financial &amp; Operating Scorecard</h2>
         {editable && (
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => setEditing((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-2"
+            className="px-2.5 py-1"
           >
             {editing ? <><X size={12} aria-hidden /> Close</> : <><Pencil size={12} aria-hidden /> Edit</>}
-          </button>
+          </Button>
         )}
       </div>
       <p className="mb-3 mt-1 max-w-3xl text-xs text-ink-faint">

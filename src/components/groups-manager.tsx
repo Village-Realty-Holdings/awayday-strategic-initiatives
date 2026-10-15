@@ -4,6 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { FolderPlus, Pencil, Trash2, X, Archive, ArchiveRestore } from "lucide-react";
 import { createGroup, updateGroup, deleteGroup, setGroupArchived } from "@/app/(app)/groups/actions";
+import { ConfirmAction } from "@/components/confirm-action";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 type Initiative = { id: string; code: string; name: string };
 type Group = { id: string; name: string; description: string | null; archived: boolean; members: Initiative[] };
@@ -40,36 +46,37 @@ export function GroupsManager({
           <div className="min-w-0">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
               {g.name}
-              {g.archived && <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-ink-faint">Archived</span>}
+              {g.archived && <Badge variant="secondary" className="rounded px-1.5 text-[10px] text-ink-faint">Archived</Badge>}
             </h2>
             {g.description && <p className="mt-0.5 text-xs text-ink-muted">{g.description}</p>}
             <p className="mt-1 text-[11px] text-ink-faint">{g.members.length} initiative{g.members.length === 1 ? "" : "s"}</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <Link
-              href={`/initiatives?group=${g.id}`}
-              className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-surface-2"
-            >
-              View in table
-            </Link>
+            <Button asChild variant="secondary" size="sm" className="px-2.5">
+              <Link href={`/initiatives?group=${g.id}`}>View in table</Link>
+            </Button>
             {editable && (
               <>
-                <button onClick={() => setEditing(g.id)} title="Edit group" className="rounded-md border border-border p-1.5 text-ink-muted transition-colors hover:bg-surface-2">
+                <Button onClick={() => setEditing(g.id)} title="Edit group" aria-label="Edit group" variant="outline" size="bare" className="p-1.5">
                   <Pencil size={13} aria-hidden />
-                </button>
+                </Button>
                 <form action={setGroupArchived}>
                   <input type="hidden" name="id" value={g.id} />
                   <input type="hidden" name="archived" value={g.archived ? "false" : "true"} />
-                  <button type="submit" title={g.archived ? "Restore group" : "Archive group"} className="rounded-md border border-border p-1.5 text-ink-muted transition-colors hover:bg-surface-2">
+                  <SubmitButton title={g.archived ? "Restore group" : "Archive group"} aria-label={g.archived ? "Restore group" : "Archive group"} variant="outline" size="bare" className="p-1.5">
                     {g.archived ? <ArchiveRestore size={13} aria-hidden /> : <Archive size={13} aria-hidden />}
-                  </button>
+                  </SubmitButton>
                 </form>
-                <form action={deleteGroup} onSubmit={(e) => { if (!confirm(`Delete group "${g.name}"? The initiatives themselves are not affected.`)) e.preventDefault(); }}>
-                  <input type="hidden" name="id" value={g.id} />
-                  <button type="submit" title="Delete group" className="rounded-md border border-border p-1.5 text-risk transition-colors hover:bg-risk-soft">
-                    <Trash2 size={13} aria-hidden />
-                  </button>
-                </form>
+                <ConfirmAction
+                  action={deleteGroup}
+                  fields={{ id: g.id }}
+                  title="Delete group?"
+                  description={`Delete group “${g.name}”? The initiatives in it are not affected. This can't be undone.`}
+                  confirmLabel="Delete group"
+                  triggerProps={{ title: "Delete group", "aria-label": "Delete group", variant: "destructive", size: "bare", className: "p-1.5" }}
+                >
+                  <Trash2 size={13} aria-hidden />
+                </ConfirmAction>
               </>
             )}
           </div>
@@ -77,14 +84,16 @@ export function GroupsManager({
         {g.members.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
             {g.members.map((m) => (
-              <Link
+              <Badge
                 key={m.id}
-                href={`/initiatives/${m.id}`}
-                title={m.name}
-                className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-2/40 px-2 py-0.5 text-[11px] text-ink-muted transition-colors hover:border-navy/40 hover:text-ink"
+                asChild
+                variant="outline"
+                className="bg-surface-2/40 text-[11px] font-normal transition-colors hover:border-navy/40 hover:text-ink"
               >
-                <span className="tabular text-ink-faint">{m.code}</span> <span className="max-w-[160px] truncate">{m.name}</span>
-              </Link>
+                <Link href={`/initiatives/${m.id}`} title={m.name}>
+                  <span className="tabular text-ink-faint">{m.code}</span> <span className="max-w-[160px] truncate">{m.name}</span>
+                </Link>
+              </Badge>
             ))}
           </div>
         )}
@@ -104,12 +113,9 @@ export function GroupsManager({
               title="New group"
             />
           ) : (
-            <button
-              onClick={() => setCreating(true)}
-              className="inline-flex items-center gap-1.5 rounded-md bg-navy px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-navy-deep"
-            >
+            <Button onClick={() => setCreating(true)} className="px-3.5">
               <FolderPlus size={15} aria-hidden /> New group
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -153,35 +159,33 @@ function GroupForm({
       {group && <input type="hidden" name="id" value={group.id} />}
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-ink">{title}</h2>
-        <button type="button" onClick={onClose} className="text-ink-faint transition-colors hover:text-ink"><X size={15} aria-hidden /></button>
+        <Button type="button" onClick={onClose} variant="faint" size="bare" aria-label="Close"><X size={15} aria-hidden /></Button>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-ink-muted">Group name</span>
-          <input name="name" required defaultValue={group?.name} placeholder="e.g. Q3 Board Meeting" className={input} />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-ink-muted">Description (optional)</span>
-          <input name="description" defaultValue={group?.description ?? ""} placeholder="What this group is for" className={input} />
-        </label>
+        <Label className="flex flex-col gap-1.5">
+          Group name
+          <Input name="name" required defaultValue={group?.name} placeholder="e.g. Q3 Board Meeting" />
+        </Label>
+        <Label className="flex flex-col gap-1.5">
+          Description (optional)
+          <Input name="description" defaultValue={group?.description ?? ""} placeholder="What this group is for" />
+        </Label>
       </div>
       <p className="mb-2 mt-4 text-xs font-medium text-ink-muted">Initiatives in this group</p>
       <div className="grid max-h-64 grid-cols-1 gap-x-4 gap-y-1.5 overflow-y-auto rounded-lg border border-border bg-surface p-3 sm:grid-cols-2 lg:grid-cols-3">
         {initiatives.map((i) => (
-          <label key={i.id} className="flex items-center gap-2 text-xs text-ink">
+          <Label key={i.id} className="flex items-center gap-2 font-normal text-ink">
             <input type="checkbox" name="initiativeIds" value={i.id} defaultChecked={memberIds.has(i.id)} className="h-3.5 w-3.5 shrink-0 rounded border-border accent-navy" />
             <span className="truncate" title={`${i.code} · ${i.name}`}>
               <span className="tabular text-ink-faint">{i.code}</span> {i.name}
             </span>
-          </label>
+          </Label>
         ))}
       </div>
       <div className="mt-4 flex items-center gap-3">
-        <button type="submit" className="rounded-md bg-navy px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-navy-deep">{submitLabel}</button>
-        <button type="button" onClick={onClose} className="text-sm text-ink-muted transition-colors hover:text-ink">Cancel</button>
+        <SubmitButton>{submitLabel}</SubmitButton>
+        <Button type="button" onClick={onClose} variant="faint" size="bare" className="text-sm font-normal text-ink-muted">Cancel</Button>
       </div>
     </form>
   );
 }
-
-const input = "rounded-md border border-border bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-navy";

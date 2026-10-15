@@ -7,6 +7,7 @@ import { hasApp } from "@/lib/apps";
 import { SidebarNav } from "@/components/shell/nav";
 import { SignOutButton } from "@/components/sign-out-button";
 import { AskPanel } from "@/components/ask-panel";
+import { FlashToaster } from "@/components/flash-toaster";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -78,6 +79,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           Awayday Strategic Initiatives · Confidential · for Awayday leadership. Changes are versioned in the audit log.
         </footer>
       </div>
+      <FlashToaster />
     </div>
   );
 }

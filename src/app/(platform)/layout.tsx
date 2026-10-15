@@ -3,6 +3,7 @@ import Link from "next/link";
 import { LayoutGrid, ArrowLeft } from "lucide-react";
 import { requireSession } from "@/lib/session";
 import { SignOutButton } from "@/components/sign-out-button";
+import { FlashToaster } from "@/components/flash-toaster";
 
 // Platform-level chrome (no app sidebar). Houses settings that span both apps —
 // People & access — so they're reachable from either app without belonging to
@@ -22,6 +23,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
         <SignOutButton />
       </header>
       <main className="flex-1 px-6 py-7">{children}</main>
+      <FlashToaster />
     </div>
   );
 }

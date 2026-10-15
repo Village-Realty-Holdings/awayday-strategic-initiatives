@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 /*
  * Awayday Strategic Initiatives — design tokens (see /DESIGN.md)
@@ -58,6 +59,52 @@
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/*
+ * shadcn/ui variables, mapped onto the tokens above so the primitives in
+ * src/components/ui look identical to the rest of the app. Do not let
+ * `shadcn init/add` overwrite these. --color-border and the --radius-* scale
+ * are intentionally NOT redefined (they already exist above). Light only.
+ */
+:root {
+  --background: var(--color-bg);
+  --foreground: var(--color-ink);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-ink);
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-ink);
+  --primary: var(--color-navy);
+  --primary-foreground: #fff;
+  --secondary: var(--color-surface-2);
+  --secondary-foreground: var(--color-ink);
+  --muted: var(--color-surface-2);
+  --muted-foreground: var(--color-ink-muted);
+  --accent: var(--color-surface-2);
+  --accent-foreground: var(--color-ink);
+  --destructive: var(--color-risk);
+  --input: var(--color-border-strong);
+  --ring: var(--color-navy);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
 /* Fonts come from next/font (see layout.tsx); resolved inline */
 @theme inline {
   --font-sans: var(--font-geist-sans);
@@ -82,9 +129,14 @@ body {
   background: color-mix(in oklch, var(--color-navy) 22%, transparent);
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-gold);
-  outline-offset: 2px;
+/* Keyboard focus. Lives in @layer base so component utilities (e.g. an Input's
+   own focus ring, or outline-none) win instead of stacking with it. Navy, not
+   gold: gold on white is ~1.5:1 and fails WCAG 1.4.11 (non-text contrast). */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

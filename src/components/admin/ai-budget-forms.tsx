@@ -2,46 +2,39 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { adminSetAiBudget, adminSetAiBudgetRecipients } from "@/app/(app)/admin/actions";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 // Admin controls for the monthly AI budget and its alert recipients
 // (/admin/ai-telemetry). Same shape as the onboarding digest-recipients form:
-// a single input, a save button, an inline status line, refresh on success.
+// a single input, a save button, a toast with the result, refresh on success.
 
 type Result = { ok: true; message: string } | { ok: false; error: string };
 
 function useSave(action: (fd: FormData) => Promise<Result>, field: string) {
   const router = useRouter();
-  const [notice, setNotice] = useState<{ text: string; ok: boolean } | null>(null);
   const [pending, startTransition] = useTransition();
   const save = (value: string) =>
     startTransition(async () => {
       const fd = new FormData();
       fd.set(field, value);
       const res = await action(fd);
-      setNotice({ text: res.ok ? res.message : res.error, ok: res.ok });
-      if (res.ok) router.refresh();
+      if (res.ok) {
+        toast.success(res.message);
+        router.refresh();
+      } else {
+        toast.error(res.error);
+      }
     });
-  return { save, notice, pending };
-}
-
-const inputClass =
-  "w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-navy focus:outline-none";
-const buttonClass =
-  "shrink-0 rounded-md border border-border bg-surface px-3 py-2 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-60";
-
-function Notice({ notice }: { notice: { text: string; ok: boolean } | null }) {
-  if (!notice) return null;
-  return (
-    <p role="status" className={`mt-2 rounded-md px-3 py-2 text-xs font-medium ${notice.ok ? "bg-ok-soft text-ok" : "bg-risk-soft text-risk"}`}>
-      {notice.text}
-    </p>
-  );
+  return { save, pending };
 }
 
 export function AiBudgetForm({ initial, effectivePlaceholder }: { initial: string; effectivePlaceholder: string }) {
   const [value, setValue] = useState(initial);
-  const { save, notice, pending } = useSave(adminSetAiBudget, "budget");
+  const { save, pending } = useSave(adminSetAiBudget, "budget");
   return (
     <form
       onSubmit={(e) => {
@@ -49,11 +42,11 @@ export function AiBudgetForm({ initial, effectivePlaceholder }: { initial: strin
         save(value);
       }}
     >
-      <label htmlFor="ai-budget" className="block text-xs font-medium text-ink">
+      <Label htmlFor="ai-budget" className="block text-ink">
         Monthly budget (USD)
-      </label>
+      </Label>
       <div className="mt-1.5 flex items-start gap-2">
-        <input
+        <Input
           id="ai-budget"
           name="budget"
           type="text"
@@ -61,23 +54,22 @@ export function AiBudgetForm({ initial, effectivePlaceholder }: { initial: strin
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder={effectivePlaceholder}
-          className={inputClass + " max-w-[200px]"}
+          className="w-full max-w-[200px] placeholder:text-ink-faint"
         />
-        <button type="submit" disabled={pending} className={buttonClass}>
+        <Button type="submit" variant="outline" size="sm" disabled={pending} className="bg-surface py-2 hover:text-ink">
           {pending ? "Saving" : "Save budget"}
-        </button>
+        </Button>
       </div>
       <p className="mt-1.5 text-xs text-ink-muted">
         Enter 0 or off to remove the cap. Leave blank to use the environment value or the default.
       </p>
-      <Notice notice={notice} />
     </form>
   );
 }
 
 export function AiBudgetRecipientsForm({ initial }: { initial: string }) {
   const [value, setValue] = useState(initial);
-  const { save, notice, pending } = useSave(adminSetAiBudgetRecipients, "recipients");
+  const { save, pending } = useSave(adminSetAiBudgetRecipients, "recipients");
   return (
     <form
       onSubmit={(e) => {
@@ -85,27 +77,26 @@ export function AiBudgetRecipientsForm({ initial }: { initial: string }) {
         save(value);
       }}
     >
-      <label htmlFor="ai-budget-recipients" className="block text-xs font-medium text-ink">
+      <Label htmlFor="ai-budget-recipients" className="block text-ink">
         Alert recipients
-      </label>
+      </Label>
       <div className="mt-1.5 flex items-start gap-2">
-        <input
+        <Input
           id="ai-budget-recipients"
           name="recipients"
           type="text"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="name@company.com, other@company.com"
-          className={inputClass + " max-w-[520px]"}
+          className="w-full max-w-[520px] placeholder:text-ink-faint"
         />
-        <button type="submit" disabled={pending} className={buttonClass}>
+        <Button type="submit" variant="outline" size="sm" disabled={pending} className="bg-surface py-2 hover:text-ink">
           {pending ? "Saving" : "Save recipients"}
-        </button>
+        </Button>
       </div>
       <p className="mt-1.5 text-xs text-ink-muted">
         Emailed once at 80% and once at 100% of the budget each month. Comma-separated.
       </p>
-      <Notice notice={notice} />
     </form>
   );
 }

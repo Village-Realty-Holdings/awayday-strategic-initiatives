@@ -3,10 +3,13 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { DatePicker } from "@/components/date-picker";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { Textarea } from "@/components/ui/textarea";
 import type { CimRisk } from "@/generated/prisma/client";
-
-const input =
-  "rounded-md border border-border bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-navy";
 
 const CATEGORIES = [
   "Business risks",
@@ -75,47 +78,46 @@ export function CimForm({
           {r ? (
             <p className="tabular py-2 text-sm text-ink-muted">{r.code} (fixed)</p>
           ) : (
-            <input name="code" required defaultValue={nextCimCode(usedCodes)} className={`${input} tabular`} />
+            <Input name="code" required defaultValue={nextCimCode(usedCodes)} className="tabular" />
           )}
         </Field>
         <Field label="Category" required>
-          <select name="category" defaultValue={r?.category ?? CATEGORIES[0]} className={input}>
+          <NativeSelect name="category" defaultValue={r?.category ?? CATEGORIES[0]}>
             {r?.category && !CATEGORIES.includes(r.category) && <option value={r.category}>{r.category}</option>}
             {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
+          </NativeSelect>
         </Field>
       </div>
 
       <Field label="Risk dimension (short name)" required>
-        <input name="risk" required defaultValue={r?.risk} placeholder="e.g. Brand-level NPS variance" className={input} />
+        <Input name="risk" required defaultValue={r?.risk} placeholder="e.g. Brand-level NPS variance" />
       </Field>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label="Owner">
-          <select name="owner" defaultValue={r?.owner ?? ""} className={input}>
+          <NativeSelect name="owner" defaultValue={r?.owner ?? ""}>
             <option value="">— unassigned —</option>
             {r?.owner && !owners.includes(r.owner) && <option value={r.owner}>{r.owner}</option>}
             {owners.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
+          </NativeSelect>
         </Field>
         <Field label="Size of prize">
-          <input
+          <Input
             name="prize"
             value={prize}
             onChange={(e) => setPrize(e.target.value)}
             placeholder="e.g. $5M EBITDA · or 'EV moat'"
-            className={input}
           />
         </Field>
         <Field label="Prize ($M, for rollups)">
-          <input
+          <Input
             type="number"
             step="0.1"
             name="prizeNum"
             value={effectivePrizeNum}
             onChange={(e) => { setPrizeNum(e.target.value); setPrizeTouched(true); }}
             placeholder={derived != null ? `auto: ${derived}` : "—"}
-            className={`${input} tabular`}
+            className="tabular"
           />
         </Field>
         <Field label="Target date" asDiv>
@@ -133,10 +135,10 @@ export function CimForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Current state (today)">
-          <textarea name="currentState" rows={2} defaultValue={r?.currentState ?? ""} placeholder="Where we are now." className={input} />
+          <Textarea name="currentState" rows={2} defaultValue={r?.currentState ?? ""} placeholder="Where we are now." />
         </Field>
         <Field label="Target (mitigated) state">
-          <textarea name="targetState" rows={2} defaultValue={r?.targetState ?? ""} placeholder="What 'fully mitigated' looks like." className={input} />
+          <Textarea name="targetState" rows={2} defaultValue={r?.targetState ?? ""} placeholder="What 'fully mitigated' looks like." />
         </Field>
       </div>
 
@@ -148,7 +150,7 @@ export function CimForm({
         <div className="grid max-h-56 grid-cols-1 gap-x-4 gap-y-1.5 overflow-y-auto rounded-lg border border-border bg-surface p-3 sm:grid-cols-2 lg:grid-cols-3">
           {initiatives.length === 0 && <p className="text-xs text-ink-faint">No initiatives yet.</p>}
           {initiatives.map((i) => (
-            <label key={i.id} className="flex items-center gap-2 text-xs text-ink">
+            <Label key={i.id} className="flex items-center gap-2 text-xs font-normal text-ink">
               <input
                 type="checkbox"
                 name="initiativeIds"
@@ -159,16 +161,16 @@ export function CimForm({
               <span className="truncate" title={`${i.code} · ${i.name}`}>
                 <span className="tabular text-ink-faint">{i.code}</span> {i.name}
               </span>
-            </label>
+            </Label>
           ))}
         </div>
       </div>
 
       <div className="flex items-center gap-3">
-        <button type="submit" className="rounded-md bg-navy px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-navy-deep">
-          {submitLabel}
-        </button>
-        <Link href="/risks" className="text-sm text-ink-muted transition-colors hover:text-ink">Cancel</Link>
+        <SubmitButton>{submitLabel}</SubmitButton>
+        <Button asChild variant="link" className="font-normal text-ink-muted hover:text-ink hover:no-underline">
+          <Link href="/risks">Cancel</Link>
+        </Button>
       </div>
     </form>
   );
@@ -187,9 +189,11 @@ function Field({
    *  where a wrapping label would forward the click and double-activate them. */
   asDiv?: boolean;
 }) {
-  const Wrap = asDiv ? "div" : "label";
+  // Label's own caption styling is reset so children inherit the same text
+  // as the old plain <label>; the caption span below carries the caption look.
+  const Wrap = asDiv ? "div" : Label;
   return (
-    <Wrap className="flex flex-col gap-1.5">
+    <Wrap className={asDiv ? "flex flex-col gap-1.5" : "flex flex-col gap-1.5 text-base font-normal text-ink"}>
       <span className="text-xs font-medium text-ink-muted">
         {label}
         {required && <span className="text-risk"> *</span>}
@@ -201,9 +205,9 @@ function Field({
 
 function CheckField({ label, name, checked }: { label: string; name: string; checked: boolean }) {
   return (
-    <label className="flex items-center gap-2 pt-6">
+    <Label className="flex items-center gap-2 pt-6 text-base font-normal text-ink">
       <input type="checkbox" name={name} defaultChecked={checked} className="h-4 w-4 rounded border-border accent-navy" />
       <span className="text-sm text-ink">{label}</span>
-    </label>
+    </Label>
   );
 }

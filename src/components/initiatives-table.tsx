@@ -7,6 +7,10 @@ import { StatusBadge, QuadrantBadge, ProgressBar } from "@/components/badges";
 import { STATUS_META, QUADRANT_META, formatMoney, formatTeam } from "@/lib/initiatives";
 import type { InitiativeStatus, Quadrant } from "@/generated/prisma/client";
 import { TriangleAlert, ChevronRight, Plus, ChevronUp, ChevronDown } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 
 export type InitiativeRow = {
   id: string;
@@ -97,20 +101,20 @@ export function InitiativesTable({
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, code, lead, driver…" className="w-56 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy" />
+        <Input size="sm" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, code, lead, driver…" className="w-56" />
         {groups.length > 0 && (
-          <select value={group} onChange={(e) => setGroup(e.target.value)} className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-navy">
+          <NativeSelect size="sm" value={group} onChange={(e) => setGroup(e.target.value)} className="px-2.5">
             <option value="">Group: all</option>
             {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-          </select>
+          </NativeSelect>
         )}
         <Sel value={cim} onChange={setCim} label="Pillar / enabler" options={cims} />
         <Sel value={status} onChange={setStatus} label="Status" options={STATUSES} render={(s) => STATUS_META[s as InitiativeStatus].label} />
         <Sel value={quadrant} onChange={setQuadrant} label="Priority" options={QUADRANTS} render={(qd) => QUADRANT_META[qd as Quadrant].label} />
         <Sel value={owner} onChange={setOwner} label="Owner" options={owners} />
-        {active && <button onClick={() => { setQ(""); setOwner(""); setStatus(""); setQuadrant(""); setCim(""); setGroup(""); }} className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-2">Reset</button>}
+        {active && <Button variant="outline" size="sm" onClick={() => { setQ(""); setOwner(""); setStatus(""); setQuadrant(""); setCim(""); setGroup(""); }} className="px-2.5">Reset</Button>}
         <span className="text-xs text-ink-faint">{groupName ? `${groupName}: ` : ""}{filtered.length} of {rows.length}</span>
-        {editable && <Link href="/initiatives/new" className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-navy px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-navy-deep"><Plus size={14} aria-hidden /> New initiative</Link>}
+        {editable && <Button asChild size="sm" className="ml-auto"><Link href="/initiatives/new"><Plus size={14} aria-hidden /> New initiative</Link></Button>}
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-border bg-surface">
@@ -147,7 +151,7 @@ export function InitiativesTable({
                 <td className="px-3 py-3">
                   {i.valueType === "VALUE"
                     ? <QuadrantBadge quadrant={i.quadrant} />
-                    : <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-muted">Non-value</span>}
+                    : <Badge variant="secondary" className="rounded px-1.5 text-[11px]">Non-value</Badge>}
                 </td>
                 <td className="tabular px-3 py-3 text-ink-muted">{i.valueType === "VALUE" && i.valueTargeted != null ? formatMoney(i.valueTargeted) : "—"}</td>
                 <td className="px-3 py-3"><StatusBadge status={i.status} /></td>
@@ -183,9 +187,9 @@ function Th({ label, k, sortKey, dir, onSort, className = "", center }: { label:
 
 function Sel({ value, onChange, label, options, render }: { value: string; onChange: (v: string) => void; label: string; options: string[]; render?: (v: string) => string }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-navy">
+    <NativeSelect size="sm" value={value} onChange={(e) => onChange(e.target.value)} className="px-2.5">
       <option value="">{label}: all</option>
       {options.map((o) => <option key={o} value={o}>{render ? render(o) : o}</option>)}
-    </select>
+    </NativeSelect>
   );
 }

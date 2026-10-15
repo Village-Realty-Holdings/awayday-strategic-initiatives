@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { flash } from "@/lib/flash";
 import { requireSession } from "@/lib/session";
 import { APPS } from "@/lib/apps";
 import { sendEmail, emailConfigured } from "@/lib/email";
@@ -62,7 +63,8 @@ export async function adminActivatePlan(fd: FormData): Promise<void> {
   revalidatePath("/");
   revalidatePath("/initiatives");
   revalidatePath("/admin/plans");
-  redirect(`/admin/plans?saved=${encodeURIComponent(selected.code)}`);
+  await flash(`Active plan switched to ${selected.code}`);
+  redirect("/admin/plans");
 }
 
 async function hash(password: string): Promise<string> {

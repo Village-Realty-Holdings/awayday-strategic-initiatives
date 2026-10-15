@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { flash } from "@/lib/flash";
 import { requireEditor } from "@/lib/session";
 
 function str(fd: FormData, key: string): string | null {
@@ -40,6 +41,7 @@ export async function createRosterMember(formData: FormData) {
     data: { userId: session.user.id, action: "CREATE", entity: "RosterMember", entityId: created.id, after: plain(created) },
   });
   revalidatePath("/people");
+  await flash("Person added");
   redirect("/people");
 }
 
@@ -71,6 +73,7 @@ export async function updateRosterMember(formData: FormData) {
     data: { userId: session.user.id, action: "UPDATE", entity: "RosterMember", entityId: id, before: plain(before), after: plain(after) },
   });
   revalidatePath("/people");
+  await flash("Person updated");
   redirect("/people");
 }
 
@@ -116,6 +119,7 @@ export async function upsertPersonDetails(formData: FormData) {
     });
   }
   revalidatePath("/people");
+  await flash("Details saved");
   redirect("/people");
 }
 
@@ -129,5 +133,6 @@ export async function deleteRosterMember(formData: FormData) {
     data: { userId: session.user.id, action: "DELETE", entity: "RosterMember", entityId: id, before: plain(before) },
   });
   revalidatePath("/people");
+  await flash("Person removed");
   redirect("/people");
 }

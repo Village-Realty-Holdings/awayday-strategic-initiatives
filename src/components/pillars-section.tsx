@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Target, Pencil, X, Plus, Trash2 } from "lucide-react";
 import type { Pillar } from "@/lib/sources";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PillarCards, ProgressMini, siProgress, type SiMap } from "@/components/overview-sections";
 import { CodeMultiSelect, type CodeOption } from "@/components/code-multiselect";
 import { savePillars } from "@/app/(app)/admin/pillars/actions";
@@ -12,9 +15,6 @@ const toArr = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
 // Editor-side shape: cim/sis held as comma strings for type-in-place editing.
 type EItem = { id: string; name: string; desc: string; cim: string; sis: string };
 type EPillar = { id: string; name: string; icon: string; headline: string; items: EItem[] };
-
-const inp = "w-full rounded-md border border-border bg-surface px-2 py-1 text-sm text-ink outline-none transition-colors focus:border-navy";
-const inpSm = "w-full rounded-md border border-border bg-surface px-2 py-1 text-[11px] text-ink-faint outline-none transition-colors focus:border-navy";
 
 function toEditable(pillars: Pillar[]): EPillar[] {
   return pillars.map((p) => ({
@@ -33,13 +33,15 @@ export function PillarsSection({ pillars, siMap, editable, siOptions, cimOptions
           <Target size={15} className="text-navy" aria-hidden /> 2026 Goals — the bright future
         </h2>
         {editable && (
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => setEditing((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-2"
+            className="px-2.5 py-1"
           >
             {editing ? <><X size={12} aria-hidden /> Close</> : <><Pencil size={12} aria-hidden /> Edit</>}
-          </button>
+          </Button>
         )}
       </div>
       <p className="mb-3 mt-1 max-w-3xl text-xs text-ink-faint">
@@ -77,7 +79,10 @@ function PillarsEditor({ pillars, siMap, siOptions, cimOptions, onDone }: { pill
     setSaving(true);
     try {
       await savePillars(fd);
+      toast.success("Pillars saved");
       onDone();
+    } catch {
+      toast.error("Couldn't save your changes. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -90,10 +95,10 @@ function PillarsEditor({ pillars, siMap, siOptions, cimOptions, onDone }: { pill
         {rows.map((p, pi) => (
           <div key={pi} className="rounded-xl border border-border bg-surface p-5">
             <div className="flex items-start gap-2">
-              <input value={p.icon} onChange={(e) => setPillar(pi, "icon", e.target.value)} className="w-9 shrink-0 rounded-md border border-border bg-surface px-1 py-1 text-center text-lg outline-none focus:border-navy" aria-label="Icon" />
+              <Input size="xs" value={p.icon} onChange={(e) => setPillar(pi, "icon", e.target.value)} className="w-9 shrink-0 px-1 text-center text-lg" aria-label="Icon" />
               <div className="min-w-0 flex-1 space-y-1.5">
-                <input value={p.name} onChange={(e) => setPillar(pi, "name", e.target.value)} placeholder="Pillar name" className={`${inp} font-semibold`} />
-                <input value={p.headline} onChange={(e) => setPillar(pi, "headline", e.target.value)} placeholder="Headline" className={`${inp} italic text-navy-deep`} />
+                <Input size="xs" value={p.name} onChange={(e) => setPillar(pi, "name", e.target.value)} placeholder="Pillar name" className="w-full text-sm font-semibold" />
+                <Input size="xs" value={p.headline} onChange={(e) => setPillar(pi, "headline", e.target.value)} placeholder="Headline" className="w-full text-sm italic text-navy-deep" />
               </div>
             </div>
 
@@ -102,12 +107,12 @@ function PillarsEditor({ pillars, siMap, siOptions, cimOptions, onDone }: { pill
                 <li key={ii} className="rounded-lg border border-border/70 bg-surface-2/30 p-2.5">
                   <div className="mb-1.5 flex items-center justify-between gap-2">
                     <ProgressMini value={siProgress(it.sis.split(",").map((s) => s.trim()).filter(Boolean), siMap)} />
-                    <button type="button" onClick={() => removeItem(pi, ii)} title="Remove item" className="text-ink-faint transition-colors hover:text-risk">
+                    <Button type="button" variant="faint" size="bare" onClick={() => removeItem(pi, ii)} title="Remove item" aria-label="Remove item" className="hover:text-risk">
                       <Trash2 size={13} aria-hidden />
-                    </button>
+                    </Button>
                   </div>
-                  <input value={it.name} onChange={(e) => setItem(pi, ii, "name", e.target.value)} placeholder="Item name" className={`${inp} mb-1.5 font-medium`} />
-                  <input value={it.desc} onChange={(e) => setItem(pi, ii, "desc", e.target.value)} placeholder="Description" className={`${inpSm} mb-2`} />
+                  <Input size="xs" value={it.name} onChange={(e) => setItem(pi, ii, "name", e.target.value)} placeholder="Item name" className="mb-1.5 w-full text-sm font-medium" />
+                  <Input size="xs" value={it.desc} onChange={(e) => setItem(pi, ii, "desc", e.target.value)} placeholder="Description" className="mb-2 w-full text-[11px] text-ink-faint" />
                   <div className="flex flex-col gap-2">
                     <div className="flex flex-col gap-1">
                       <span className="text-[9px] font-medium uppercase tracking-wide text-ink-faint">SIs driving</span>
@@ -121,18 +126,18 @@ function PillarsEditor({ pillars, siMap, siOptions, cimOptions, onDone }: { pill
                 </li>
               ))}
             </ul>
-            <button type="button" onClick={() => addItem(pi)} className="mt-2.5 inline-flex w-fit items-center gap-1 rounded-md border border-border px-2.5 py-1 text-[11px] font-medium text-ink-muted transition-colors hover:bg-surface-2">
+            <Button type="button" variant="outline" size="xs" onClick={() => addItem(pi)} className="mt-2.5 w-fit gap-1 px-2.5">
               <Plus size={12} aria-hidden /> Add item
-            </button>
+            </Button>
           </div>
         ))}
       </div>
 
       <div className="flex items-center gap-3 border-t border-border pt-4">
-        <button type="submit" disabled={saving} className="rounded-md bg-navy px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-navy-deep disabled:opacity-60">
+        <Button type="submit" disabled={saving}>
           {saving ? "Saving…" : "Save 2026 goals"}
-        </button>
-        <button type="button" onClick={onDone} className="text-sm text-ink-muted transition-colors hover:text-ink">Cancel</button>
+        </Button>
+        <Button type="button" variant="ghost" size="bare" onClick={onDone} className="text-sm hover:bg-transparent">Cancel</Button>
       </div>
     </form>
   );

@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Goal, Pillar, BoardItem, GoalColor } from "@/lib/sources";
 import { STATUS_META } from "@/lib/initiatives";
 import type { InitiativeStatus } from "@/generated/prisma/client";
+import { Badge } from "@/components/ui/badge";
 
 // code -> initiative lookup (for SI progress + deep links).
 export type SiInfo = { id: string; pct: number; status: InitiativeStatus };
@@ -45,28 +46,27 @@ export function ProgressMini({ value }: { value: number | null }) {
 
 function SiPill({ code, siMap }: { code: string; siMap: SiMap }) {
   const info = siMap[code];
-  if (!info) return <span className="tabular rounded bg-surface-2 px-1.5 py-0.5 text-[10px] text-ink-faint">{code}</span>;
+  if (!info) return <Badge variant="secondary" className="tabular rounded px-1.5 text-[10px] font-normal text-ink-faint">{code}</Badge>;
   const m = STATUS_META[info.status];
   return (
-    <Link
-      href={`/initiatives/${info.id}`}
-      title={`${m.label} · ${Math.round(info.pct * 100)}%`}
-      className={`tabular inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition-opacity hover:opacity-80 ${STATUS_PILL[info.status]}`}
+    <Badge
+      asChild
+      variant="custom"
+      className={`tabular rounded px-1.5 text-[10px] transition-opacity hover:opacity-80 ${STATUS_PILL[info.status]}`}
     >
-      <span className="text-[8px] leading-none" aria-hidden>{m.glyph}</span>
-      {code}
-    </Link>
+      <Link href={`/initiatives/${info.id}`} title={`${m.label} · ${Math.round(info.pct * 100)}%`}>
+        <span className="text-[8px] leading-none" aria-hidden>{m.glyph}</span>
+        {code}
+      </Link>
+    </Badge>
   );
 }
 
 function CimPill({ code }: { code: string }) {
   return (
-    <Link
-      href={`/risks#${code}`}
-      className="tabular rounded bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-ink-muted transition-colors hover:bg-border"
-    >
-      {code}
-    </Link>
+    <Badge asChild variant="secondary" className="tabular rounded px-1.5 text-[10px] transition-colors hover:bg-border">
+      <Link href={`/risks#${code}`}>{code}</Link>
+    </Badge>
   );
 }
 
@@ -122,7 +122,7 @@ export function ScorecardTable({ goals, siMap }: { goals: Goal[]; siMap: SiMap }
                   <td className="tabular px-3 py-2.5 whitespace-nowrap text-ink-muted">{g.ltm}</td>
                   <td className="tabular px-3 py-2.5 whitespace-nowrap text-ink-muted">{g.ytdBud}</td>
                   <td className="px-3 py-2.5 whitespace-nowrap">
-                    <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${COLOR[g.color]}`}>{g.status}</span>
+                    <Badge variant="custom" className={`rounded px-1.5 text-[11px] ${COLOR[g.color]}`}>{g.status}</Badge>
                   </td>
                   <td className="px-3 py-2.5"><ProgressMini value={siProgress(g.sis, siMap)} /></td>
                   <td className="px-3 py-2.5 whitespace-nowrap text-xs text-ink-muted">{g.owner}</td>

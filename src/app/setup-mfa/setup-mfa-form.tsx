@@ -5,6 +5,9 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 // Only needed once the user reaches the QR step, so keep it out of the initial bundle (#36).
 const QRCode = dynamic(() => import("react-qr-code"), { ssr: false });
@@ -103,26 +106,22 @@ export function SetupMfaForm({ needsPassword }: { needsPassword: boolean }) {
                   MFA is required for every account. Confirm your password to begin.
                 </p>
               </div>
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-ink-muted">Password</span>
-                <input
+              <Label className="flex flex-col gap-1.5">
+                Password
+                <Input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
                   autoFocus
-                  className="rounded-md border border-border bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-navy"
+                  className="bg-bg"
                 />
-              </label>
+              </Label>
               {error && <p className="text-xs text-risk">{error}</p>}
-              <button
-                type="submit"
-                disabled={loading}
-                className="mt-1 rounded-md bg-navy px-3 py-2 text-sm font-medium text-white hover:bg-navy-deep disabled:opacity-60"
-              >
+              <Button type="submit" disabled={loading} className="mt-1 px-3">
                 {loading ? "…" : "Continue"}
-              </button>
+              </Button>
             </form>
           ) : (
             <form onSubmit={verify} className="flex flex-col gap-4">
@@ -151,9 +150,9 @@ export function SetupMfaForm({ needsPassword }: { needsPassword: boolean }) {
                   </div>
                 </div>
               )}
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-ink-muted">Authentication code</span>
-                <input
+              <Label className="flex flex-col gap-1.5">
+                Authentication code
+                <Input
                   type="text"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
@@ -161,17 +160,13 @@ export function SetupMfaForm({ needsPassword }: { needsPassword: boolean }) {
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   placeholder="123456"
-                  className="rounded-md border border-border bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-navy"
+                  className="bg-bg"
                 />
-              </label>
+              </Label>
               {error && <p className="text-xs text-risk">{error}</p>}
-              <button
-                type="submit"
-                disabled={loading || !totpURI}
-                className="mt-1 rounded-md bg-navy px-3 py-2 text-sm font-medium text-white hover:bg-navy-deep disabled:opacity-60"
-              >
+              <Button type="submit" disabled={loading || !totpURI} className="mt-1 px-3">
                 {loading ? "…" : "Enable MFA"}
-              </button>
+              </Button>
             </form>
           )}
         </div>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { APPS as APP_DEFS } from "@/lib/apps";
 import Link from "next/link";
+import { toast } from "sonner";
 import { UserPlus, KeyRound, ShieldCheck, Loader2, Check, RefreshCw, SlidersHorizontal, Pencil, UserMinus } from "lucide-react";
 import {
   adminCreateUser,
@@ -14,6 +15,12 @@ import {
   type AdminResult,
 } from "@/app/(app)/admin/actions";
 import { upsertPersonDetails } from "@/app/(platform)/roster/actions";
+import { ConfirmAction } from "@/components/confirm-action";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 export type Person = {
   key: string;
@@ -62,7 +69,17 @@ export function PeopleManager({
   isAdmin: boolean;
 }) {
   const [banner, setBanner] = useState<{ ok: boolean; text: string } | null>(null);
-  const flash = (r: AdminResult) => setBanner(r.ok ? { ok: true, text: r.message } : { ok: false, text: r.error });
+  // Results toast. The one exception is a generated temporary password, which
+  // is shown once and must not vanish: that stays in a persistent banner.
+  const report = (r: AdminResult) => {
+    if (r.ok && r.tempPassword) {
+      setBanner({ ok: true, text: r.message });
+      return;
+    }
+    setBanner(null);
+    if (r.ok) toast.success(r.message);
+    else toast.error(r.error);
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -74,12 +91,16 @@ export function PeopleManager({
 
       {editable && (
         <div className="flex flex-wrap items-center gap-2">
-          <Link href="/roster/new" className="inline-flex items-center gap-1.5 rounded-md bg-navy px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-navy-deep">
-            <UserPlus size={14} aria-hidden /> Add person
-          </Link>
-          <Link href="/roster/lists" className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium text-ink transition-colors hover:bg-surface-2">
-            <SlidersHorizontal size={14} aria-hidden /> Manage lists
-          </Link>
+          <Button asChild size="sm" className="py-2">
+            <Link href="/roster/new">
+              <UserPlus size={14} aria-hidden /> Add person
+            </Link>
+          </Button>
+          <Button asChild variant="secondary" size="sm" className="py-2">
+            <Link href="/roster/lists">
+              <SlidersHorizontal size={14} aria-hidden /> Manage lists
+            </Link>
+          </Button>
           {!isAdmin && <span className="text-[11px] text-ink-faint">Login &amp; role changes require an admin.</span>}
         </div>
       )}
@@ -99,7 +120,7 @@ export function PeopleManager({
           </thead>
           <tbody>
             {people.map((p) => (
-              <PersonRow key={p.key} p={p} isAdmin={isAdmin} editable={editable} onResult={flash} />
+              <PersonRow key={p.key} p={p} isAdmin={isAdmin} editable={editable} onResult={report} />
             ))}
           </tbody>
         </table>
@@ -132,19 +153,20 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
         </td>
         <td className="px-3 py-3">
           {p.userId ? (
-            <select
+            <NativeSelect
+              size="xs"
               defaultValue={p.role ?? "user"}
               disabled={!isAdmin || p.isSelf || busy === "role"}
               onChange={(e) => { const fd = new FormData(); fd.set("id", p.userId!); fd.set("role", e.target.value); run(adminSetRole, fd, "role"); }}
-              className="rounded-md border border-border bg-surface px-2 py-1 text-xs text-ink outline-none focus:border-navy disabled:opacity-50"
+              className="disabled:opacity-50"
               title={p.isSelf ? "You can't change your own role" : !isAdmin ? "Admin only" : undefined}
             >
               {ROLES.map((r) => <option key={r.v} value={r.v}>{r.label}</option>)}
-            </select>
+            </NativeSelect>
           ) : p.email && isAdmin ? (
-            <button onClick={() => setGranting((v) => !v)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-navy-deep transition-colors hover:bg-surface-2">
+            <Button onClick={() => setGranting((v) => !v)} variant="outline" size="xs" className="gap-1 text-navy-deep">
               <UserPlus size={12} aria-hidden /> Grant login
-            </button>
+            </Button>
           ) : (
             <span className="text-xs text-ink-faint">{p.email ? "No login" : "Needs email"}</span>
           )}
@@ -190,34 +212,37 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
         <td className="px-4 py-3">
           <div className="flex items-center justify-end gap-1.5">
             {editable && (
-              <button onClick={() => setEditing((v) => !v)} title="Edit details" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-ink-muted transition-colors hover:bg-surface-2">
+              <Button onClick={() => setEditing((v) => !v)} title="Edit details" variant="outline" size="xs" className="gap-1">
                 <Pencil size={12} aria-hidden /> Edit
-              </button>
+              </Button>
             )}
             {p.userId && isAdmin && (
               <>
-                <button onClick={() => setResetting((v) => !v)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-ink-muted transition-colors hover:bg-surface-2" title="Reset password">
+                <Button onClick={() => setResetting((v) => !v)} variant="outline" size="xs" className="gap-1" title="Reset password">
                   <KeyRound size={12} aria-hidden /> Password
-                </button>
+                </Button>
                 {p.mfa && (
-                  <button
-                    onClick={() => { if (confirm(`Reset MFA for ${p.email}? They'll set up a new authenticator next login.`)) { const fd = new FormData(); fd.set("id", p.userId!); run(adminResetMfa, fd, "mfa"); } }}
-                    disabled={busy === "mfa"}
-                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-ink-muted transition-colors hover:bg-surface-2 disabled:opacity-50"
-                    title="Reset MFA"
+                  <ConfirmAction
+                    title="Reset MFA?"
+                    description={`Reset MFA for ${p.email}? They'll set up a new authenticator at their next login and are signed out now.`}
+                    confirmLabel="Reset MFA"
+                    confirmVariant="default"
+                    onConfirm={() => { const fd = new FormData(); fd.set("id", p.userId!); void run(adminResetMfa, fd, "mfa"); }}
+                    triggerProps={{ disabled: busy === "mfa", variant: "outline", size: "xs", className: "gap-1 disabled:opacity-50", title: "Reset MFA" }}
                   >
                     <ShieldCheck size={12} aria-hidden /> MFA
-                  </button>
+                  </ConfirmAction>
                 )}
                 {!p.isSelf && (
-                  <button
-                    onClick={() => { if (confirm(`Revoke login for ${p.email}? They stay in the directory but can no longer sign in.`)) { const fd = new FormData(); fd.set("id", p.userId!); run(adminRemoveUser, fd, "revoke"); } }}
-                    disabled={busy === "revoke"}
-                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-risk transition-colors hover:bg-risk-soft disabled:opacity-50"
-                    title="Revoke login"
+                  <ConfirmAction
+                    title="Revoke login?"
+                    description={`Revoke login for ${p.email}? They stay in the directory but can no longer sign in.`}
+                    confirmLabel="Revoke login"
+                    onConfirm={() => { const fd = new FormData(); fd.set("id", p.userId!); void run(adminRemoveUser, fd, "revoke"); }}
+                    triggerProps={{ disabled: busy === "revoke", variant: "destructive", size: "xs", className: "gap-1 disabled:opacity-50", title: "Revoke login", "aria-label": "Revoke login" }}
                   >
                     <UserMinus size={12} aria-hidden />
-                  </button>
+                  </ConfirmAction>
                 )}
               </>
             )}
@@ -232,18 +257,18 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
               {p.rosterId && <input type="hidden" name="rosterId" value={p.rosterId} />}
               {p.email && <input type="hidden" name="email" value={p.email} />}
               <Labeled label="Name">
-                <input name="name" defaultValue={p.name} required className={`${input} w-44`} />
+                <Input name="name" defaultValue={p.name} required className="w-44" />
               </Labeled>
               <Labeled label="Position">
-                <input name="position" defaultValue={p.position ?? ""} placeholder="e.g. Head of M&A" className={`${input} w-52`} />
+                <Input name="position" defaultValue={p.position ?? ""} placeholder="e.g. Head of M&A" className="w-52" />
               </Labeled>
               <Labeled label="Department">
-                <input name="department" defaultValue={p.department ?? ""} placeholder="e.g. M&A" className={`${input} w-44`} />
+                <Input name="department" defaultValue={p.department ?? ""} placeholder="e.g. M&A" className="w-44" />
               </Labeled>
-              <button type="submit" className="inline-flex items-center gap-1.5 rounded-md bg-navy px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-navy-deep">
+              <SubmitButton size="sm" className="py-2">
                 <Check size={13} aria-hidden /> Save details
-              </button>
-              <button type="button" onClick={() => setEditing(false)} className="rounded-md border border-border px-3 py-2 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-2">Cancel</button>
+              </SubmitButton>
+              <Button type="button" onClick={() => setEditing(false)} variant="outline" size="sm" className="py-2">Cancel</Button>
               {!p.email && <span className="text-[11px] text-ink-faint">Tip: add an email to enable a login later.</span>}
             </form>
           </td>
@@ -263,22 +288,22 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
               className="flex flex-wrap items-center gap-2"
             >
               <span className="text-xs text-ink-muted">Grant {p.name} a login:</span>
-              <select name="role" defaultValue="editor" className={input} title="Platform role">
+              <NativeSelect name="role" defaultValue="editor" title="Platform role">
                 {ROLES.map((r) => <option key={r.v} value={r.v}>{r.label}</option>)}
-              </select>
+              </NativeSelect>
               <span className="flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-1.5">
                 <span className="text-[11px] font-medium text-ink-faint">Apps:</span>
                 {APPS.map((a) => (
-                  <label key={a.key} className="flex items-center gap-1 text-xs text-ink-muted">
+                  <Label key={a.key} className="flex items-center gap-1 font-normal">
                     <input type="checkbox" name="apps" value={a.key} defaultChecked className="accent-navy" /> {a.label}
-                  </label>
+                  </Label>
                 ))}
               </span>
-              <input name="password" value={pw} onChange={(e) => setPw(e.target.value)} minLength={12} placeholder="password (blank = email them one)" className={`${input} w-56`} />
-              <button type="button" onClick={() => setPw(genPassword())} className="rounded-md border border-border px-2 py-1.5 text-ink-muted transition-colors hover:bg-surface-2" title="Generate"><RefreshCw size={13} aria-hidden /></button>
-              <button type="submit" disabled={busy === "grant"} className="inline-flex items-center gap-1.5 rounded-md bg-navy px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-navy-deep disabled:opacity-60">
+              <Input name="password" value={pw} onChange={(e) => setPw(e.target.value)} minLength={12} placeholder="password (blank = email them one)" className="w-56" />
+              <Button type="button" onClick={() => setPw(genPassword())} variant="outline" size="bare" className="px-2 py-1.5" title="Generate" aria-label="Generate"><RefreshCw size={13} aria-hidden /></Button>
+              <Button type="submit" disabled={busy === "grant"} size="sm">
                 {busy === "grant" ? <Loader2 size={13} className="animate-spin" aria-hidden /> : <UserPlus size={13} aria-hidden />} Create login
-              </button>
+              </Button>
               <span className="text-[11px] text-ink-faint">Blank password: their login details are emailed automatically. They set up MFA + change it on first login.</span>
             </form>
           </td>
@@ -297,11 +322,11 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
               className="flex flex-wrap items-center gap-2"
             >
               <span className="text-xs text-ink-muted">New password for {p.email}:</span>
-              <input name="password" value={pw} onChange={(e) => setPw(e.target.value)} required minLength={12} placeholder="min 12 chars" className={`${input} w-52`} />
-              <button type="button" onClick={() => setPw(genPassword())} className="rounded-md border border-border px-2 py-1.5 text-ink-muted transition-colors hover:bg-surface-2" title="Generate"><RefreshCw size={13} aria-hidden /></button>
-              <button type="submit" disabled={busy === "pw"} className="inline-flex items-center gap-1.5 rounded-md bg-navy px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-navy-deep disabled:opacity-60">
+              <Input name="password" value={pw} onChange={(e) => setPw(e.target.value)} required minLength={12} placeholder="min 12 chars" className="w-52" />
+              <Button type="button" onClick={() => setPw(genPassword())} variant="outline" size="bare" className="px-2 py-1.5" title="Generate" aria-label="Generate"><RefreshCw size={13} aria-hidden /></Button>
+              <Button type="submit" disabled={busy === "pw"} size="sm">
                 {busy === "pw" ? <Loader2 size={13} className="animate-spin" aria-hidden /> : <KeyRound size={13} aria-hidden />} Set password
-              </button>
+              </Button>
               <span className="text-[11px] text-ink-faint">Signs out their current sessions.</span>
             </form>
           </td>
@@ -311,13 +336,11 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
   );
 }
 
-const input = "rounded-md border border-border bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-navy";
-
 function Labeled({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1">
+    <Label className="flex flex-col gap-1">
       <span className="text-[10px] font-medium uppercase tracking-wide text-ink-faint">{label}</span>
       {children}
-    </label>
+    </Label>
   );
 }

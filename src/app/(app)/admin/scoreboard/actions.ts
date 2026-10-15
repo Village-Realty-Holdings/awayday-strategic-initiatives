@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { flash } from "@/lib/flash";
 import { requireSession } from "@/lib/session";
 import { getEbitdaBuild, normalizeEbitda, EBITDA_SETTING_KEY } from "@/lib/overview-data";
 
@@ -60,7 +61,8 @@ export async function saveEbitdaBuild(formData: FormData) {
   });
   revalidatePath("/");
   revalidatePath("/admin/scoreboard");
-  redirect("/admin/scoreboard?saved=1");
+  await flash("Scoreboard saved");
+  redirect("/admin/scoreboard");
 }
 
 // Inline edit on the Overview: saves only the headline figures, preserves the

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Flame, LayoutGrid, ScatterChart } from "lucide-react";
 import { RiskMatrix, type RiskPoint } from "@/components/risk-matrix";
+import { Badge } from "@/components/ui/badge";
 
 function healthChip(cov: number): string {
   if (cov < 0.34) return "bg-risk-soft text-risk";
@@ -51,16 +52,21 @@ export function RiskViews({ risks }: { risks: RiskPoint[] }) {
                 <span className="pt-1 text-[11px] font-medium text-ink-muted">{g.category}</span>
                 <div className="flex flex-wrap gap-1.5">
                   {g.items.map((r) => (
-                    <a
+                    <Badge
                       key={r.id}
-                      href={`#${r.code}`}
-                      title={`${r.risk} · ${r.owner ?? "Unassigned"} · ${Math.round(r.coverage * 100)}% covered${r.prize ? ` · ${r.prize}` : ""}`}
-                      className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-opacity hover:opacity-80 ${healthChip(r.coverage)}`}
+                      asChild
+                      variant="custom"
+                      className={`py-1 text-[11px] transition-opacity hover:opacity-80 ${healthChip(r.coverage)}`}
                     >
-                      <span className="tabular">{r.code}</span>
-                      {r.critical && <Flame size={10} aria-hidden />}
-                      <span className="tabular opacity-80">{Math.round(r.coverage * 100)}%</span>
-                    </a>
+                      <a
+                        href={`#${r.code}`}
+                        title={`${r.risk} · ${r.owner ?? "Unassigned"} · ${Math.round(r.coverage * 100)}% covered${r.prize ? ` · ${r.prize}` : ""}`}
+                      >
+                        <span className="tabular">{r.code}</span>
+                        {r.critical && <Flame size={10} aria-hidden />}
+                        <span className="tabular opacity-80">{Math.round(r.coverage * 100)}%</span>
+                      </a>
+                    </Badge>
                   ))}
                 </div>
               </div>

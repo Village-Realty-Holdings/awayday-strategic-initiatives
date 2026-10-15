@@ -13,6 +13,7 @@ import {
   formatTeam,
 } from "@/lib/initiatives";
 import { requireSession, canEdit } from "@/lib/session";
+import { ConfirmAction } from "@/components/confirm-action";
 import { DeleteInitiativeButton } from "@/components/delete-initiative-button";
 import {
   addAttachment,
@@ -39,6 +40,12 @@ import {
 } from "@/app/(app)/initiatives/actions";
 import { CharterAssistButton } from "@/components/charter-assist";
 import { DatePicker } from "@/components/date-picker";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft,
   Pencil,
@@ -132,49 +139,48 @@ export default async function InitiativeDetail({
                 <span className="tabular text-white/55">{i.code}</span> · {i.name}
               </h1>
               <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded bg-white/15 px-2 py-0.5 text-xs font-medium text-white">
+                <Badge variant="custom" className="gap-1.5 rounded bg-white/15 text-white">
                   <span className="text-[10px] leading-none" aria-hidden>{STATUS_META[i.status].glyph}</span>
                   {STATUS_META[i.status].label}
-                </span>
-                <span className="rounded bg-white/15 px-2 py-0.5 text-xs font-medium text-white">
+                </Badge>
+                <Badge variant="custom" className="rounded bg-white/15 text-white">
                   {isValue ? QUADRANT_META[i.quadrant].label : "Non-value"}
-                </span>
+                </Badge>
                 {behind && (
-                  <span className="rounded bg-gold px-2 py-0.5 text-xs font-semibold text-navy-deep">
+                  <Badge variant="custom" className="rounded bg-gold font-semibold text-navy-deep">
                     Behind pace
-                  </span>
+                  </Badge>
                 )}
                 {i.cimDriver && (
                   <span className="text-xs text-white/70">{i.cimDriver}</span>
                 )}
                 {i.cimItemCode && (
-                  <span className="tabular rounded bg-white/10 px-1.5 py-0.5 text-[11px] font-medium text-white/80">{i.cimItemCode}</span>
+                  <Badge variant="custom" className="tabular rounded bg-white/10 px-1.5 text-[11px] text-white/80">{i.cimItemCode}</Badge>
                 )}
                 {i.strategicArea && (
-                  <span className="rounded bg-white/10 px-1.5 py-0.5 text-xs text-white/80">{i.strategicArea.name}</span>
+                  <Badge variant="custom" className="rounded bg-white/10 px-1.5 font-normal text-white/80">{i.strategicArea.name}</Badge>
                 )}
               </div>
             </div>
             <div className="flex shrink-0 items-start gap-5">
               {isValue ? (
                 <>
-                  <Badge label="Targeted value" value={formatMoney(i.progressTarget)} tone="gold" />
-                  <Badge label="Effort" value={effort} tone="teal" />
+                  <StatBadge label="Targeted value" value={formatMoney(i.progressTarget)} tone="gold" />
+                  <StatBadge label="Effort" value={effort} tone="teal" />
                 </>
               ) : (
-                <Badge label="Type" value="Non-value" tone="gold" />
+                <StatBadge label="Type" value="Non-value" tone="gold" />
               )}
             </div>
           </div>
           {editable && (
             <div className="absolute bottom-4 right-6 flex items-center gap-2">
-              <Link
-                href={`/initiatives/${i.id}/edit`}
-                className="inline-flex items-center gap-1.5 rounded-md border border-white/25 bg-white/10 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/20"
-              >
-                <Pencil size={13} aria-hidden /> Edit
-              </Link>
-              <DeleteInitiativeButton id={i.id} variant="onDark" />
+              <Button asChild variant="onDark" size="sm" className="px-2.5">
+                <Link href={`/initiatives/${i.id}/edit`}>
+                  <Pencil size={13} aria-hidden /> Edit
+                </Link>
+              </Button>
+              <DeleteInitiativeButton id={i.id} name={i.name} variant="onDark" />
             </div>
           )}
         </div>
@@ -271,13 +277,13 @@ export default async function InitiativeDetail({
                     {editable ? (
                       <form action={updateSubInitiative} className="flex items-center gap-1.5">
                         <input type="hidden" name="id" value={s.id} />
-                        <select name="status" defaultValue={s.status} className="rounded-md border border-border bg-surface px-2 py-1 text-xs text-ink outline-none focus:border-navy">
+                        <NativeSelect size="xs" name="status" defaultValue={s.status}>
                           {(["NOT_STARTED", "PLANNING", "IN_PROGRESS", "AT_RISK", "DONE"] as const).map((st) => (
                             <option key={st} value={st}>{STATUS_META[st].label}</option>
                           ))}
-                        </select>
-                        <input type="number" name="pctComplete" min={0} max={100} defaultValue={Math.round(s.pctComplete * 100)} className="w-16 rounded-md border border-border bg-surface px-2 py-1 text-xs text-ink outline-none focus:border-navy" />
-                        <button type="submit" className="rounded-md border border-border px-2 py-1 text-[11px] font-medium text-ink-muted transition-colors hover:bg-surface">Save</button>
+                        </NativeSelect>
+                        <Input size="xs" type="number" name="pctComplete" min={0} max={100} defaultValue={Math.round(s.pctComplete * 100)} className="w-16" />
+                        <SubmitButton variant="outline" size="xs" className="hover:bg-surface">Save</SubmitButton>
                       </form>
                     ) : (
                       <span className={`inline-flex items-center gap-1.5 text-xs ${STATUS_META[s.status].fg}`}>
@@ -286,10 +292,16 @@ export default async function InitiativeDetail({
                       </span>
                     )}
                     {editable && (
-                      <form action={removeSubInitiative}>
-                        <input type="hidden" name="id" value={s.id} />
-                        <button type="submit" title="Remove" className="text-ink-faint transition-colors hover:text-risk"><Trash2 size={13} aria-hidden /></button>
-                      </form>
+                      <ConfirmAction
+                          action={removeSubInitiative}
+                          fields={{ id: s.id }}
+                          title="Remove sub-initiative?"
+                          description={`Remove sub-initiative “${s.title}”? This can't be undone.`}
+                          confirmLabel="Remove"
+                          triggerProps={{ variant: "faint", size: "bare", title: "Remove", "aria-label": "Remove", className: "hover:text-risk" }}
+                        >
+                          <Trash2 size={13} aria-hidden />
+                        </ConfirmAction>
                     )}
                   </div>
                 </li>
@@ -299,12 +311,12 @@ export default async function InitiativeDetail({
           {editable && (
             <form action={addSubInitiative} className="mt-3 flex flex-wrap items-end gap-2">
               <input type="hidden" name="initiativeId" value={i.id} />
-              <input name="title" required placeholder="Sub-initiative title" className="min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy" />
-              <select name="owner" defaultValue="" className="w-44 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy">
+              <Input size="sm" name="title" required placeholder="Sub-initiative title" className="min-w-0 flex-1" />
+              <NativeSelect size="sm" name="owner" defaultValue="" className="w-44">
                 <option value="">Owner (from People)</option>
                 {people.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
-              <button type="submit" className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-surface-2">Add sub-initiative</button>
+              </NativeSelect>
+              <SubmitButton variant="secondary" size="sm">Add sub-initiative</SubmitButton>
             </form>
           )}
         </div>
@@ -357,13 +369,19 @@ export default async function InitiativeDetail({
                       </p>
                     </div>
                     {overdue && (
-                      <span className="shrink-0 rounded-full bg-risk-soft px-2 py-0.5 text-[11px] font-semibold text-risk">Past due</span>
+                      <Badge variant="risk" shape="pill" className="shrink-0">Past due</Badge>
                     )}
                     {editable && (
-                      <form action={removeInitiativeMilestone}>
-                        <input type="hidden" name="id" value={m.id} />
-                        <button type="submit" title="Remove" className="text-ink-faint transition-colors hover:text-risk"><Trash2 size={13} aria-hidden /></button>
-                      </form>
+                      <ConfirmAction
+                          action={removeInitiativeMilestone}
+                          fields={{ id: m.id }}
+                          title="Remove milestone?"
+                          description={`Remove milestone “${m.title}”? This can't be undone.`}
+                          confirmLabel="Remove"
+                          triggerProps={{ variant: "faint", size: "bare", title: "Remove", "aria-label": "Remove", className: "hover:text-risk" }}
+                        >
+                          <Trash2 size={13} aria-hidden />
+                        </ConfirmAction>
                     )}
                   </li>
                 );
@@ -373,10 +391,10 @@ export default async function InitiativeDetail({
           {editable && (
             <form action={addInitiativeMilestone} className="mt-3 flex flex-wrap items-end gap-2">
               <input type="hidden" name="initiativeId" value={i.id} />
-              <input name="title" required placeholder="Milestone" className="min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy" />
-              <input name="owner" list="people-list" placeholder="Owner" className="w-40 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy" />
+              <Input size="sm" name="title" required placeholder="Milestone" className="min-w-0 flex-1" />
+              <Input size="sm" name="owner" list="people-list" placeholder="Owner" className="w-40" />
               <div className="w-44"><DatePicker name="dueAt" label="Due date" clearable align="end" /></div>
-              <button type="submit" className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-surface-2">Add milestone</button>
+              <SubmitButton variant="secondary" size="sm">Add milestone</SubmitButton>
             </form>
           )}
         </div>
@@ -405,23 +423,29 @@ export default async function InitiativeDetail({
                     {editable ? (
                       <form action={updateInitiativeRisk} className="flex items-center gap-1.5">
                         <input type="hidden" name="id" value={r.id} />
-                        <select name="status" defaultValue={r.status} className="rounded-md border border-border bg-surface px-2 py-1 text-xs text-ink outline-none focus:border-navy">
+                        <NativeSelect size="xs" name="status" defaultValue={r.status}>
                           <option value="OPEN">Open</option>
                           <option value="MITIGATED">Mitigated</option>
                           <option value="ACCEPTED">Accepted</option>
-                        </select>
-                        <button type="submit" className="rounded-md border border-border px-2 py-1 text-[11px] font-medium text-ink-muted transition-colors hover:bg-surface">Save</button>
+                        </NativeSelect>
+                        <SubmitButton variant="outline" size="xs" className="hover:bg-surface">Save</SubmitButton>
                       </form>
                     ) : (
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${r.status === "OPEN" ? "bg-risk-soft text-risk" : "bg-surface text-ink-muted"}`}>
+                      <Badge variant={r.status === "OPEN" ? "risk" : "custom"} shape="pill" className={r.status === "OPEN" ? undefined : "bg-surface text-ink-muted"}>
                         {r.status === "OPEN" ? "Open" : r.status === "MITIGATED" ? "Mitigated" : "Accepted"}
-                      </span>
+                      </Badge>
                     )}
                     {editable && (
-                      <form action={removeInitiativeRisk}>
-                        <input type="hidden" name="id" value={r.id} />
-                        <button type="submit" title="Remove" className="text-ink-faint transition-colors hover:text-risk"><Trash2 size={13} aria-hidden /></button>
-                      </form>
+                      <ConfirmAction
+                          action={removeInitiativeRisk}
+                          fields={{ id: r.id }}
+                          title="Remove risk?"
+                          description={`Remove risk “${r.risk}”? This can't be undone.`}
+                          confirmLabel="Remove"
+                          triggerProps={{ variant: "faint", size: "bare", title: "Remove", "aria-label": "Remove", className: "hover:text-risk" }}
+                        >
+                          <Trash2 size={13} aria-hidden />
+                        </ConfirmAction>
                     )}
                   </div>
                 </li>
@@ -431,10 +455,10 @@ export default async function InitiativeDetail({
           {editable && (
             <form action={addInitiativeRisk} className="mt-3 flex flex-wrap items-end gap-2">
               <input type="hidden" name="initiativeId" value={i.id} />
-              <input name="risk" required placeholder="Risk" className="min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy" />
-              <input name="mitigation" placeholder="Mitigating action" className="min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy" />
-              <input name="owner" list="people-list" placeholder="Owner" className="w-36 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy" />
-              <button type="submit" className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-surface-2">Add risk</button>
+              <Input size="sm" name="risk" required placeholder="Risk" className="min-w-0 flex-1" />
+              <Input size="sm" name="mitigation" placeholder="Mitigating action" className="min-w-0 flex-1" />
+              <Input size="sm" name="owner" list="people-list" placeholder="Owner" className="w-36" />
+              <SubmitButton variant="secondary" size="sm">Add risk</SubmitButton>
             </form>
           )}
         </div>
@@ -476,13 +500,15 @@ export default async function InitiativeDetail({
                         <Check size={12} strokeWidth={3} aria-hidden />
                       </span>
                     )}
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                    <Badge
+                      variant="custom"
+                      shape="pill"
+                      className={`shrink-0 text-[10px] uppercase tracking-wide ${
                         a.kind === "DEPENDENCY" ? "bg-gold/20 text-gold-deep" : "bg-navy/10 text-navy-deep"
                       }`}
                     >
                       {a.kind === "DEPENDENCY" ? "Dependency" : "Action"}
-                    </span>
+                    </Badge>
                     <div className="min-w-0 flex-1">
                       <p className={`text-sm ${a.status === "DONE" ? "text-ink-faint line-through" : "text-ink"}`}>{a.title}</p>
                       <p className="text-[11px] text-ink-faint">
@@ -490,13 +516,19 @@ export default async function InitiativeDetail({
                       </p>
                     </div>
                     {overdue && (
-                      <span className="shrink-0 rounded-full bg-risk-soft px-2 py-0.5 text-[11px] font-semibold text-risk">Past due</span>
+                      <Badge variant="risk" shape="pill" className="shrink-0">Past due</Badge>
                     )}
                     {editable && (
-                      <form action={removeInitiativeActionItem}>
-                        <input type="hidden" name="id" value={a.id} />
-                        <button type="submit" title="Remove" className="text-ink-faint transition-colors hover:text-risk"><Trash2 size={13} aria-hidden /></button>
-                      </form>
+                      <ConfirmAction
+                          action={removeInitiativeActionItem}
+                          fields={{ id: a.id }}
+                          title="Remove item?"
+                          description={`Remove action item “${a.title}”? This can't be undone.`}
+                          confirmLabel="Remove"
+                          triggerProps={{ variant: "faint", size: "bare", title: "Remove", "aria-label": "Remove", className: "hover:text-risk" }}
+                        >
+                          <Trash2 size={13} aria-hidden />
+                        </ConfirmAction>
                     )}
                   </li>
                 );
@@ -506,14 +538,14 @@ export default async function InitiativeDetail({
           {editable && (
             <form action={addInitiativeActionItem} className="mt-3 flex flex-wrap items-end gap-2">
               <input type="hidden" name="initiativeId" value={i.id} />
-              <select name="kind" defaultValue="ACTION" className="rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-navy">
+              <NativeSelect size="sm" name="kind" defaultValue="ACTION" className="px-2">
                 <option value="ACTION">Action</option>
                 <option value="DEPENDENCY">Dependency</option>
-              </select>
-              <input name="title" required placeholder="What is needed" className="min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy" />
-              <input name="owner" required list="people-list" placeholder="Owner" className="w-40 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy" />
+              </NativeSelect>
+              <Input size="sm" name="title" required placeholder="What is needed" className="min-w-0 flex-1" />
+              <Input size="sm" name="owner" required list="people-list" placeholder="Owner" className="w-40" />
               <div className="w-44"><DatePicker name="dueAt" label="Due date" clearable align="end" /></div>
-              <button type="submit" className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-surface-2">Add</button>
+              <SubmitButton variant="secondary" size="sm">Add</SubmitButton>
             </form>
           )}
         </div>
@@ -534,13 +566,15 @@ export default async function InitiativeDetail({
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm text-ink">
-                        <span
-                          className={`mr-2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                        <Badge
+                          variant="custom"
+                          shape="pill"
+                          className={`mr-2 text-[10px] uppercase tracking-wide ${
                             r.kind === "INVESTMENT" ? "bg-gold/20 text-gold-deep" : "bg-navy/10 text-navy-deep"
                           }`}
                         >
                           {r.kind === "INVESTMENT" ? "Investment" : "Support"}
-                        </span>
+                        </Badge>
                         {r.request}
                         {r.amount != null && <span className="ml-1.5 font-semibold text-ink">{formatMoney(Number(r.amount))}</span>}
                       </p>
@@ -549,27 +583,35 @@ export default async function InitiativeDetail({
                     {editable ? (
                       <form action={updateInitiativeEltRequest} className="flex items-center gap-1.5">
                         <input type="hidden" name="id" value={r.id} />
-                        <select name="status" defaultValue={r.status} className="rounded-md border border-border bg-surface px-2 py-1 text-xs text-ink outline-none focus:border-navy">
+                        <NativeSelect size="xs" name="status" defaultValue={r.status}>
                           <option value="REQUESTED">Requested</option>
                           <option value="APPROVED">Approved</option>
                           <option value="DECLINED">Declined</option>
-                        </select>
-                        <button type="submit" className="rounded-md border border-border px-2 py-1 text-[11px] font-medium text-ink-muted transition-colors hover:bg-surface">Save</button>
+                        </NativeSelect>
+                        <SubmitButton variant="outline" size="xs" className="hover:bg-surface">Save</SubmitButton>
                       </form>
                     ) : (
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                      <Badge
+                        variant="custom"
+                        shape="pill"
+                        className={
                           r.status === "APPROVED" ? "bg-ok/10 text-ok" : r.status === "DECLINED" ? "bg-surface text-ink-muted" : "bg-gold/20 text-gold-deep"
-                        }`}
+                        }
                       >
                         {r.status === "APPROVED" ? "Approved" : r.status === "DECLINED" ? "Declined" : "Requested"}
-                      </span>
+                      </Badge>
                     )}
                     {editable && (
-                      <form action={removeInitiativeEltRequest}>
-                        <input type="hidden" name="id" value={r.id} />
-                        <button type="submit" title="Remove" className="text-ink-faint transition-colors hover:text-risk"><Trash2 size={13} aria-hidden /></button>
-                      </form>
+                      <ConfirmAction
+                          action={removeInitiativeEltRequest}
+                          fields={{ id: r.id }}
+                          title="Remove ELT request?"
+                          description={`Remove ELT request “${r.request}”? This can't be undone.`}
+                          confirmLabel="Remove"
+                          triggerProps={{ variant: "faint", size: "bare", title: "Remove", "aria-label": "Remove", className: "hover:text-risk" }}
+                        >
+                          <Trash2 size={13} aria-hidden />
+                        </ConfirmAction>
                     )}
                   </div>
                 </li>
@@ -579,13 +621,13 @@ export default async function InitiativeDetail({
           {editable && (
             <form action={addInitiativeEltRequest} className="mt-3 flex flex-wrap items-end gap-2">
               <input type="hidden" name="initiativeId" value={i.id} />
-              <select name="kind" defaultValue="SUPPORT" className="rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-navy">
+              <NativeSelect size="sm" name="kind" defaultValue="SUPPORT" className="px-2">
                 <option value="SUPPORT">Support</option>
                 <option value="INVESTMENT">Investment</option>
-              </select>
-              <input name="request" required placeholder="What the ELT is asked for" className="min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy" />
-              <input name="amount" placeholder="$ (investment)" className="w-32 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy" />
-              <button type="submit" className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-surface-2">Add request</button>
+              </NativeSelect>
+              <Input size="sm" name="request" required placeholder="What the ELT is asked for" className="min-w-0 flex-1" />
+              <Input size="sm" name="amount" placeholder="$ (investment)" className="w-32" />
+              <SubmitButton variant="secondary" size="sm">Add request</SubmitButton>
             </form>
           )}
         </div>
@@ -620,15 +662,15 @@ export default async function InitiativeDetail({
           {editable && (
             <form action={addInitiativeUpdate} className="mt-3 grid gap-2 sm:grid-cols-2">
               <input type="hidden" name="initiativeId" value={i.id} />
-              <select name="status" defaultValue={i.status} className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy">
+              <NativeSelect size="sm" name="status" defaultValue={i.status}>
                 {(["NOT_STARTED", "PLANNING", "IN_PROGRESS", "AT_RISK", "DONE"] as const).map((status) => <option key={status} value={status}>{STATUS_META[status].label}</option>)}
-              </select>
-              <input name="reportingPeriod" placeholder="Reporting period (e.g. October 2026)" className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy" />
-              <textarea name="update" rows={2} placeholder="Latest meaningful update" className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-navy sm:col-span-2" />
-              <textarea name="pathForward" rows={2} placeholder="Path forward / next priorities" className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-navy sm:col-span-2" />
-              <input name="nextMilestone" placeholder="Next milestone" className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy" />
-              <input name="milestoneDueAt" type="date" className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy" />
-              <button type="submit" className="w-fit rounded-md bg-navy px-3 py-1.5 text-xs font-medium text-white hover:bg-navy-deep sm:col-span-2">Save status update</button>
+              </NativeSelect>
+              <Input size="sm" name="reportingPeriod" placeholder="Reporting period (e.g. October 2026)" />
+              <Textarea name="update" rows={2} placeholder="Latest meaningful update" className="sm:col-span-2" />
+              <Textarea name="pathForward" rows={2} placeholder="Path forward / next priorities" className="sm:col-span-2" />
+              <Input size="sm" name="nextMilestone" placeholder="Next milestone" />
+              <Input size="sm" name="milestoneDueAt" type="date" />
+              <SubmitButton size="sm" className="w-fit sm:col-span-2">Save status update</SubmitButton>
             </form>
           )}
         </div>
@@ -650,10 +692,16 @@ export default async function InitiativeDetail({
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] text-ink-faint">{formatDateDay(c.createdAt)}</span>
                       {editable && (c.authorUserId === session.user.id || isAdmin) && (
-                        <form action={removeComment}>
-                          <input type="hidden" name="id" value={c.id} />
-                          <button type="submit" title="Delete comment" className="text-ink-faint transition-colors hover:text-risk"><Trash2 size={12} aria-hidden /></button>
-                        </form>
+                        <ConfirmAction
+                          action={removeComment}
+                          fields={{ id: c.id }}
+                          title="Delete comment?"
+                          description={`Delete this comment by ${c.authorName}? This can't be undone.`}
+                          confirmLabel="Delete"
+                          triggerProps={{ variant: "faint", size: "bare", title: "Delete comment", "aria-label": "Delete comment", className: "hover:text-risk" }}
+                        >
+                          <Trash2 size={12} aria-hidden />
+                        </ConfirmAction>
                       )}
                     </div>
                   </div>
@@ -665,8 +713,8 @@ export default async function InitiativeDetail({
           {editable && (
             <form action={addComment} className="mt-3 flex flex-col gap-2">
               <input type="hidden" name="initiativeId" value={i.id} />
-              <textarea name="body" required rows={2} placeholder="Add a comment…" className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-navy" />
-              <button type="submit" className="self-start rounded-md bg-navy px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-navy-deep">Post comment</button>
+              <Textarea name="body" required rows={2} placeholder="Add a comment…" />
+              <SubmitButton size="sm" className="self-start">Post comment</SubmitButton>
             </form>
           )}
         </div>
@@ -696,16 +744,16 @@ export default async function InitiativeDetail({
                       <span className="truncate">{a.label}</span>
                     </a>
                     {editable && (
-                      <form action={removeAttachment}>
-                        <input type="hidden" name="id" value={a.id} />
-                        <button
-                          type="submit"
-                          title="Remove"
-                          className="text-ink-faint transition-colors hover:text-risk"
+                      <ConfirmAction
+                          action={removeAttachment}
+                          fields={{ id: a.id }}
+                          title="Remove attachment?"
+                          description={`Remove attachment “${a.label}”? This can't be undone.`}
+                          confirmLabel="Remove"
+                          triggerProps={{ variant: "faint", size: "bare", title: "Remove", "aria-label": "Remove", className: "hover:text-risk" }}
                         >
                           <X size={13} aria-hidden />
-                        </button>
-                      </form>
+                        </ConfirmAction>
                     )}
                   </li>
                 ))}
@@ -714,24 +762,18 @@ export default async function InitiativeDetail({
             {editable && (
               <form action={addAttachment} className="mt-3 flex flex-wrap items-end gap-2">
                 <input type="hidden" name="initiativeId" value={i.id} />
-                <input
-                  name="label"
-                  placeholder="Label"
-                  className="w-40 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy"
-                />
-                <input
+                <Input size="sm" name="label" placeholder="Label" className="w-40" />
+                <Input
+                  size="sm"
                   name="url"
                   type="url"
                   required
                   placeholder="https://…"
-                  className="min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy"
+                  className="min-w-0 flex-1"
                 />
-                <button
-                  type="submit"
-                  className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-surface-2"
-                >
+                <SubmitButton variant="secondary" size="sm">
                   Add link
-                </button>
+                </SubmitButton>
               </form>
             )}
             {editable && (
@@ -743,12 +785,9 @@ export default async function InitiativeDetail({
                   required
                   className="min-w-0 flex-1 text-xs text-ink-muted file:mr-2 file:rounded-md file:border file:border-border file:bg-surface file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-ink hover:file:bg-surface-2"
                 />
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-surface-2"
-                >
+                <SubmitButton variant="secondary" size="sm">
                   <Upload size={13} aria-hidden /> Upload file
-                </button>
+                </SubmitButton>
                 <span className="text-[10px] text-ink-faint">max 3 MB</span>
               </form>
             )}
@@ -760,7 +799,7 @@ export default async function InitiativeDetail({
   );
 }
 
-function Badge({ label, value, tone }: { label: string; value: string; tone: "gold" | "teal" }) {
+function StatBadge({ label, value, tone }: { label: string; value: string; tone: "gold" | "teal" }) {
   return (
     <div className="text-center">
       <p className="text-[10px] uppercase tracking-wide text-white/50">{label}</p>

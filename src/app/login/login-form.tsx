@@ -4,6 +4,9 @@ import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export function LoginForm({ ssoEnabled = false, initialError = "" }: { ssoEnabled?: boolean; initialError?: string }) {
   const router = useRouter();
@@ -109,13 +112,15 @@ export function LoginForm({ ssoEnabled = false, initialError = "" }: { ssoEnable
                 If {email} can sign in, a link is on its way. Open it on any device. The link works once and expires in
                 30 minutes.
               </p>
-              <button
+              <Button
                 type="button"
+                variant="link"
+                size="sm"
                 onClick={() => setStage("creds")}
-                className="mt-2 self-start text-xs text-navy hover:underline"
+                className="mt-2 self-start font-normal"
               >
                 Use a different address
-              </button>
+              </Button>
             </div>
           ) : stage === "creds" ? (
             <form onSubmit={usePassword ? submitCreds : submitLink} className="flex flex-col gap-4">
@@ -131,15 +136,16 @@ export function LoginForm({ ssoEnabled = false, initialError = "" }: { ssoEnable
               </div>
               {ssoEnabled && (
                 <>
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
                     onClick={signInWithMicrosoft}
                     disabled={ssoLoading}
-                    className="flex items-center justify-center gap-2 rounded-md border border-border bg-bg px-3 py-2 text-sm font-medium text-ink transition-colors hover:bg-surface-2 disabled:opacity-60"
+                    className="flex gap-2 bg-bg px-3"
                   >
                     <MicrosoftGlyph />
                     {ssoLoading ? "Redirecting…" : "Sign in with Microsoft"}
-                  </button>
+                  </Button>
                   <div className="flex items-center gap-3">
                     <span className="h-px flex-1 bg-border" />
                     <span className="text-[11px] uppercase tracking-wide text-ink-faint">or</span>
@@ -153,16 +159,18 @@ export function LoginForm({ ssoEnabled = false, initialError = "" }: { ssoEnable
               )}
               {error && <p className="text-xs text-risk">{error}</p>}
               <Submit loading={loading}>{usePassword ? "Sign in" : "Email me a sign-in link"}</Submit>
-              <button
+              <Button
                 type="button"
+                variant="link"
+                size="sm"
                 onClick={() => {
                   setUsePassword((v) => !v);
                   setError("");
                 }}
-                className="self-center text-xs text-ink-muted hover:text-navy hover:underline"
+                className="self-center font-normal text-ink-muted hover:text-navy"
               >
                 {usePassword ? "Email me a link instead" : "Sign in with a password"}
-              </button>
+              </Button>
             </form>
           ) : (
             <form onSubmit={submitTwoFa} className="flex flex-col gap-4">
@@ -201,31 +209,27 @@ function Field({
   type: string;
   value: string;
   onChange: (v: string) => void;
-} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "type" | "onChange">) {
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "type" | "onChange" | "size">) {
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-ink-muted">{label}</span>
-      <input
+    <Label className="flex flex-col gap-1.5">
+      {label}
+      <Input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required
-        className="rounded-md border border-border bg-bg px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-navy"
+        className="bg-bg"
         {...rest}
       />
-    </label>
+    </Label>
   );
 }
 
 function Submit({ loading, children }: { loading: boolean; children: React.ReactNode }) {
   return (
-    <button
-      type="submit"
-      disabled={loading}
-      className="mt-1 rounded-md bg-navy px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-navy-deep disabled:opacity-60"
-    >
+    <Button type="submit" disabled={loading} className="mt-1 px-3">
       {loading ? "…" : children}
-    </button>
+    </Button>
   );
 }
 

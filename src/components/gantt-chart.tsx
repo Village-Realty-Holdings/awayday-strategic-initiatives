@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { STATUS_META, QUADRANT_META, HEALTH_META, HEALTH_ORDER, type Health } from "@/lib/initiatives";
 import type { InitiativeStatus, Quadrant } from "@/generated/prisma/client";
+import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
 
 export type GanttRow = {
   id: string;
@@ -62,12 +64,14 @@ export function GanttChart({
         <Sel value={status} onChange={setStatus} label="Status" options={STATUSES} render={(s) => STATUS_META[s as InitiativeStatus].label} />
         <Sel value={quadrant} onChange={setQuadrant} label="Priority" options={QUADRANTS} render={(q) => QUADRANT_META[q as Quadrant].label} />
         {active && (
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => { setOwner(""); setCim(""); setStatus(""); setQuadrant(""); }}
-            className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-2"
+            className="px-2.5"
           >
             Reset
-          </button>
+          </Button>
         )}
         <span className="text-xs text-ink-faint">{filtered.length} of {rows.length}</span>
       </div>
@@ -153,15 +157,11 @@ function Sel({
   render?: (v: string) => string;
 }) {
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-navy"
-    >
+    <NativeSelect size="sm" value={value} onChange={(e) => onChange(e.target.value)} className="px-2.5">
       <option value="">{label}: all</option>
       {options.map((o) => (
         <option key={o} value={o}>{render ? render(o) : o}</option>
       ))}
-    </select>
+    </NativeSelect>
   );
 }

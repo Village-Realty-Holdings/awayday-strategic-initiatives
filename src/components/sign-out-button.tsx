@@ -3,21 +3,24 @@
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function SignOutButton() {
   const router = useRouter();
   return (
-    <button
+    <Button
       type="button"
+      variant="faint"
+      size="bare"
       title="Sign out"
+      aria-label="Sign out"
       onClick={async () => {
         await authClient.signOut();
         router.push("/login");
         router.refresh();
       }}
-      className="text-ink-faint transition-colors hover:text-ink"
     >
       <LogOut size={15} aria-hidden />
-    </button>
+    </Button>
   );
 }

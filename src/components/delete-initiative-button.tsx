@@ -2,23 +2,32 @@
 
 import { Trash2 } from "lucide-react";
 import { deleteInitiative } from "@/app/(app)/initiatives/actions";
+import { ConfirmAction } from "@/components/confirm-action";
 
-export function DeleteInitiativeButton({ id, variant = "default" }: { id: string; variant?: "default" | "onDark" }) {
-  const cls =
-    variant === "onDark"
-      ? "inline-flex items-center gap-1.5 rounded-md border border-white/25 bg-white/10 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:border-risk hover:bg-risk"
-      : "inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-risk transition-colors hover:bg-risk-soft";
+export function DeleteInitiativeButton({
+  id,
+  name,
+  variant = "default",
+}: {
+  id: string;
+  /** Shown in the confirmation copy when known. */
+  name?: string;
+  variant?: "default" | "onDark";
+}) {
   return (
-    <form
+    <ConfirmAction
       action={deleteInitiative}
-      onSubmit={(e) => {
-        if (!confirm("Delete this initiative? This cannot be undone.")) e.preventDefault();
-      }}
+      fields={{ id }}
+      title="Delete initiative?"
+      description={`Delete ${name ? `initiative “${name}”` : "this initiative"}? This can't be undone.`}
+      confirmLabel="Delete initiative"
+      triggerProps={
+        variant === "onDark"
+          ? { variant: "onDark", size: "sm", className: "px-2.5 hover:border-risk hover:bg-risk" }
+          : { variant: "destructive", size: "sm", className: "px-2.5" }
+      }
     >
-      <input type="hidden" name="id" value={id} />
-      <button type="submit" className={cls}>
-        <Trash2 size={13} aria-hidden /> Delete
-      </button>
-    </form>
+      <Trash2 size={13} aria-hidden /> Delete
+    </ConfirmAction>
   );
 }

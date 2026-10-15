@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { flash } from "@/lib/flash";
 import { requireEditor } from "@/lib/session";
 import { getActivePlan } from "@/lib/active-plan";
 
@@ -26,6 +27,7 @@ export async function createGroup(fd: FormData) {
   });
   revalidatePath("/groups");
   revalidatePath("/initiatives");
+  await flash("Group created");
   redirect("/groups");
 }
 
@@ -57,6 +59,7 @@ export async function updateGroup(fd: FormData) {
   });
   revalidatePath("/groups");
   revalidatePath("/initiatives");
+  await flash("Group saved");
   redirect("/groups");
 }
 
@@ -72,6 +75,7 @@ export async function setGroupArchived(fd: FormData) {
   });
   revalidatePath("/groups");
   revalidatePath("/initiatives");
+  await flash(archived ? "Group archived" : "Group restored");
   redirect("/groups");
 }
 
@@ -86,5 +90,6 @@ export async function deleteGroup(fd: FormData) {
   });
   revalidatePath("/groups");
   revalidatePath("/initiatives");
+  await flash("Group deleted");
   redirect("/groups");
 }

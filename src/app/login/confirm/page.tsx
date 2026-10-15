@@ -1,5 +1,6 @@
 import { canonicalAppUrl } from "@/lib/app-url";
 import { safeVerifyTarget } from "@/lib/sign-in-confirm";
+import { Button } from "@/components/ui/button";
 
 export const metadata = { title: "Sign in | Awayday" };
 
@@ -22,12 +23,9 @@ export default async function ConfirmSignIn({ searchParams }: { searchParams: Pr
           </p>
           <form method="POST" action="/login/confirm/go" className="mt-5">
             <input type="hidden" name="to" value={target} />
-            <button
-              type="submit"
-              className="w-full rounded-md bg-navy px-4 py-2.5 text-sm font-medium text-white hover:bg-navy-deep"
-            >
+            <Button type="submit" className="w-full py-2.5">
               Sign me in
-            </button>
+            </Button>
           </form>
           <p className="mt-4 text-xs leading-relaxed text-ink-faint">
             The link is good for 30 minutes and works once. If it has expired, request a new one from the sign-in page.
@@ -38,12 +36,9 @@ export default async function ConfirmSignIn({ searchParams }: { searchParams: Pr
           <p className="mt-2 text-sm leading-relaxed text-ink-muted">
             This sign-in link is not one we can use. It may have been altered in transit, or it may have expired.
           </p>
-          <a
-            href="/login"
-            className="mt-5 inline-block rounded-md border border-border bg-surface px-4 py-2.5 text-sm font-medium text-ink hover:bg-surface-2"
-          >
-            Request a new link
-          </a>
+          <Button asChild variant="secondary" className="mt-5 bg-surface py-2.5">
+            <a href="/login">Request a new link</a>
+          </Button>
         </>
       )}
     </main>

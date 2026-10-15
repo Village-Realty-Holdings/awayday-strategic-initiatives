@@ -137,7 +137,7 @@ export function DatePicker({
         aria-expanded={open}
         aria-label={value ? `${label}: ${formatDisplay(value)}` : label}
         onClick={() => (open ? close(true) : openPicker())}
-        className="flex w-full items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 text-left text-sm text-ink transition-colors focus:border-navy focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex w-full items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 text-left text-sm text-ink transition-colors outline-none focus-visible:border-navy focus-visible:ring-2 focus-visible:ring-navy/25 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {value ? <span>{formatDisplay(value)}</span> : <span className="text-ink-faint">mm/dd/yyyy</span>}
         <CalendarDays size={15} aria-hidden className="shrink-0 text-ink-faint" />

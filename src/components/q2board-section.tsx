@@ -1,15 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Compass, Pencil, X, Plus, Trash2 } from "lucide-react";
 import type { BoardItem } from "@/lib/sources";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { CodeMultiSelect, type CodeOption } from "@/components/code-multiselect";
 import { saveQ2Board } from "@/app/(app)/admin/q2board/actions";
 
 // Editor-side row: cim/sis held as comma strings for the multi-select bridge.
 type Row = { id: string; name: string; desc: string; owner: string; cim: string; sis: string; color: string };
 
-const cell = "w-full rounded border border-border/70 bg-surface px-1.5 py-1 text-xs text-ink outline-none transition-colors focus:border-navy";
 const toArr = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
 
 function toRow(b: BoardItem): Row {
@@ -40,13 +42,15 @@ export function Q2BoardSection({
           <Compass size={15} className="text-navy" aria-hidden /> Q2 2026 Board Initiatives — focus through 6/30
         </h2>
         {editable && (
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => setEditing((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-2"
+            className="px-2.5 py-1"
           >
             {editing ? <><X size={12} aria-hidden /> Close</> : <><Pencil size={12} aria-hidden /> Edit</>}
-          </button>
+          </Button>
         )}
       </div>
       <div className="mb-3" />
@@ -72,7 +76,10 @@ function Q2Editor({ items, siOptions, cimOptions, onDone }: { items: BoardItem[]
     setSaving(true);
     try {
       await saveQ2Board(fd);
+      toast.success("Q2 board saved");
       onDone();
+    } catch {
+      toast.error("Couldn't save your changes. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -97,16 +104,16 @@ function Q2Editor({ items, siOptions, cimOptions, onDone }: { items: BoardItem[]
             {rows.map((r, i) => (
               <tr key={i} className="border-b border-border/50 align-top last:border-0">
                 <td className="px-2 py-1.5 min-w-[260px]">
-                  <input value={r.name} onChange={(e) => update(i, "name", e.target.value)} placeholder="Theme" className={`${cell} mb-1 font-medium`} />
-                  <input value={r.desc} onChange={(e) => update(i, "desc", e.target.value)} placeholder="Description" className={`${cell} text-ink-faint`} />
+                  <Input size="cell" value={r.name} onChange={(e) => update(i, "name", e.target.value)} placeholder="Theme" className="mb-1 font-medium" />
+                  <Input size="cell" value={r.desc} onChange={(e) => update(i, "desc", e.target.value)} placeholder="Description" className="text-ink-faint" />
                 </td>
-                <td className="px-2 py-1.5 min-w-[140px]"><input value={r.owner} onChange={(e) => update(i, "owner", e.target.value)} placeholder="Owner" className={cell} /></td>
+                <td className="px-2 py-1.5 min-w-[140px]"><Input size="cell" value={r.owner} onChange={(e) => update(i, "owner", e.target.value)} placeholder="Owner" /></td>
                 <td className="px-2 py-1.5 min-w-[150px]"><CodeMultiSelect options={cimOptions} value={toArr(r.cim)} onChange={(codes) => update(i, "cim", codes.join(", "))} placeholder="+ CIM" /></td>
                 <td className="px-2 py-1.5 min-w-[170px]"><CodeMultiSelect options={siOptions} value={toArr(r.sis)} onChange={(codes) => update(i, "sis", codes.join(", "))} placeholder="+ SI" /></td>
                 <td className="px-2 py-1.5">
-                  <button type="button" onClick={() => remove(i)} title="Remove row" className="text-ink-faint transition-colors hover:text-risk">
+                  <Button type="button" variant="faint" size="bare" onClick={() => remove(i)} title="Remove row" aria-label="Remove row" className="hover:text-risk">
                     <Trash2 size={14} aria-hidden />
-                  </button>
+                  </Button>
                 </td>
               </tr>
             ))}
@@ -114,15 +121,15 @@ function Q2Editor({ items, siOptions, cimOptions, onDone }: { items: BoardItem[]
         </table>
       </div>
 
-      <button type="button" onClick={add} className="inline-flex w-fit items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-2">
+      <Button type="button" variant="outline" size="sm" onClick={add} className="w-fit">
         <Plus size={14} aria-hidden /> Add initiative
-      </button>
+      </Button>
 
       <div className="flex items-center gap-3 border-t border-border pt-4">
-        <button type="submit" disabled={saving} className="rounded-md bg-navy px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-navy-deep disabled:opacity-60">
+        <Button type="submit" disabled={saving}>
           {saving ? "Saving…" : "Save board initiatives"}
-        </button>
-        <button type="button" onClick={onDone} className="text-sm text-ink-muted transition-colors hover:text-ink">Cancel</button>
+        </Button>
+        <Button type="button" variant="ghost" size="bare" onClick={onDone} className="text-sm hover:bg-transparent">Cancel</Button>
       </div>
     </form>
   );

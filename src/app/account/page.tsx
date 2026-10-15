@@ -4,6 +4,9 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 // Standalone, app-agnostic account page so any logged-in user (regardless of
 // which module they can access) can change their own password. Sits outside the
@@ -63,12 +66,9 @@ export default function AccountPage() {
                   Your password has been updated and other sessions were signed out.
                 </p>
               </div>
-              <Link
-                href="/apps"
-                className="rounded-md bg-navy px-3 py-2 text-center text-sm font-medium text-white hover:bg-navy-deep"
-              >
-                Back to app
-              </Link>
+              <Button asChild className="px-3">
+                <Link href="/apps">Back to app</Link>
+              </Button>
             </div>
           ) : (
             <form onSubmit={submit} className="flex flex-col gap-4">
@@ -78,49 +78,45 @@ export default function AccountPage() {
                   Enter your current password, then choose a new one (at least 12 characters).
                 </p>
               </div>
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-ink-muted">Current password</span>
-                <input
+              <Label className="flex flex-col gap-1.5">
+                Current password
+                <Input
                   type="password"
                   value={current}
                   onChange={(e) => setCurrent(e.target.value)}
                   required
                   autoComplete="current-password"
                   autoFocus
-                  className="rounded-md border border-border bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-navy"
+                  className="bg-bg"
                 />
-              </label>
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-ink-muted">New password</span>
-                <input
+              </Label>
+              <Label className="flex flex-col gap-1.5">
+                New password
+                <Input
                   type="password"
                   value={next}
                   onChange={(e) => setNext(e.target.value)}
                   required
                   autoComplete="new-password"
-                  className="rounded-md border border-border bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-navy"
+                  className="bg-bg"
                 />
-              </label>
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-ink-muted">Confirm new password</span>
-                <input
+              </Label>
+              <Label className="flex flex-col gap-1.5">
+                Confirm new password
+                <Input
                   type="password"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   required
                   autoComplete="new-password"
-                  className="rounded-md border border-border bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-navy"
+                  className="bg-bg"
                 />
-              </label>
+              </Label>
               {error && <p className="text-xs text-risk">{error}</p>}
               <div className="mt-1 flex items-center gap-3">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="rounded-md bg-navy px-3 py-2 text-sm font-medium text-white hover:bg-navy-deep disabled:opacity-60"
-                >
+                <Button type="submit" disabled={loading} className="px-3">
                   {loading ? "…" : "Change password"}
-                </button>
+                </Button>
                 <Link href="/apps" className="text-xs text-ink-muted hover:text-ink">
                   Cancel
                 </Link>

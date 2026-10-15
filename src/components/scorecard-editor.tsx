@@ -1,9 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import type { Goal } from "@/lib/sources";
 import { CodeMultiSelect, type CodeOption } from "@/components/code-multiselect";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { saveScorecard } from "@/app/(app)/admin/scorecard/actions";
 
 const toArr = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
@@ -19,9 +23,6 @@ const COLORS = [
   { v: "red", label: "Red" },
   { v: "grey", label: "Grey / n/a" },
 ];
-
-// Compact cell inputs so the edit table reads like the read-only table.
-const cell = "w-full rounded border border-border/70 bg-surface px-1.5 py-1 text-xs text-ink outline-none transition-colors focus:border-navy";
 
 function toRow(g: Goal): Row {
   return {
@@ -44,7 +45,10 @@ export function ScorecardEditor({ goals, onDone, siOptions, cimOptions }: { goal
     setSaving(true);
     try {
       await saveScorecard(fd);
+      toast.success("Scorecard saved");
       onDone?.();
+    } catch {
+      toast.error("Couldn't save your changes. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -74,27 +78,27 @@ export function ScorecardEditor({ goals, onDone, siOptions, cimOptions }: { goal
           <tbody>
             {rows.map((r, i) => (
               <tr key={i} className="border-b border-border/50 align-top last:border-0">
-                <td className="px-2 py-1.5 min-w-[120px]"><input value={r.category} onChange={(e) => update(i, "category", e.target.value)} className={cell} /></td>
+                <td className="px-2 py-1.5 min-w-[120px]"><Input size="cell" value={r.category} onChange={(e) => update(i, "category", e.target.value)} /></td>
                 <td className="px-2 py-1.5 min-w-[200px]">
-                  <input value={r.name} onChange={(e) => update(i, "name", e.target.value)} placeholder="Goal name" className={`${cell} mb-1 font-medium`} />
-                  <input value={r.notes} onChange={(e) => update(i, "notes", e.target.value)} placeholder="Notes" className={`${cell} text-ink-faint`} />
+                  <Input size="cell" value={r.name} onChange={(e) => update(i, "name", e.target.value)} placeholder="Goal name" className="mb-1 font-medium" />
+                  <Input size="cell" value={r.notes} onChange={(e) => update(i, "notes", e.target.value)} placeholder="Notes" className="text-ink-faint" />
                 </td>
-                <td className="px-2 py-1.5 min-w-[80px]"><input value={r.goal} onChange={(e) => update(i, "goal", e.target.value)} className={cell} /></td>
-                <td className="px-2 py-1.5 min-w-[70px]"><input value={r.ltm} onChange={(e) => update(i, "ltm", e.target.value)} className={cell} /></td>
-                <td className="px-2 py-1.5 min-w-[70px]"><input value={r.ytdBud} onChange={(e) => update(i, "ytdBud", e.target.value)} className={cell} /></td>
-                <td className="px-2 py-1.5 min-w-[110px]"><input value={r.status} onChange={(e) => update(i, "status", e.target.value)} className={cell} /></td>
+                <td className="px-2 py-1.5 min-w-[80px]"><Input size="cell" value={r.goal} onChange={(e) => update(i, "goal", e.target.value)} /></td>
+                <td className="px-2 py-1.5 min-w-[70px]"><Input size="cell" value={r.ltm} onChange={(e) => update(i, "ltm", e.target.value)} /></td>
+                <td className="px-2 py-1.5 min-w-[70px]"><Input size="cell" value={r.ytdBud} onChange={(e) => update(i, "ytdBud", e.target.value)} /></td>
+                <td className="px-2 py-1.5 min-w-[110px]"><Input size="cell" value={r.status} onChange={(e) => update(i, "status", e.target.value)} /></td>
                 <td className="px-2 py-1.5 min-w-[90px]">
-                  <select value={r.color} onChange={(e) => update(i, "color", e.target.value)} className={cell}>
+                  <NativeSelect size="cell" value={r.color} onChange={(e) => update(i, "color", e.target.value)}>
                     {COLORS.map((c) => <option key={c.v} value={c.v}>{c.label}</option>)}
-                  </select>
+                  </NativeSelect>
                 </td>
-                <td className="px-2 py-1.5 min-w-[120px]"><input value={r.owner} onChange={(e) => update(i, "owner", e.target.value)} className={cell} /></td>
+                <td className="px-2 py-1.5 min-w-[120px]"><Input size="cell" value={r.owner} onChange={(e) => update(i, "owner", e.target.value)} /></td>
                 <td className="px-2 py-1.5 min-w-[150px]"><CodeMultiSelect options={cimOptions} value={toArr(r.cim)} onChange={(codes) => update(i, "cim", codes.join(", "))} placeholder="+ CIM" /></td>
                 <td className="px-2 py-1.5 min-w-[170px]"><CodeMultiSelect options={siOptions} value={toArr(r.sis)} onChange={(codes) => update(i, "sis", codes.join(", "))} placeholder="+ SI" /></td>
                 <td className="px-2 py-1.5">
-                  <button type="button" onClick={() => remove(i)} title="Remove row" className="text-ink-faint transition-colors hover:text-risk">
+                  <Button type="button" variant="faint" size="bare" onClick={() => remove(i)} title="Remove row" aria-label="Remove row" className="hover:text-risk">
                     <Trash2 size={14} aria-hidden />
-                  </button>
+                  </Button>
                 </td>
               </tr>
             ))}
@@ -102,16 +106,16 @@ export function ScorecardEditor({ goals, onDone, siOptions, cimOptions }: { goal
         </table>
       </div>
 
-      <button type="button" onClick={add} className="inline-flex w-fit items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-2">
+      <Button type="button" variant="outline" size="sm" onClick={add} className="w-fit">
         <Plus size={14} aria-hidden /> Add row
-      </button>
+      </Button>
 
       <div className="flex items-center gap-3 border-t border-border pt-4">
-        <button type="submit" disabled={saving} className="rounded-md bg-navy px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-navy-deep disabled:opacity-60">
+        <Button type="submit" disabled={saving}>
           {saving ? "Saving…" : "Save scorecard"}
-        </button>
+        </Button>
         {onDone && (
-          <button type="button" onClick={onDone} className="text-sm text-ink-muted transition-colors hover:text-ink">Cancel</button>
+          <Button type="button" variant="ghost" size="bare" onClick={onDone} className="text-sm hover:bg-transparent">Cancel</Button>
         )}
       </div>
     </form>

@@ -5,6 +5,8 @@ import { formatDateShort } from "@/lib/initiatives";
 import { type RiskPoint } from "@/components/risk-matrix";
 import { RiskViews } from "@/components/risk-views";
 import { RiskTargetHighlight } from "@/components/risk-target-highlight";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Flame, Star, Plus, Pencil } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -86,9 +88,11 @@ export default async function RisksPage() {
           <Stat label="Avg coverage" value={`${Math.round(avgCov * 100)}%`} />
           <Stat label="Prize at stake" value={`$${totalPrize.toFixed(0)}M`} />
           {editable && (
-            <Link href="/risks/new" className="inline-flex items-center gap-1.5 rounded-md bg-navy px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-navy-deep">
-              <Plus size={14} aria-hidden /> New risk
-            </Link>
+            <Button asChild className="px-3 text-xs">
+              <Link href="/risks/new">
+                <Plus size={14} aria-hidden /> New risk
+              </Link>
+            </Button>
           )}
         </div>
       </header>
@@ -128,9 +132,11 @@ export default async function RisksPage() {
                     {r.critical && <Flame size={12} className="shrink-0 text-risk" aria-label="Critical" />}
                     {r.focus && <Star size={12} className="shrink-0 text-warn" aria-label="Focus" />}
                     {editable && (
-                      <Link href={`/risks/${r.id}/edit`} title="Edit risk" className="shrink-0 text-ink-faint transition-colors hover:text-navy">
-                        <Pencil size={11} aria-hidden />
-                      </Link>
+                      <Button asChild variant="faint" size="bare" className="hover:text-navy">
+                        <Link href={`/risks/${r.id}/edit`} title="Edit risk" aria-label="Edit risk">
+                          <Pencil size={11} aria-hidden />
+                        </Link>
+                      </Button>
                     )}
                   </div>
                   <p className="mt-0.5 truncate text-[11px] text-ink-faint">{r.owner ?? "Unassigned"}</p>
@@ -142,14 +148,19 @@ export default async function RisksPage() {
                     <span className="text-[10px] text-ink-faint">none</span>
                   ) : (
                     linked.slice(0, 4).map((si) => (
-                      <Link
+                      <Badge
                         key={si.id}
-                        href={`/initiatives/${si.id}`}
-                        title={`${si.name} · ${Math.round((si.status === "DONE" ? 1 : si.pctComplete) * 100)}%`}
-                        className={`tabular rounded px-1 py-0.5 text-[9px] font-medium transition-opacity hover:opacity-80 ${siColor(si)}`}
+                        asChild
+                        variant="custom"
+                        className={`tabular rounded px-1 text-[9px] transition-opacity hover:opacity-80 ${siColor(si)}`}
                       >
-                        {si.code}
-                      </Link>
+                        <Link
+                          href={`/initiatives/${si.id}`}
+                          title={`${si.name} · ${Math.round((si.status === "DONE" ? 1 : si.pctComplete) * 100)}%`}
+                        >
+                          {si.code}
+                        </Link>
+                      </Badge>
                     ))
                   )}
                   {linked.length > 4 && <span className="text-[10px] text-ink-faint">+{linked.length - 4}</span>}

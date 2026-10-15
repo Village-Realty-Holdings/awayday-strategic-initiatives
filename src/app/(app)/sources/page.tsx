@@ -1,5 +1,7 @@
 import { VALUE_CREATION as VC, Q2_BOARD } from "@/lib/sources";
 import { FileText, Download } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export const metadata = { title: "Strategy Sources — Awayday" };
 
@@ -43,13 +45,11 @@ export default function SourcesPage() {
             <figcaption className="flex flex-wrap items-center justify-between gap-2 border-t border-gold/50 bg-gold/5 px-4 py-2.5 text-xs text-ink-muted">
               <span>{b.caption}</span>
               {b.download && (
-                <a
-                  href={b.src}
-                  download={b.download}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 font-medium text-navy-deep transition-colors hover:bg-surface-2"
-                >
-                  <Download size={13} aria-hidden /> Download
-                </a>
+                <Button asChild variant="outline" size="sm" className="bg-surface px-2.5 text-navy-deep">
+                  <a href={b.src} download={b.download}>
+                    <Download size={13} aria-hidden /> Download
+                  </a>
+                </Button>
               )}
             </figcaption>
           </figure>
@@ -76,7 +76,7 @@ export default function SourcesPage() {
           <p className="mb-1.5 text-[11px] font-medium text-ink-faint">5 Value Drivers</p>
           <div className="flex flex-wrap gap-2">
             {VC.valueDrivers.map((d) => (
-              <span key={d} className="rounded-md bg-navy/10 px-2.5 py-1 text-xs font-medium text-navy-deep">{d}</span>
+              <Badge key={d} className="px-2.5 py-1">{d}</Badge>
             ))}
           </div>
         </div>
@@ -85,7 +85,7 @@ export default function SourcesPage() {
             <p className="mb-1.5 text-[11px] font-medium text-ink-faint">Key Enablers</p>
             <div className="flex flex-wrap gap-2">
               {VC.keyEnablers.map((e) => (
-                <span key={e} className="rounded-md bg-surface-2 px-2.5 py-1 text-xs font-medium text-ink">{e}</span>
+                <Badge key={e} variant="secondary" className="px-2.5 py-1 text-ink">{e}</Badge>
               ))}
             </div>
           </div>
@@ -93,7 +93,7 @@ export default function SourcesPage() {
             <p className="mb-1.5 text-[11px] font-medium text-ink-faint">Values</p>
             <div className="flex flex-wrap gap-2">
               {VC.values.map((v) => (
-                <span key={v} className="rounded-md border border-gold/50 bg-gold/10 px-2.5 py-1 text-xs font-medium text-ink">{v}</span>
+                <Badge key={v} variant="custom" className="border border-gold/50 bg-gold/10 px-2.5 py-1 text-ink">{v}</Badge>
               ))}
             </div>
           </div>
@@ -132,9 +132,9 @@ export default function SourcesPage() {
               project folder.
             </p>
             <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-              <span className="tabular rounded bg-surface-2 px-2 py-0.5 text-ink-muted">EBITDA $108.8M</span>
-              <span className="tabular rounded bg-surface-2 px-2 py-0.5 text-ink-muted">+$22.4M YTD</span>
-              <span className="tabular rounded bg-surface-2 px-2 py-0.5 text-ink-muted">28.9% LTM gross adds</span>
+              <Badge variant="secondary" className="tabular rounded text-[11px] font-normal">EBITDA $108.8M</Badge>
+              <Badge variant="secondary" className="tabular rounded text-[11px] font-normal">+$22.4M YTD</Badge>
+              <Badge variant="secondary" className="tabular rounded text-[11px] font-normal">28.9% LTM gross adds</Badge>
             </div>
           </div>
         </div>

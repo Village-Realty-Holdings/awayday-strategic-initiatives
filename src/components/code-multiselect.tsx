@@ -37,7 +37,7 @@ export function CodeMultiSelect({
       <select
         value=""
         onChange={(e) => { if (e.target.value) onChange([...value, e.target.value]); }}
-        className="rounded border border-border/70 bg-surface px-1.5 py-0.5 text-[10px] text-ink-muted outline-none transition-colors focus:border-navy"
+        className="rounded border border-border/70 bg-surface px-1.5 py-0.5 text-[10px] text-ink-muted outline-none transition-colors focus-visible:border-navy focus-visible:ring-2 focus-visible:ring-navy/25"
       >
         <option value="">{placeholder}</option>
         {available.map((o) => (

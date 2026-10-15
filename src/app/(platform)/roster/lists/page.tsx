@@ -2,6 +2,10 @@ import Link from "next/link";
 import { ArrowLeft, Plus, X } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireEditor } from "@/lib/session";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { addDepartment, deleteDepartment, addPosition, deletePosition } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -25,9 +29,11 @@ export default async function ListsPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <Link href="/roster" className="mb-5 inline-flex items-center gap-1.5 text-sm text-ink-muted transition-colors hover:text-ink">
-        <ArrowLeft size={15} aria-hidden /> Roster
-      </Link>
+      <Button asChild variant="faint" size="bare" className="mb-5 text-sm font-normal text-ink-muted">
+        <Link href="/roster">
+          <ArrowLeft size={15} aria-hidden /> Roster
+        </Link>
+      </Button>
       <h1 className="mb-1 text-xl font-semibold tracking-tight text-ink">Manage reference lists</h1>
       <p className="mb-6 text-sm text-ink-muted">
         The departments and positions that power the roster pickers. The number shows how many people
@@ -79,14 +85,14 @@ function ListCard({
           <li key={it.id} className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface-2/30 px-3 py-2">
             <span className="truncate text-sm text-ink">{it.name}</span>
             <span className="flex shrink-0 items-center gap-2">
-              <span className="tabular rounded bg-surface-2 px-1.5 py-0.5 text-[10px] text-ink-muted" title="People using this">
+              <Badge variant="secondary" className="tabular rounded px-1.5 text-[10px] font-normal" title="People using this">
                 {it.count} in use
-              </span>
+              </Badge>
               <form action={deleteAction}>
                 <input type="hidden" name="id" value={it.id} />
-                <button type="submit" title="Remove from picker" className="text-ink-faint transition-colors hover:text-risk">
+                <SubmitButton title="Remove from picker" aria-label="Remove from picker" variant="faint" size="bare" className="hover:text-risk">
                   <X size={14} aria-hidden />
-                </button>
+                </SubmitButton>
               </form>
             </span>
           </li>
@@ -94,15 +100,10 @@ function ListCard({
         {items.length === 0 && <li className="px-1 py-2 text-xs text-ink-faint">None yet.</li>}
       </ul>
       <form action={addAction} className="mt-3 flex items-center gap-2">
-        <input
-          name="name"
-          required
-          placeholder={placeholder}
-          className="min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-navy"
-        />
-        <button type="submit" className="inline-flex shrink-0 items-center gap-1 rounded-md bg-navy px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-navy-deep">
+        <Input name="name" required placeholder={placeholder} size="sm" className="min-w-0 flex-1" />
+        <SubmitButton size="sm" className="gap-1 px-2.5">
           <Plus size={13} aria-hidden /> Add
-        </button>
+        </SubmitButton>
       </form>
     </section>
   );

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Sparkles, X, Loader2, Send } from "lucide-react";
 import { askBoard } from "@/app/(app)/ai-actions";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
 const SUGGESTIONS = [
   "What should the board worry about most this quarter?",
@@ -30,15 +32,10 @@ export function AskPanel() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        title="AI board narrative"
-        className="inline-flex items-center gap-1.5 rounded-full border border-gold/60 bg-gold/10 px-3 py-1.5 text-xs font-medium text-navy-deep transition-colors hover:bg-gold/20"
-      >
+      <Button type="button" variant="accent" size="sm" onClick={() => setOpen(true)} title="AI board narrative">
         <Sparkles size={13} strokeWidth={2} aria-hidden />
         Ask
-      </button>
+      </Button>
 
       {open && (
         <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true">
@@ -54,9 +51,9 @@ export function AskPanel() {
                 <Sparkles size={15} className="text-gold-deep" aria-hidden />
                 <h2 className="text-sm font-semibold text-ink">Ask the board narrative</h2>
               </div>
-              <button type="button" onClick={() => setOpen(false)} className="text-ink-faint transition-colors hover:text-ink">
+              <Button type="button" variant="faint" size="bare" onClick={() => setOpen(false)} aria-label="Close">
                 <X size={16} aria-hidden />
-              </button>
+              </Button>
             </header>
 
             <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -69,14 +66,16 @@ export function AskPanel() {
                 <div className="mt-4 flex flex-col gap-1.5">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-ink-faint">Try</p>
                   {SUGGESTIONS.map((s) => (
-                    <button
+                    <Button
                       key={s}
                       type="button"
+                      variant="outline"
+                      size="sm"
                       onClick={() => { setQ(s); ask(s); }}
-                      className="rounded-md border border-border bg-surface-2/40 px-3 py-2 text-left text-xs text-ink-muted transition-colors hover:border-navy/40 hover:text-ink"
+                      className="justify-start whitespace-normal bg-surface-2/40 py-2 text-left font-normal hover:border-navy/40 hover:bg-surface-2/40 hover:text-ink"
                     >
                       {s}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
@@ -99,21 +98,23 @@ export function AskPanel() {
               className="border-t border-border px-5 py-3"
             >
               <div className="flex items-end gap-2">
-                <textarea
+                <Textarea
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(q); } }}
                   rows={2}
                   placeholder="Ask about the portfolio…"
-                  className="min-w-0 flex-1 resize-none rounded-md border border-border bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-navy"
+                  className="min-w-0 flex-1 resize-none"
                 />
-                <button
+                <Button
                   type="submit"
+                  size="icon"
                   disabled={loading || !q.trim()}
-                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-navy text-white transition-colors hover:bg-navy-deep disabled:opacity-50"
+                  aria-label="Send"
+                  className="disabled:opacity-50"
                 >
                   <Send size={15} aria-hidden />
-                </button>
+                </Button>
               </div>
             </form>
           </aside>
