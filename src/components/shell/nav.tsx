@@ -22,6 +22,7 @@ import {
   BookOpen,
   ListTree,
   Database,
+  History,
   type LucideIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +31,12 @@ type Item = { label: string; href?: string; icon: LucideIcon; soon?: boolean };
 type Group = { label?: string; items: Item[]; collapsible?: boolean };
 
 const NAV: Group[] = [
-  { items: [{ label: "Overview", href: "/", icon: LayoutDashboard }] },
+  {
+    items: [
+      { label: "Strategy Review", href: "/", icon: LayoutDashboard },
+      { label: "Legacy overview", href: "/legacy", icon: History },
+    ],
+  },
   {
     label: "Strategic Initiatives",
     items: [

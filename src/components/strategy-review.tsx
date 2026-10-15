@@ -6,8 +6,6 @@ import {
   ArrowUpRight,
   CheckCircle2,
   CircleHelp,
-  Moon,
-  Sun,
   X,
 } from "lucide-react";
 import {
@@ -42,7 +40,7 @@ function StatusChip({ tone, children }: { tone: ReviewTone; children?: React.Rea
 function SectionHeader({ id, title, owner, tone }: { id: string; title: string; owner?: string; tone?: ReviewTone }) {
   return (
     <header className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-2">
-      <h2 id={id} className="scroll-mt-20 text-xl font-semibold tracking-tight text-ink">{title}</h2>
+      <h2 id={id} className="text-xl font-semibold tracking-tight text-ink">{title}</h2>
       {owner && <span className="text-xs text-ink-muted">{owner}</span>}
       {tone && <StatusChip tone={tone} />}
     </header>
@@ -112,22 +110,21 @@ function InitiativeCard({ initiative, onOpen }: { initiative: ReviewInitiative; 
 
 export function StrategyReview({ snapshot }: { snapshot: ReviewSnapshot }) {
   const { meta, pillars, enablers, summaryTiles, financeRows, kpiRows, ebitdaTrend, initiativeLinks } = snapshot;
-  const [dark, setDark] = useState(() => typeof window !== "undefined" && window.localStorage.getItem("awayday-review-theme") === "dark");
-  const [selected, setSelected] = useState<ReviewInitiative | null>(() => {
-    if (typeof window === "undefined") return null;
-    const hash = window.location.hash.replace("#si-", "");
-    return pillars.flatMap((pillar) => pillar.initiatives).find((item) => item.code === hash) ?? null;
-  });
+  const [selected, setSelected] = useState<ReviewInitiative | null>(null);
   const linkMap = useMemo(() => new Map(initiativeLinks.map((item) => [item.code, item.id])), [initiativeLinks]);
 
+  // Deep link (#si-CODE) opens that initiative's charter; read after mount so
+  // the server and first client render agree.
   useEffect(() => {
-    document.documentElement.dataset.theme = dark ? "dark" : "light";
-    window.localStorage.setItem("awayday-review-theme", dark ? "dark" : "light");
-  }, [dark]);
+    const code = window.location.hash.replace("#si-", "");
+    const match = pillars.flatMap((pillar) => pillar.initiatives).find((item) => item.code === code);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- browser-only value, must be read after mount to avoid a hydration mismatch
+    if (match) setSelected(match);
+  }, [pillars]);
 
   return (
     <div className="strategy-review mx-auto max-w-[1400px] text-sm">
-      <div className="sticky top-0 z-20 -mx-6 border-b border-border bg-surface/95 px-6 py-2 backdrop-blur">
+      <div className="sticky top-14 z-20 -mx-6 border-b border-border bg-surface/95 px-6 py-2 backdrop-blur">
         <div className="flex items-center gap-3 overflow-x-auto">
           <a href="#top" className="shrink-0 font-semibold tracking-tight text-ink">AWAYDAY · STRATEGY REVIEW</a>
           <nav aria-label="Review sections" className="flex min-w-max gap-1">
@@ -135,13 +132,10 @@ export function StrategyReview({ snapshot }: { snapshot: ReviewSnapshot }) {
               <a key={id} href={`#${id}`} className="rounded px-2 py-1 text-[11px] capitalize text-ink-muted hover:bg-surface-2 hover:text-ink">{id}</a>
             ))}
           </nav>
-          <button type="button" onClick={() => setDark((value) => !value)} className="ml-auto shrink-0 rounded p-1.5 text-ink-muted hover:bg-surface-2 hover:text-ink" aria-label={dark ? "Use light theme" : "Use dark theme"}>
-            {dark ? <Sun size={15} aria-hidden /> : <Moon size={15} aria-hidden />}
-          </button>
         </div>
       </div>
 
-      <header id="top" className="grid gap-2 py-7">
+      <header id="top" className="grid scroll-mt-28 gap-2 py-7">
         <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-faint">{meta.eyebrow}</span>
         <h1 className="text-3xl font-semibold tracking-tight text-ink">{meta.title}</h1>
         <p className="max-w-4xl text-sm leading-6 text-ink-muted">Where each pillar stands against the 2026 goal and FY27 target, the so-whats from September, and the strategic initiatives that need the ELT&apos;s attention.</p>
@@ -177,7 +171,7 @@ export function StrategyReview({ snapshot }: { snapshot: ReviewSnapshot }) {
         <div className="bg-navy px-3 py-1.5 text-center text-[10px] font-semibold uppercase tracking-[0.1em] text-white">Servant Leadership · Ownership Mentality · Local · Excellence</div>
       </section>
 
-      <section id="summary" className="border-t border-border py-7">
+      <section id="summary" className="scroll-mt-28 border-t border-border py-7">
         <SectionHeader id="summary-heading" title="Summary" owner="Four things to take from September" />
         <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {summaryTiles.map(([label, value, delta, tone]) => <div key={label} className="rounded-md border border-border bg-surface p-3"><p className="text-xs text-ink-muted">{label}</p><p className="tabular mt-1 text-2xl font-semibold text-ink">{value}</p><p className={`mt-1 text-[11px] ${tone === "risk" ? "text-risk" : "text-ok"}`}>{delta}</p></div>)}
@@ -188,7 +182,7 @@ export function StrategyReview({ snapshot }: { snapshot: ReviewSnapshot }) {
         </div>
       </section>
 
-      <section id="financials" className="border-t border-border py-7">
+      <section id="financials" className="scroll-mt-28 border-t border-border py-7">
         <SectionHeader id="financials-heading" title="September financials" owner="Base business · Finance Flash Results, vFinal 12 Oct" />
         <div className="grid gap-4 xl:grid-cols-2">
           <div><h3 className="mb-2 text-sm font-semibold text-ink">P&L · September MTD and YTD ($M)</h3><DataTable headers={["Line", "Sept", "vs Bud", "vs PY", "YTD", "vs Bud", "vs PY"]} rows={financeRows} /></div>
@@ -201,7 +195,7 @@ export function StrategyReview({ snapshot }: { snapshot: ReviewSnapshot }) {
       </section>
 
       {pillars.map((pillar) => (
-        <section key={pillar.id} id={pillar.id} className="border-t border-border py-7">
+        <section key={pillar.id} id={pillar.id} className="scroll-mt-28 border-t border-border py-7">
           <SectionHeader id={`${pillar.id}-heading`} title={`Pillar ${pillar.number} · ${pillar.name}`} owner={pillar.owner} tone={pillar.status} />
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="rounded-md border border-border bg-surface p-4">
@@ -217,17 +211,17 @@ export function StrategyReview({ snapshot }: { snapshot: ReviewSnapshot }) {
         </section>
       ))}
 
-      <section id="enablers" className="border-t border-border py-7">
+      <section id="enablers" className="scroll-mt-28 border-t border-border py-7">
         <SectionHeader id="enablers-heading" title="Enablers" owner="The capabilities that make the pillars executable" />
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{enablers.map(([name, owner, id]) => <article key={id} id={id} className="rounded-md border border-border bg-surface p-4"><h3 className="font-semibold text-ink">{name}</h3><p className="mt-1 text-xs text-ink-muted">{owner}</p><p className="mt-3 text-xs leading-5 text-ink-muted">Leader view and charter detail to be completed in the next dashboard iteration.</p><StatusChip tone="neutral">TBD</StatusChip></article>)}</div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{enablers.map(([name, owner, id]) => <article key={id} id={id} className="scroll-mt-28 rounded-md border border-border bg-surface p-4"><h3 className="font-semibold text-ink">{name}</h3><p className="mt-1 text-xs text-ink-muted">{owner}</p><p className="mt-3 text-xs leading-5 text-ink-muted">Leader view and charter detail to be completed in the next dashboard iteration.</p><StatusChip tone="neutral">TBD</StatusChip></article>)}</div>
       </section>
 
-      <section id="milestones" className="border-t border-border py-7">
+      <section id="milestones" className="scroll-mt-28 border-t border-border py-7">
         <SectionHeader id="milestones-heading" title="Upcoming milestones" owner="The next dates that change the conversation" />
         <div className="grid gap-2 rounded-md border border-border bg-surface">{pillars.flatMap((pillar) => pillar.initiatives.flatMap((initiative) => initiative.milestones.slice(0, 2).map((milestone) => ({ pillar, initiative, milestone })))).slice(0, 12).map(({ pillar, initiative, milestone }) => { const [title, date] = milestone.split(" · "); return <div key={`${initiative.code}-${milestone}`} className="grid gap-2 border-b border-border/60 px-4 py-3 last:border-0 sm:grid-cols-[110px_1fr_auto] sm:items-baseline"><span className="tabular text-xs text-ink-muted">{date ?? "TBD"}</span><span className="text-xs text-ink"><b className="font-semibold">{title}</b><span className="ml-2 text-ink-muted">{initiative.name}</span></span><span className="text-[10px] uppercase tracking-[0.08em] text-ink-faint">{pillar.name}</span></div>; })}</div>
       </section>
 
-      <section id="asks" className="border-t border-border py-7">
+      <section id="asks" className="scroll-mt-28 border-t border-border py-7">
         <SectionHeader id="asks-heading" title="Asks by leader" owner="Decisions and unblockers for the ELT meeting" />
         <div className="grid gap-3 md:grid-cols-2">{pillars.flatMap((pillar) => pillar.initiatives.filter((initiative) => initiative.ask).map((initiative) => <article key={initiative.code} className="rounded-md border border-navy/20 bg-navy/5 p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-navy-deep">{initiative.sponsor}</p><h3 className="mt-1 font-semibold text-ink">{initiative.name}</h3><p className="mt-2 text-xs leading-5 text-ink-muted">{initiative.ask}</p></article>))}</div>
       </section>

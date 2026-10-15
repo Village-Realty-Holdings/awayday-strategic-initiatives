@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { activePlanInitiativeWhere } from "@/lib/active-plan";
 import { getEbitdaBuild, getScorecardGoals } from "@/lib/overview-data";
 import {
   FINANCE_ROWS,
@@ -45,11 +46,12 @@ function scorecardTone(map: ReturnType<typeof scorecardMap>, name: string, fallb
 
 export async function getStrategyReviewSnapshot(): Promise<ReviewSnapshot> {
   const codes = REVIEW_PILLARS.flatMap((pillar) => pillar.initiatives.map((initiative) => initiative.code));
+  const where = await activePlanInitiativeWhere({ code: { in: codes } });
   const [ebitda, goals, initiatives] = await Promise.all([
     getEbitdaBuild(),
     getScorecardGoals(),
     prisma.initiative.findMany({
-      where: { code: { in: codes } },
+      where,
       select: {
         id: true,
         code: true,
