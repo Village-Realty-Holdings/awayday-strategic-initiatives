@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { signInCallbackURL } from "@/lib/sign-in-callback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,7 +32,7 @@ export function LoginForm({ ssoEnabled = false, initialError = "" }: { ssoEnable
     // Redirects to Microsoft; better-auth returns to callbackURL after the handshake.
     const { error } = await authClient.signIn.social({
       provider: "microsoft",
-      callbackURL: redirectTo && redirectTo.startsWith("/") ? redirectTo : "/",
+      callbackURL: signInCallbackURL(redirectTo),
     });
     if (error) {
       setSsoLoading(false);
@@ -47,7 +48,7 @@ export function LoginForm({ ssoEnabled = false, initialError = "" }: { ssoEnable
     const redirectTo = params.get("redirect");
     const { error } = await authClient.signIn.magicLink({
       email,
-      callbackURL: redirectTo && redirectTo.startsWith("/") ? redirectTo : "/",
+      callbackURL: signInCallbackURL(redirectTo),
     });
     setLoading(false);
     if (error) {
