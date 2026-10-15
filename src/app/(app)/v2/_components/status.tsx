@@ -48,8 +48,12 @@ export const TONE_OPTIONS: { tone: PillarTone; label: string }[] = [
   { tone: "behind", label: "Behind" },
 ];
 
-export function PillarLabelBadge({ label, tone }: { label: string; tone: PillarTone }) {
-  return <Badge variant={TONE_VARIANT[tone]}>{label}</Badge>;
+export function PillarLabelBadge({ label, tone, className }: { label: string; tone: PillarTone; className?: string }) {
+  return (
+    <Badge variant={TONE_VARIANT[tone]} className={className}>
+      {label}
+    </Badge>
+  );
 }
 
 export function PeriodStatusBadge({ status }: { status: PeriodStatus }) {

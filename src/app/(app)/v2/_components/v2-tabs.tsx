@@ -10,6 +10,9 @@ const TABS = [
   { label: "Timeline", href: "/v2/timeline" },
   { label: "Inbox", href: "/v2/inbox" },
   { label: "Asks by leader", href: "/v2/asks" },
+  { label: "Below the line", href: "/v2/below-the-line" },
+  { label: "Definitions", href: "/v2/definitions" },
+  { label: "Data inputs", href: "/v2/data" },
 ];
 
 export function V2Tabs() {

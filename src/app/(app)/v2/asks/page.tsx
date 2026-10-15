@@ -1,5 +1,5 @@
 import { requireApp } from "@/lib/session";
-import { AsksByLeader } from "../_components/asks-by-leader";
+import { AsksByLeaderToggle } from "../_components/asks-by-leader";
 import { V2Header } from "../_components/preview";
 import { LATEST_PERIOD } from "../_mock/selectors";
 
@@ -10,9 +10,9 @@ export default async function AsksPage() {
       <V2Header
         eyebrow="Asks by leader"
         title={`Asks by leader · ${LATEST_PERIOD.label}`}
-        description="The same two asks for every SI: latest progress, what next. Each leader's SIs show this month's update state and anything still open."
+        description="The same two asks for every SI: latest progress, what next. Each leader's SIs show this month's update state and anything still open. Group by ELT owner (default) or by SI lead."
       />
-      <AsksByLeader periodId={LATEST_PERIOD.id} />
+      <AsksByLeaderToggle periodId={LATEST_PERIOD.id} />
     </div>
   );
 }

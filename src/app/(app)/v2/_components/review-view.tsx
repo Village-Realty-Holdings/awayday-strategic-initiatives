@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AREAS, personName } from "../_mock/data";
 import { MOCK_HEADER } from "../_mock/review-content";
+import { LTM_CAPTION, LTM_SO_WHAT } from "../_mock/review-detail";
 import {
+  hasDetail,
   financialsFor,
   fmtLong,
   names,
@@ -12,11 +16,18 @@ import {
   upcomingMilestones,
 } from "../_mock/selectors";
 import type { FinanceTable, MockArea, ReviewPeriod, ReviewPillar, ReviewSoWhat } from "../_mock/types";
-import { AsksByLeader } from "./asks-by-leader";
+import { AsksByLeaderToggle } from "./asks-by-leader";
+import { DataTable } from "./data-table";
+import { EnablerMeasureCard } from "./enabler-measure";
 import { PeriodSwitcher } from "./period-switcher";
+import { PillarDetail } from "./pillar-detail";
 import { MockNote, SectionTitle, V2Header } from "./preview";
 import { PublishBar } from "./publish-bar";
+import { ReadFirstBanner } from "./read-first-banner";
+import { RegionCard } from "./region-card";
+import { LtmEbitdaChart } from "./review-charts";
 import { SiCard } from "./si-card";
+import { SubHeading } from "./stat";
 import { PillarLabelBadge } from "./status";
 import { TimelineGroups } from "./timeline-groups";
 
@@ -42,45 +53,28 @@ function FinanceTableView({ table }: { table: FinanceTable }) {
   return (
     <div>
       <h3 className="mb-2 text-xs font-semibold text-ink">{table.title}</h3>
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full min-w-[34rem] text-xs">
-          <thead className="bg-surface-2 text-ink-muted">
-            <tr>
-              {table.columns.map((c, i) => (
-                <th key={i} className={`px-3 py-2 font-medium ${i === 0 ? "text-left" : "text-right"}`}>
-                  {c}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/70">
-            {table.rows.map((r) => (
-              <tr key={r.line} className={r.bold ? "font-semibold text-ink" : "text-ink-muted"}>
-                <th scope="row" className="px-3 py-1.5 text-left font-medium">
-                  {r.line}
-                </th>
-                {r.cells.map((c, i) => (
-                  <td key={i} className="tabular px-3 py-1.5 text-right">
-                    {c}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        minWidth="34rem"
+        columns={table.columns.map((c, i) => ({ key: String(i), label: c, numeric: i > 0 }))}
+        rows={table.rows.map((r) => ({
+          id: r.line,
+          bold: r.bold,
+          cells: Object.fromEntries([r.line, ...r.cells].map((c, i) => [String(i), c])),
+        }))}
+      />
     </div>
   );
 }
 
 function PillarCard({ area, pillar }: { area: MockArea; pillar: ReviewPillar }) {
   return (
-    <a href={`#pillar-${area.code}`} className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-4 transition-colors hover:border-navy/40">
+    <a href={`#pillar-${area.code}`} className="group block min-w-0 rounded-xl">
+    <Card className="h-full gap-2 p-4 transition-colors group-hover:border-navy/40">
       <div className="flex items-start justify-between gap-2">
         <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
           {area.number} · {area.name}
         </p>
-        <PillarLabelBadge label={pillar.label} tone={pillar.tone} />
+        <PillarLabelBadge label={pillar.label} tone={pillar.tone} className="whitespace-normal text-right" />
       </div>
       <p className="text-[11px] text-ink-muted">
         {names(area.eltOwnerIds)} · {names(area.siLeadIds)}
@@ -90,15 +84,16 @@ function PillarCard({ area, pillar }: { area: MockArea; pillar: ReviewPillar }) 
         <p className="tabular text-2xl font-semibold tracking-tight text-ink">{pillar.headline}</p>
       </div>
       <p className="text-[11px] leading-4 text-ink-muted">{pillar.cardSub}</p>
+    </Card>
     </a>
   );
 }
 
-function PillarSection({ area, pillar, period, canEdit }: { area: MockArea; pillar: ReviewPillar; period: ReviewPeriod; canEdit: boolean }) {
+function PillarSection({ area, pillar, period, canEdit, detail }: { area: MockArea; pillar: ReviewPillar; period: ReviewPeriod; canEdit: boolean; detail: boolean }) {
   const sis = sisForArea(area.code);
   const soWhats = soWhatsFor(period.id, area.code);
   return (
-    <section id={`pillar-${area.code}`} className="scroll-mt-20 rounded-xl border border-border bg-surface p-5">
+    <Card id={`pillar-${area.code}`} className="scroll-mt-20 gap-0 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
@@ -149,12 +144,18 @@ function PillarSection({ area, pillar, period, canEdit }: { area: MockArea; pill
         </div>
       )}
 
-      {pillar.extra && (
+      {pillar.extra && !detail && (
         <div className="mt-4 rounded-lg bg-surface-2/60 px-3 py-2.5 text-xs text-ink-muted">
           <p className="font-semibold text-ink">{pillar.extra.title}</p>
           {pillar.extra.items.map((t) => (
             <p key={t} className="mt-1">{t}</p>
           ))}
+        </div>
+      )}
+
+      {detail && (
+        <div className="mt-5">
+          <PillarDetail areaCode={area.code} />
         </div>
       )}
 
@@ -167,7 +168,7 @@ function PillarSection({ area, pillar, period, canEdit }: { area: MockArea; pill
           {sis.length === 0 && <p className="text-xs text-ink-faint">No strategic initiatives in this area for FY27.</p>}
         </div>
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -180,6 +181,7 @@ export function ReviewView({ period, canEdit }: { period: ReviewPeriod; canEdit:
   const summarySoWhats = soWhatsFor(period.id, "SUMMARY");
   const fin = financialsFor(period.id);
   const milestones = upcomingMilestones(60);
+  const detail = hasDetail(period.id);
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-8">
@@ -213,6 +215,8 @@ export function ReviewView({ period, canEdit }: { period: ReviewPeriod; canEdit:
         ))}
       </nav>
 
+      <ReadFirstBanner />
+
       <section className="rounded-xl border border-navy/20 bg-navy px-6 py-5 text-white">
         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold">Mission</p>
         <h2 className="mt-1 text-xl font-semibold tracking-tight">{MOCK_HEADER.mission}</h2>
@@ -245,53 +249,55 @@ export function ReviewView({ period, canEdit }: { period: ReviewPeriod; canEdit:
         <div className="grid gap-4 lg:grid-cols-[2fr_3fr]">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {period.tiles.map((t) => (
-              <div key={t.label} className="rounded-xl border border-border bg-surface p-4">
+              <Card key={t.label} className="gap-0 p-4">
                 <p className="text-[11px] text-ink-faint">{t.label}</p>
                 <p className="tabular mt-1 text-2xl font-semibold tracking-tight text-ink">{t.value}</p>
                 <p className="mt-1 text-[11px] leading-4 text-ink-muted">{t.sub}</p>
-              </div>
+              </Card>
             ))}
           </div>
-          <div className="rounded-xl border border-border bg-surface p-5">
+          <Card className="gap-0 p-5">
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-gold-deep">So what</p>
             <SoWhatList items={summarySoWhats} />
-          </div>
+          </Card>
         </div>
 
-        <div className="mt-4 rounded-xl border border-border bg-surface p-5">
+        <Card className="mt-4 gap-0 p-5">
           <h3 className="mb-2 text-sm font-semibold text-ink">Where the pillars stand</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[44rem] text-xs">
-              <thead className="text-ink-muted">
-                <tr className="border-b border-border">
-                  {["Pillar", "Measure", period.monthName.slice(0, 4), "YTD", "2026 goal", "FY27 (budget / stretch)", "Status"].map((c, i) => (
-                    <th key={c} className={`px-2 py-2 font-medium ${i < 2 || i === 6 ? "text-left" : "text-right"}`}>{c}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/70">
-                {[...fivePillars, guest].map((a) => {
-                  const p = byCode.get(a.code);
-                  if (!p) return null;
-                  return (
-                    <tr key={a.code}>
-                      <th scope="row" className="px-2 py-2 text-left font-medium text-ink">{a.name}</th>
-                      <td className="px-2 py-2 text-ink-muted">{p.measure}</td>
-                      <td className="tabular px-2 py-2 text-right">{p.monthValue}</td>
-                      <td className="tabular px-2 py-2 text-right">{p.ytdValue}</td>
-                      <td className="tabular px-2 py-2 text-right">{p.goal2026}</td>
-                      <td className="tabular px-2 py-2 text-right">{p.fy27}</td>
-                      <td className="px-2 py-2"><PillarLabelBadge label={p.label} tone={p.tone} /></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            minWidth="44rem"
+            columns={[
+              { key: "pillar", label: "Pillar" },
+              { key: "measure", label: "Measure", align: "left" },
+              { key: "month", label: period.monthName.slice(0, 4), numeric: true },
+              { key: "ytd", label: "YTD", numeric: true },
+              { key: "goal", label: "2026 goal", numeric: true },
+              { key: "fy27", label: "FY27 (budget / stretch)", numeric: true },
+              { key: "status", label: "Status", align: "left" },
+            ]}
+            rows={[...fivePillars, guest].flatMap((a) => {
+              const p = byCode.get(a.code);
+              if (!p) return [];
+              return [
+                {
+                  id: a.code,
+                  cells: {
+                    pillar: a.name,
+                    measure: p.measure,
+                    month: p.monthValue,
+                    ytd: p.ytdValue,
+                    goal: p.goal2026,
+                    fy27: p.fy27,
+                    status: <PillarLabelBadge label={p.label} tone={p.tone} />,
+                  },
+                },
+              ];
+            })}
+          />
           <p className="mt-2 text-[11px] text-ink-faint">
             Pillar status is judged against the 2026 goal from Finance data; FY27 shows budget / stretch. SI status comes from owner updates; TBD means nothing submitted.
           </p>
-        </div>
+        </Card>
       </section>
 
       {fin && (
@@ -304,11 +310,44 @@ export function ReviewView({ period, canEdit }: { period: ReviewPeriod; canEdit:
         </details>
       )}
 
+      {detail ? (
+        <section id="bridge" className="flex scroll-mt-20 flex-col gap-4">
+          <SectionTitle>LTM lender EBITDA and regions</SectionTitle>
+          <Card>
+            <CardHeader>
+              <CardTitle>LTM pro forma lender EBITDA ($M)</CardTitle>
+              <CardDescription>{LTM_CAPTION}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <LtmEbitdaChart />
+              <p className="text-[11px] text-ink-faint">
+                Dec-25, Aug-26 and Sep-26 LTM and the base business endpoints come from the MVP; the months between them are invented for the mock. The split of the +$38.6M between acquired EBITDA, executed PI and new-unit run rate is not in the MVP.
+              </p>
+              <div>
+                <SubHeading>So what in the bridge</SubHeading>
+                <ul className="mt-2 flex flex-col gap-2 text-sm leading-5 text-ink-muted">
+                  {LTM_SO_WHAT.map((x) => (
+                    <li key={x.headline}>
+                      <span className="font-semibold text-ink">{x.headline}</span> {x.body}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+          <RegionCard />
+        </section>
+      ) : (
+        <p className="text-xs text-ink-faint">
+          Charts, M&amp;A detail and brand lists are mocked for September only. <MockNote>Mock month: no detail</MockNote>
+        </p>
+      )}
+
       <section id="pillars" className="flex scroll-mt-20 flex-col gap-4">
         <SectionTitle>Value creation pillars</SectionTitle>
         {[...fivePillars, guest].map((a) => {
           const p = byCode.get(a.code);
-          return p ? <PillarSection key={a.code} area={a} pillar={p} period={period} canEdit={canEdit} /> : null;
+          return p ? <PillarSection key={a.code} area={a} pillar={p} period={period} canEdit={canEdit} detail={detail} /> : null;
         })}
       </section>
 
@@ -320,13 +359,22 @@ export function ReviewView({ period, canEdit }: { period: ReviewPeriod; canEdit:
             if (!p) return null;
             const sis = sisForArea(a.code);
             return (
-              <article key={a.code} id={`enabler-${a.code}`} className="scroll-mt-20 rounded-xl border border-border bg-surface p-5">
+              <Card key={a.code} id={`enabler-${a.code}`} className="scroll-mt-20 gap-0 p-5">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <h3 className="text-base font-semibold text-ink">{a.name}</h3>
                   <PillarLabelBadge label={p.label} tone={p.tone} />
                 </div>
                 <p className="mt-1 text-xs text-ink-muted">{p.enablerNote ?? ownersLine(a)}</p>
-                {p.extra && (
+                {soWhatsFor(period.id, a.code).length > 0 && (
+                  <div className="mt-4">
+                    <SubHeading>So what</SubHeading>
+                    <div className="mt-2">
+                      <SoWhatList items={soWhatsFor(period.id, a.code)} />
+                    </div>
+                  </div>
+                )}
+                {detail && <EnablerMeasureCard areaCode={a.code} />}
+                {p.extra && !detail && (
                   <div className="mt-3 rounded-lg bg-surface-2/60 px-3 py-2.5 text-xs text-ink-muted">
                     <p className="font-semibold text-ink">{p.extra.title}</p>
                     {p.extra.items.map((t) => (
@@ -342,7 +390,7 @@ export function ReviewView({ period, canEdit }: { period: ReviewPeriod; canEdit:
                     <p className="text-xs text-ink-faint">No FY27 SIs in the plan for {a.name} yet.</p>
                   )}
                 </div>
-              </article>
+              </Card>
             );
           })}
         </div>
@@ -357,11 +405,19 @@ export function ReviewView({ period, canEdit }: { period: ReviewPeriod; canEdit:
       <section id="asks" className="scroll-mt-20">
         <SectionTitle aside={<Link href="/v2/asks" className="text-navy hover:underline">Open full view</Link>}>Asks by leader</SectionTitle>
         <p className="mb-3 text-xs text-ink-muted">The same two asks for every SI: latest progress, what next. Click an SI to open its charter.</p>
-        <AsksByLeader periodId={period.id} compact />
+        <AsksByLeaderToggle periodId={period.id} compact />
       </section>
 
-      <section id="sources" className="scroll-mt-20 rounded-xl border border-border bg-surface p-5">
-        <SectionTitle>Sources and data notes</SectionTitle>
+      <Card id="sources" className="scroll-mt-20 gap-0 p-5">
+        <SectionTitle
+          aside={
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/v2/definitions">Metric definitions register</Link>
+            </Button>
+          }
+        >
+          Sources and data notes
+        </SectionTitle>
         <div className="grid gap-6 lg:grid-cols-2">
           <div>
             <h3 className="mb-2 text-xs font-semibold text-ink">Sources</h3>
@@ -370,7 +426,12 @@ export function ReviewView({ period, canEdit }: { period: ReviewPeriod; canEdit:
             </ul>
           </div>
           <div>
-            <h3 className="mb-2 text-xs font-semibold text-ink">Definitions and gaps to close before November</h3>
+            <h3 className="mb-2 text-xs font-semibold text-ink">
+              Definitions and gaps to close before November ·{" "}
+              <Link href="/v2/definitions" className="font-normal text-navy hover:underline">
+                full register
+              </Link>
+            </h3>
             <ul className="list-disc space-y-1.5 pl-4 text-xs text-ink-muted">
               {period.dataNotes.map((s) => <li key={s}>{s}</li>)}
             </ul>
@@ -382,7 +443,7 @@ export function ReviewView({ period, canEdit }: { period: ReviewPeriod; canEdit:
           ELT review {fmtLong(period.meetingDate)} · SI updates due {fmtLong(period.updatesDueDate)} · Lead contact {personName("alex-bevington")}
           <MockNote />
         </p>
-      </section>
+      </Card>
     </div>
   );
 }

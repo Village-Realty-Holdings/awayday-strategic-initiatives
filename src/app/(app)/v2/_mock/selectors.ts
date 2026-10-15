@@ -111,6 +111,11 @@ export function pillarsFor(periodId: string): ReviewPillar[] {
 export function soWhatsFor(periodId: string, scope: string): ReviewSoWhat[] {
   return REVIEW_SO_WHATS.filter((s) => s.periodId === periodId && s.scope === scope).sort((a, b) => a.order - b.order);
 }
+/** Periods that have section-level detail (charts, M&A, brand lists). Only September in the mock. */
+const DETAIL_PERIODS = new Set(["2026-09"]);
+export function hasDetail(periodId: string): boolean {
+  return DETAIL_PERIODS.has(periodId);
+}
 export function financialsFor(periodId: string) {
   return FINANCIALS[periodId];
 }
@@ -164,23 +169,44 @@ export type LeaderGroup = {
   sis: MockSi[];
 };
 
-export function leaderGroups(): LeaderGroup[] {
-  const map = new Map<string | null, MockSi[]>();
-  for (const si of SIS) {
-    const list = map.get(si.ownerId) ?? [];
-    list.push(si);
-    map.set(si.ownerId, list);
-  }
-  const groups: LeaderGroup[] = [...map.entries()].map(([leaderId, sis]) => ({
-    leaderId,
-    leaderName: leaderId ? (personById(leaderId)?.name ?? leaderId) : "Unassigned (owner TBD)",
-    sis,
-  }));
+/** How the asks view groups SIs: by ELT owner of the area (default) or by the SI lead. */
+export type LeaderGrouping = "elt" | "lead";
+
+function sortGroups(groups: LeaderGroup[]): LeaderGroup[] {
   return groups.sort((a, b) => {
     if (a.leaderId === null) return 1;
     if (b.leaderId === null) return -1;
     return a.leaderName.localeCompare(b.leaderName);
   });
+}
+
+/**
+ * Groups SIs under leaders. "elt" uses the area's ELT owners, so an SI in an
+ * area with two ELT owners appears under both. "lead" uses the SI's own lead.
+ */
+export function leaderGroups(by: LeaderGrouping = "lead"): LeaderGroup[] {
+  const map = new Map<string | null, MockSi[]>();
+  const add = (id: string | null, si: MockSi) => {
+    const list = map.get(id) ?? [];
+    list.push(si);
+    map.set(id, list);
+  };
+  for (const si of SIS) {
+    if (by === "elt") {
+      const owners = areaByCode(si.areaCode)?.eltOwnerIds ?? [];
+      if (owners.length === 0) add(null, si);
+      for (const id of owners) add(id, si);
+    } else {
+      add(si.ownerId, si);
+    }
+  }
+  return sortGroups(
+    [...map.entries()].map(([leaderId, sis]) => ({
+      leaderId,
+      leaderName: leaderId ? (personById(leaderId)?.name ?? leaderId) : by === "elt" ? "No ELT owner" : "Unassigned (owner TBD)",
+      sis,
+    })),
+  );
 }
 
 export function openItemsForSi(siCode: string) {

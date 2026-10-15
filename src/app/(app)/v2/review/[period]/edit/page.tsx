@@ -19,7 +19,7 @@ export default async function ReviewEditPage({ params }: { params: Promise<{ per
       <V2Header
         eyebrow="Review authoring"
         title={`Edit ${period.label} review`}
-        description="Write the so-whats, set each pillar's status label and commentary, check who has submitted, then publish. Editing is a mock: nothing is saved."
+        description="Write the summary so-whats and the so-whats under each pillar, set each pillar's status label and commentary, check who has submitted, then publish. Editing is a mock: nothing is saved."
         actions={<PeriodSwitcher current={period.id} suffix="/edit" />}
       />
       <ReviewEditor
@@ -27,7 +27,13 @@ export default async function ReviewEditPage({ params }: { params: Promise<{ per
         periodId={period.id}
         periodLabel={period.label}
         initialStatus={period.status}
-        soWhats={soWhatsFor(period.id, "SUMMARY").map((s) => ({ id: s.id, headline: s.headline, body: s.body }))}
+        summarySoWhats={soWhatsFor(period.id, "SUMMARY").map((s) => ({ id: s.id, headline: s.headline, body: s.body }))}
+        pillarSoWhats={Object.fromEntries(
+          pillarsFor(period.id).map((p) => [
+            p.areaCode,
+            soWhatsFor(period.id, p.areaCode).map((s) => ({ id: s.id, headline: s.headline, body: s.body })),
+          ]),
+        )}
         pillars={pillarsFor(period.id).map((p) => ({
           areaCode: p.areaCode,
           name: areaName(p.areaCode),

@@ -1,13 +1,24 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ACTION_ITEMS, ELT_ASKS } from "../_mock/data";
-import { areaName, fmtDay, leaderGroups, names, openItemsForSi, siShortCode, snapshotFor, updateStateFor } from "../_mock/selectors";
+import { areaName, fmtDay, type LeaderGrouping, leaderGroups, names, openItemsForSi, siShortCode, snapshotFor, updateStateFor } from "../_mock/selectors";
 import { SiStatusBadge, UpdateStateBadge } from "./status";
 
-export function AsksByLeader({ periodId, compact = false }: { periodId: string; compact?: boolean }) {
-  const groups = leaderGroups();
+/** Asks grouped one way. Use AsksByLeaderToggle to let the viewer switch. */
+export function AsksByLeader({
+  periodId,
+  compact = false,
+  groupBy = "elt",
+}: {
+  periodId: string;
+  compact?: boolean;
+  groupBy?: LeaderGrouping;
+}) {
+  const groups = leaderGroups(groupBy);
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       {groups.map((g) => {
         const submitted = g.sis.filter((s) => updateStateFor(s.code, periodId) === "SUBMITTED").length;
         const totals = g.sis.reduce(
@@ -21,7 +32,7 @@ export function AsksByLeader({ periodId, compact = false }: { periodId: string; 
           { ms: 0, act: 0, asks: 0 },
         );
         return (
-          <article key={g.leaderId ?? "tbd"} className="rounded-xl border border-border bg-surface p-5">
+          <Card key={g.leaderId ?? "tbd"} className="gap-0 p-5">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <h3 className="text-base font-semibold text-ink">{g.leaderName}</h3>
@@ -78,9 +89,30 @@ export function AsksByLeader({ periodId, compact = false }: { periodId: string; 
                 );
               })}
             </ul>
-          </article>
+          </Card>
         );
       })}
     </div>
+  );
+}
+
+/** Switch between grouping by ELT owner (default, as in the MVP) and by SI lead. */
+export function AsksByLeaderToggle({ periodId, compact = false }: { periodId: string; compact?: boolean }) {
+  return (
+    <Tabs defaultValue="elt" className="gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <TabsList aria-label="Group asks by">
+          <TabsTrigger value="elt">By ELT owner</TabsTrigger>
+          <TabsTrigger value="lead">By SI lead</TabsTrigger>
+        </TabsList>
+        <p className="text-[11px] text-ink-faint">An SI in an area with two ELT owners appears under both.</p>
+      </div>
+      <TabsContent value="elt">
+        <AsksByLeader periodId={periodId} compact={compact} groupBy="elt" />
+      </TabsContent>
+      <TabsContent value="lead">
+        <AsksByLeader periodId={periodId} compact={compact} groupBy="lead" />
+      </TabsContent>
+    </Tabs>
   );
 }

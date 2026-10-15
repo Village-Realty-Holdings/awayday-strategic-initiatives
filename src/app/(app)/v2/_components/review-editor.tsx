@@ -2,17 +2,19 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, Send, Trash2 } from "lucide-react";
+import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Card } from "@/components/ui/card";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import type { PeriodStatus, PillarTone, UpdateState } from "../_mock/types";
 import { MockNote } from "./preview";
+import { type EditorSoWhat, SoWhatEditor } from "./so-what-editor";
 import { PeriodStatusBadge, PillarLabelBadge, TONE_OPTIONS, UpdateStateBadge } from "./status";
 
-export type EditorSoWhat = { id: string; headline: string; body: string };
+export type { EditorSoWhat };
 export type EditorPillar = { areaCode: string; name: string; label: string; tone: PillarTone; commentary: string };
 export type EditorSiRow = { code: string; shortCode: string; name: string; area: string; owner: string; state: UpdateState };
 
@@ -20,19 +22,23 @@ export function ReviewEditor({
   periodId,
   periodLabel,
   initialStatus,
-  soWhats: initialSoWhats,
+  summarySoWhats: initialSummary,
+  pillarSoWhats: initialPillarSoWhats,
   pillars: initialPillars,
   sis,
 }: {
   periodId: string;
   periodLabel: string;
   initialStatus: PeriodStatus;
-  soWhats: EditorSoWhat[];
+  summarySoWhats: EditorSoWhat[];
+  /** So-whats per pillar, keyed by area code. */
+  pillarSoWhats: Record<string, EditorSoWhat[]>;
   pillars: EditorPillar[];
   sis: EditorSiRow[];
 }) {
   const [status, setStatus] = useState<PeriodStatus>(initialStatus);
-  const [soWhats, setSoWhats] = useState(initialSoWhats);
+  const [summary, setSummary] = useState(initialSummary);
+  const [pillarSoWhats, setPillarSoWhats] = useState(initialPillarSoWhats);
   const [pillars, setPillars] = useState(initialPillars);
   const [stateFilter, setStateFilter] = useState<UpdateState | "ALL">("ALL");
   const locked = status === "PUBLISHED";
@@ -60,62 +66,16 @@ export function ReviewEditor({
       </div>
 
       <section>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-ink">Summary so-whats · {periodLabel}</h2>
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={locked}
-            onClick={() => setSoWhats((l) => [...l, { id: `new-${l.length + 1}-${Date.now()}`, headline: "", body: "" }])}
-          >
-            <Plus size={12} aria-hidden /> Add so-what
-          </Button>
-        </div>
-        <ul className="flex flex-col gap-3">
-          {soWhats.map((s, i) => (
-            <li key={s.id} className="rounded-xl border border-border bg-surface p-4">
-              <div className="flex items-start gap-3">
-                <span className="tabular mt-2 w-5 shrink-0 text-xs text-ink-faint">{i + 1}</span>
-                <div className="flex min-w-0 flex-1 flex-col gap-3">
-                  <Label className="flex flex-col gap-1.5">
-                    Headline
-                    <Input
-                      value={s.headline}
-                      disabled={locked}
-                      onChange={(e) => setSoWhats((l) => l.map((x) => (x.id === s.id ? { ...x, headline: e.target.value } : x)))}
-                    />
-                  </Label>
-                  <Label className="flex flex-col gap-1.5">
-                    Detail
-                    <Textarea
-                      rows={3}
-                      value={s.body}
-                      disabled={locked}
-                      onChange={(e) => setSoWhats((l) => l.map((x) => (x.id === s.id ? { ...x, body: e.target.value } : x)))}
-                    />
-                  </Label>
-                </div>
-                <Button
-                  variant="faint"
-                  size="icon"
-                  aria-label={`Remove so-what ${i + 1}`}
-                  disabled={locked}
-                  onClick={() => setSoWhats((l) => l.filter((x) => x.id !== s.id))}
-                >
-                  <Trash2 size={14} aria-hidden />
-                </Button>
-              </div>
-            </li>
-          ))}
-          {soWhats.length === 0 && <li className="text-xs text-ink-faint">No so-whats yet.</li>}
-        </ul>
+        <h2 className="mb-3 text-sm font-semibold text-ink">Summary so-whats · {periodLabel}</h2>
+        <SoWhatEditor scopeLabel="summary" items={summary} onChange={setSummary} locked={locked} />
       </section>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-ink">Pillar status and commentary</h2>
+        <h2 className="mb-3 text-sm font-semibold text-ink">Pillar status, commentary and so-whats</h2>
         <ul className="flex flex-col gap-3">
           {pillars.map((p) => (
-            <li key={p.areaCode} className="rounded-xl border border-border bg-surface p-4">
+            <li key={p.areaCode}>
+            <Card className="gap-0 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold text-ink">{p.name}</h3>
                 <PillarLabelBadge label={p.label || "Untitled"} tone={p.tone} />
@@ -151,6 +111,20 @@ export function ReviewEditor({
                   onChange={(e) => setPillars((l) => l.map((x) => (x.areaCode === p.areaCode ? { ...x, commentary: e.target.value } : x)))}
                 />
               </Label>
+              <div className="mt-5 border-t border-border/70 pt-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <h4 className="text-xs font-semibold text-ink">So what · {p.name}</h4>
+                  <span className="text-[11px] text-ink-faint">{(pillarSoWhats[p.areaCode] ?? []).length} shown on the pillar</span>
+                </div>
+                <SoWhatEditor
+                  compact
+                  scopeLabel={p.name}
+                  items={pillarSoWhats[p.areaCode] ?? []}
+                  onChange={(next) => setPillarSoWhats((m) => ({ ...m, [p.areaCode]: next }))}
+                  locked={locked}
+                />
+              </div>
+            </Card>
             </li>
           ))}
         </ul>
