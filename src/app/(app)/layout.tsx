@@ -24,8 +24,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!hasApp(user.role, dbUser?.appAccess, "initiatives")) redirect("/apps");
   return (
     <div className="flex min-h-dvh">
-      <aside data-chrome className="flex w-60 shrink-0 flex-col border-r border-border bg-surface">
-        <div className="border-b border-border px-5 py-4">
+      <aside data-chrome className="sticky top-0 flex h-dvh w-60 shrink-0 flex-col self-start border-r border-border bg-surface">
+        <div className="shrink-0 border-b border-border px-5 py-4">
           <Image
             src="/awayday-logo.png"
             alt="Awayday"
@@ -35,7 +35,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             priority
           />
         </div>
-        <div className="flex-1 overflow-y-auto px-3 py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
           <SidebarNav isAdmin={user.role === "admin"} />
         </div>
         <Link
