@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession, canEdit } from "@/lib/session";
+import { activePlanInitiativeWhere } from "@/lib/active-plan";
 import { GroupsManager } from "@/components/groups-manager";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ export default async function GroupsPage() {
       orderBy: [{ archived: "asc" }, { name: "asc" }],
       include: { initiatives: { select: { id: true, code: true, name: true }, orderBy: { code: "asc" } } },
     }),
-    prisma.initiative.findMany({ orderBy: { code: "asc" }, select: { id: true, code: true, name: true } }),
+    prisma.initiative.findMany({ where: await activePlanInitiativeWhere(), orderBy: { code: "asc" }, select: { id: true, code: true, name: true } }),
   ]);
 
   const data = groups.map((g) => ({

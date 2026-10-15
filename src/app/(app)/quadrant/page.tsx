@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { activePlanInitiativeWhere } from "@/lib/active-plan";
 import {
   VALUE_SCALE,
   LIFT_SCALE,
@@ -22,7 +23,7 @@ const GRID = [10, 30, 50, 70, 90];
 export default async function QuadrantPage() {
   // Only value initiatives are scored on the Lift × Value map; non-value
   // (enabler/milestone) initiatives are excluded.
-  const items = await prisma.initiative.findMany({ where: { valueType: "VALUE" }, orderBy: { code: "asc" } });
+  const items = await prisma.initiative.findMany({ where: await activePlanInitiativeWhere({ valueType: "VALUE" }), orderBy: { code: "asc" } });
   const now = new Date();
 
   // Deterministic jitter so initiatives sharing the same (value, lift) don't fully overlap.

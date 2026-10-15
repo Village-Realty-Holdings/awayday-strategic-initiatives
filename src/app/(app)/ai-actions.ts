@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
+import { activePlanInitiativeWhere } from "@/lib/active-plan";
 import { complete, HOUSE_STYLE, aiConfigured } from "@/lib/ai";
 import { siHealth, HEALTH_META } from "@/lib/initiatives";
 import { EBITDA_BUILD } from "@/lib/sources";
@@ -113,8 +114,9 @@ export async function askBoard(question: string): Promise<AiResult> {
     if (throttled) return throttled;
     if (!question.trim()) return { ok: false, error: "Ask a question first." };
 
+    const where = await activePlanInitiativeWhere();
     const [initiatives, risks] = await Promise.all([
-      prisma.initiative.findMany(),
+      prisma.initiative.findMany({ where }),
       prisma.cimRisk.findMany({ include: { initiatives: true } }),
     ]);
     const now = new Date();
@@ -164,8 +166,9 @@ export async function generateBoardNarrative(): Promise<AiResult> {
     const throttled = await aiThrottle(session.user.id);
     if (throttled) return throttled;
 
+    const where = await activePlanInitiativeWhere();
     const [initiatives, risks, ebitda, goals, pillars] = await Promise.all([
-      prisma.initiative.findMany(),
+      prisma.initiative.findMany({ where }),
       prisma.cimRisk.findMany({ include: { initiatives: { include: { initiative: true } } } }),
       getEbitdaBuild(),
       getScorecardGoals(),
@@ -176,8 +179,15 @@ export async function generateBoardNarrative(): Promise<AiResult> {
     const gap2026 = r1(ebitda.target2026 - ebitda.lender);
     const gap2027 = r1(ebitda.target2027 - ebitda.lender);
 
-    // code -> progress (DONE counts as 1) for pillar/SI rollups.
-    const siPct = new Map(initiatives.map((i) => [i.code, i.status === "DONE" ? 1 : i.pctComplete]));
+    // code -> progress (DONE counts as 1) for pillar/SI rollups. Pillar items
+    // reference initiative codes that may sit outside the active plan, so look
+    // them up unscoped rather than from the plan-scoped list above.
+    const pillarCodes = [...new Set(pillars.flatMap((p) => p.items.flatMap((it) => it.sis)))];
+    const pillarSis = await prisma.initiative.findMany({
+      where: { code: { in: pillarCodes } },
+      select: { code: true, status: true, pctComplete: true },
+    });
+    const siPct = new Map(pillarSis.map((i) => [i.code, i.status === "DONE" ? 1 : i.pctComplete]));
     const counts = { total: initiatives.length, done: 0, behind: 0, atRisk: 0 };
     const behindList: string[] = [];
     for (const i of initiatives) {

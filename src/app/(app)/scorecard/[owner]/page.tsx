@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireSession, canEdit } from "@/lib/session";
+import { activePlanInitiativeWhere } from "@/lib/active-plan";
 import { formatDateDay, formatMoney, pace } from "@/lib/initiatives";
 import { InitiativesTable, type InitiativeRow } from "@/components/initiatives-table";
 
@@ -26,7 +27,9 @@ export default async function OwnerPage({ params }: { params: Promise<{ owner: s
 
   const [initiatives, person] = await Promise.all([
     prisma.initiative.findMany({
-      where: owner === UNASSIGNED ? { OR: [{ teamLead: null }, { teamLead: "" }] } : { teamLead: owner },
+      where: await activePlanInitiativeWhere(
+        owner === UNASSIGNED ? { OR: [{ teamLead: null }, { teamLead: "" }] } : { teamLead: owner },
+      ),
       orderBy: { code: "asc" },
       select: {
         id: true, code: true, name: true, cimDriver: true, teamLead: true, supports: true,

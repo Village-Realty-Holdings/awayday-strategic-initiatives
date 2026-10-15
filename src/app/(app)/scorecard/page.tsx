@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
+import { activePlanInitiativeWhere } from "@/lib/active-plan";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export default async function ScorecardPage() {
   await requireSession();
   const [initiatives, people] = await Promise.all([
     prisma.initiative.findMany({
+      where: await activePlanInitiativeWhere(),
       select: { teamLead: true, status: true, pctComplete: true, progressActual: true, progressTarget: true },
     }),
     prisma.rosterMember.findMany({

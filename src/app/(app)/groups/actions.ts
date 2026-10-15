@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireEditor } from "@/lib/session";
+import { getActivePlan } from "@/lib/active-plan";
 
 const plain = (o: unknown) => JSON.parse(JSON.stringify(o));
 function str(fd: FormData, k: string): string | null {
@@ -34,6 +35,19 @@ export async function updateGroup(fd: FormData) {
   const name = str(fd, "name");
   if (!name) redirect("/groups");
   const ids = [...new Set(fd.getAll("initiativeIds").map(String).filter(Boolean))];
+  // The picker only lists active-plan initiatives, so `set` would silently drop
+  // members from other plans. Keep any current member outside the active plan.
+  const activePlan = await getActivePlan();
+  if (activePlan) {
+    const outOfPlan = await prisma.initiative.findMany({
+      where: {
+        groups: { some: { id } },
+        OR: [{ planVersionId: null }, { planVersionId: { not: activePlan.id } }],
+      },
+      select: { id: true },
+    });
+    for (const m of outOfPlan) if (!ids.includes(m.id)) ids.push(m.id);
+  }
   const after = await prisma.initiativeGroup.update({
     where: { id },
     data: { name, description: str(fd, "description"), initiatives: { set: ids.map((x) => ({ id: x })) } },

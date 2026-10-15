@@ -1,11 +1,19 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireApp } from "@/lib/session";
-import { FY27_PLAN, type Fy27Area } from "@/lib/fy27-plan";
 import { STATUS_META } from "@/lib/initiatives";
 import type { InitiativeStatus } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
+
+type AreaView = {
+  code: string;
+  name: string;
+  goal: string | null;
+  kpiName: string | null;
+  kpiTarget: string | null;
+  owner: string | null;
+};
 
 type InitiativeSummary = {
   id: string;
@@ -38,44 +46,25 @@ export default async function OverviewPage() {
     },
   });
 
-  const areas = active?.strategicAreas ?? FY27_PLAN.areas;
-  const sourceInitiatives = active
-    ? active.strategicAreas.flatMap((area) =>
-        area.initiatives.map((initiative) => ({
-          id: initiative.id,
-          code: initiative.code,
-          name: initiative.name,
-          status: initiative.status,
-          owner: initiative.teamLead,
-          update: initiative.updates[0]?.update ?? null,
-          pathForward: initiative.updates[0]?.pathForward ?? null,
-          nextMilestone: initiative.updates[0]?.nextMilestone ?? null,
-          milestoneDueAt: initiative.updates[0]?.milestoneDueAt ?? null,
-        })),
-      )
-    : await prisma.initiative.findMany({
-        where: { code: { in: FY27_PLAN.initiatives.map((initiative) => initiative.code) } },
-        select: { id: true, code: true, name: true, status: true, teamLead: true },
-        orderBy: { code: "asc" },
-      }).then((rows) =>
-        rows.map((initiative) => ({
-          id: initiative.id,
-          code: initiative.code,
-          name: initiative.name,
-          status: initiative.status,
-          owner: initiative.teamLead,
-          update: null,
-          pathForward: null,
-          nextMilestone: null,
-          milestoneDueAt: null,
-        })),
-      );
-
+  // Everything comes from the active plan's DB areas, so switching the active
+  // plan (e.g. back to FY26) switches the whole page. No active plan: no areas.
+  const areas = active?.strategicAreas ?? [];
   const byArea = new Map<string, InitiativeSummary[]>();
-  for (const initiative of sourceInitiatives) {
-    const source = FY27_PLAN.initiatives.find((item) => item.code === initiative.code);
-    const areaCode = source?.areaCode ?? active?.strategicAreas.find((area) => area.initiatives.some((item) => item.id === initiative.id))?.code;
-    if (areaCode) byArea.set(areaCode, [...(byArea.get(areaCode) ?? []), initiative]);
+  for (const area of areas) {
+    byArea.set(
+      area.code,
+      area.initiatives.map((initiative) => ({
+        id: initiative.id,
+        code: initiative.code,
+        name: initiative.name,
+        status: initiative.status,
+        owner: initiative.teamLead,
+        update: initiative.updates[0]?.update ?? null,
+        pathForward: initiative.updates[0]?.pathForward ?? null,
+        nextMilestone: initiative.updates[0]?.nextMilestone ?? null,
+        milestoneDueAt: initiative.updates[0]?.milestoneDueAt ?? null,
+      })),
+    );
   }
 
   const drivers = areas.filter((area) => area.kind === "VALUE_DRIVER");
@@ -84,8 +73,8 @@ export default async function OverviewPage() {
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-8">
       <header>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold-deep">Active plan · {active?.code ?? FY27_PLAN.code}</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">{active?.title ?? FY27_PLAN.title}</h1>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold-deep">Active plan · {active?.code ?? "None"}</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">{active?.title ?? "No active plan"}</h1>
         <p className="mt-1 max-w-3xl text-sm text-ink-muted">
           $200M FY27 BHAG / $180M budget context, aligned to the $300M EBITDA north star by 12/31/28.
         </p>
@@ -99,7 +88,7 @@ export default async function OverviewPage() {
             <p className="mt-1 text-sm text-white/70">Goal by 12/31/28 · FY27 plan contribution tracked below</p>
           </div>
           <Link href="/initiatives" className="rounded-md border border-white/25 bg-white/10 px-3 py-2 text-xs font-medium text-white hover:bg-white/20">
-            View all FY27 initiatives
+            View all initiatives
           </Link>
         </div>
       </section>
@@ -110,7 +99,7 @@ export default async function OverviewPage() {
   );
 }
 
-function AreaGrid({ title, areas, initiativesByArea }: { title: string; areas: (Fy27Area | { code: string; kind: string; name: string; goal: string | null; kpiName: string | null; kpiTarget: string | null; owner: string | null })[]; initiativesByArea: Map<string, InitiativeSummary[]> }) {
+function AreaGrid({ title, areas, initiativesByArea }: { title: string; areas: AreaView[]; initiativesByArea: Map<string, InitiativeSummary[]> }) {
   return (
     <section>
       <h2 className="mb-3 text-sm font-semibold text-ink">{title}</h2>
