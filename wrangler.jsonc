@@ -1,11 +1,11 @@
 /**
  * Wrangler config: https://developers.cloudflare.com/workers/wrangler/configuration/
  *
- * Top level = production (deploys from `master`). `env.development` =
- * development (deploys from `development`). Bindings and vars are NOT inherited by named
+ * Top level = production (deploys from `master`). `env.staging` =
+ * staging (deploys from `staging`). Bindings and vars are NOT inherited by named
  * environments, so each block lists its own.
  *
- * Secrets (never in this file): `npx wrangler secret put <NAME> [--env development]`
+ * Secrets (never in this file): `npx wrangler secret put <NAME> [--env staging]`
  *   BETTER_AUTH_SECRET, RESEND_API_KEY, ANTHROPIC_API_KEY, AI_BUDGET_ALERT_TO
  *
  * Local dev: Hyperdrive connects to each binding's localConnectionString (the
@@ -53,13 +53,13 @@
 		"AI_MONTHLY_BUDGET_USD": "250"
 	},
 	"env": {
-		"development": {
-			"name": "dev-awayday-strategic-initiatives",
+		"staging": {
+			"name": "staging-awayday-strategic-initiatives",
 			"workers_dev": true,
 			"hyperdrive": [
 				{
 					"binding": "HYPERDRIVE",
-					// dev-awayday-strategic-initiatives → Neon `development` branch, DIRECT (non-pooler) host.
+					// dev-awayday-strategic-initiatives (config name kept) → Neon `staging` branch, DIRECT (non-pooler) host.
 					"id": "23af5e39ab084458bd9a44368c7e2ca9",
 					// Local Postgres (compose.yaml). Also lets CI deploys run without a build variable.
 					"localConnectionString": "postgresql://awayday:password@localhost:5432/awayday_strategic_initiatives"
@@ -68,12 +68,13 @@
 			"r2_buckets": [
 				{
 					"binding": "ATTACHMENTS",
+					// R2 buckets can't be renamed: staging keeps the old `dev-` bucket name.
 					"bucket_name": "dev-awayday-strategic-initiatives"
 				}
 			],
 			"vars": {
-				"APP_URL": "https://dev-awayday-strategic-initiatives.tech-dd8.workers.dev",
-				"BETTER_AUTH_URL": "https://dev-awayday-strategic-initiatives.tech-dd8.workers.dev",
+				"APP_URL": "https://staging-awayday-strategic-initiatives.tech-dd8.workers.dev",
+				"BETTER_AUTH_URL": "https://staging-awayday-strategic-initiatives.tech-dd8.workers.dev",
 				"EMAIL_FROM": "Awayday <notifications@mail.vacationhr.com>",
 				"ANTHROPIC_MODEL": "claude-sonnet-5-5",
 				"AI_MONTHLY_BUDGET_USD": "250"

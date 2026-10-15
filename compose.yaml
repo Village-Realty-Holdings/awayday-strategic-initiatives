@@ -1,6 +1,6 @@
 # Local Postgres for development (matches Neon's Postgres 18). `docker compose up -d`.
 # On 5432 so it can double as the shared local server for other dev projects.
-# Deployed environments use Neon: `production` and `development` branches via Hyperdrive.
+# Deployed environments use Neon: `production` and `staging` branches via Hyperdrive.
 services:
   postgres:
     image: postgres:18-alpine
