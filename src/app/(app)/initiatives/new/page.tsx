@@ -5,27 +5,31 @@ import { prisma } from "@/lib/prisma";
 import { InitiativeForm } from "@/components/initiative-form";
 import { createInitiative } from "@/app/(app)/initiatives/actions";
 import { cimKpiMap } from "@/lib/sources";
+import { getActivePlan, getPlanAreas } from "@/lib/active-plan";
 
 export const dynamic = "force-dynamic";
 
 async function loadFormData() {
-  const [initiatives, roster, risks] = await Promise.all([
+  const activePlan = await getActivePlan();
+  const [initiatives, roster, risks, areas] = await Promise.all([
     prisma.initiative.findMany({ select: { code: true, teamLead: true } }),
     prisma.rosterMember.findMany({ select: { name: true, position: true } }),
     prisma.cimRisk.findMany({ orderBy: { code: "asc" }, select: { code: true, risk: true } }),
+    getPlanAreas(activePlan?.id),
   ]);
   const usedCodes = initiatives.map((x) => x.code);
   // Owners are people from the People directory.
   const owners = [...new Set(roster.map((r) => r.name).filter(Boolean))].sort() as string[];
   const cimItems = risks.map((r) => ({ code: r.code, label: `${r.code} — ${r.risk}` }));
   const cimKpis = cimKpiMap();
-  return { usedCodes, owners, cimItems, cimKpis };
+  return { usedCodes, owners, cimItems, cimKpis, areas };
 }
 
 const ERRORS: Record<string, string> = {
   code: "A code is required (e.g. MRG-05).",
   duplicate: "That code is already in use. Pick a unique one.",
   problem: "A problem statement is required before saving.",
+  area: "That area isn't part of the active plan. Pick one from the list.",
 };
 
 export default async function NewInitiativePage({
@@ -35,7 +39,7 @@ export default async function NewInitiativePage({
 }) {
   await requireEditor();
   const { error } = await searchParams;
-  const { usedCodes, owners, cimItems, cimKpis } = await loadFormData();
+  const { usedCodes, owners, cimItems, cimKpis, areas } = await loadFormData();
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -55,7 +59,7 @@ export default async function NewInitiativePage({
         </div>
       )}
 
-      <InitiativeForm action={createInitiative} submitLabel="Create initiative" cancelHref="/initiatives" owners={owners} usedCodes={usedCodes} cimItems={cimItems} cimKpis={cimKpis} problemError={error === "problem"} />
+      <InitiativeForm action={createInitiative} submitLabel="Create initiative" cancelHref="/initiatives" owners={owners} usedCodes={usedCodes} cimItems={cimItems} cimKpis={cimKpis} areas={areas} problemError={error === "problem"} />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireEditor } from "@/lib/session";
 import { audit } from "@/lib/audit";
+import { getActivePlan } from "@/lib/active-plan";
 import { attachmentKey, deleteAttachment, putAttachment } from "@/lib/storage";
 import { quadrantFor, valueFromDollars, effortToLift, parseDollars, type Effort } from "@/lib/initiatives";
 import type { InitiativeStatus } from "@/generated/prisma/client";
@@ -39,6 +40,15 @@ async function validCimItemCode(code: string | null): Promise<string | null> {
   if (!code) return null;
   const r = await prisma.cimRisk.findUnique({ where: { code }, select: { code: true } });
   return r ? code : null;
+}
+
+// The Area picker is optional, but the server must not trust the client: the
+// chosen area has to belong to the plan the initiative sits in. Returns the id
+// if valid, else null (callers treat a non-empty-but-invalid choice as an error).
+async function validAreaId(areaId: string | null, planId: string | null): Promise<string | null> {
+  if (!areaId || !planId) return null;
+  const a = await prisma.strategicArea.findFirst({ where: { id: areaId, planVersionId: planId }, select: { id: true } });
+  return a ? a.id : null;
 }
 
 // Editable fields shared by create + update. Scoring is derived: Value from the
@@ -112,8 +122,19 @@ export async function updateInitiative(formData: FormData) {
 
   if (!str(formData, "problem")) redirect(`/initiatives/${id}/edit?error=problem`);
 
-  const data = parseFields(formData);
+  const data: ReturnType<typeof parseFields> & { strategicAreaId?: string | null; planVersionId?: string } = parseFields(formData);
   data.cimItemCode = await validCimItemCode(data.cimItemCode);
+  // Area: validated against the initiative's own plan (or the active plan for a
+  // legacy initiative with none, which then joins that plan). An empty choice
+  // clears the area. Skipped entirely when the form didn't submit the field.
+  if (formData.has("strategicAreaId")) {
+    const planId = before.planVersionId ?? (await getActivePlan())?.id ?? null;
+    const chosenArea = str(formData, "strategicAreaId");
+    const areaId = await validAreaId(chosenArea, planId);
+    if (chosenArea && !areaId) redirect(`/initiatives/${id}/edit?error=area`);
+    data.strategicAreaId = areaId;
+    if (areaId && !before.planVersionId && planId) data.planVersionId = planId;
+  }
   const after = await prisma.initiative.update({ where: { id }, data });
   await prisma.auditLog.create({
     data: { userId: session.user.id, action: "UPDATE", entity: "Initiative", entityId: id, before: plain(before), after: plain(after) },
@@ -135,7 +156,15 @@ export async function createInitiative(formData: FormData) {
 
   const fields = parseFields(formData);
   fields.cimItemCode = await validCimItemCode(fields.cimItemCode);
-  const created = await prisma.initiative.create({ data: { code, ...fields } });
+  // New initiatives join the active plan so they show up on the plan-scoped
+  // views; the optional area must belong to that plan.
+  const activePlan = await getActivePlan();
+  const chosenArea = str(formData, "strategicAreaId");
+  const strategicAreaId = await validAreaId(chosenArea, activePlan?.id ?? null);
+  if (chosenArea && !strategicAreaId) redirect("/initiatives/new?error=area");
+  const created = await prisma.initiative.create({
+    data: { code, ...fields, planVersionId: activePlan?.id ?? null, strategicAreaId },
+  });
   await prisma.auditLog.create({
     data: { userId: session.user.id, action: "CREATE", entity: "Initiative", entityId: created.id, after: plain(created) },
   });

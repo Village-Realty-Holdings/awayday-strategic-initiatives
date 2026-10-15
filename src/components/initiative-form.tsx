@@ -103,6 +103,7 @@ export function InitiativeForm({
   problemError = false,
   cimItems = [],
   cimKpis = {},
+  areas = [],
 }: {
   action: (formData: FormData) => void | Promise<void>;
   initiative?: Initiative;
@@ -113,6 +114,7 @@ export function InitiativeForm({
   problemError?: boolean;
   cimItems?: { code: string; label: string }[];
   cimKpis?: Record<string, string[]>;
+  areas?: { id: string; code: string; name: string; kind: string }[];
 }) {
   const i = initiative;
   const isNew = !i;
@@ -219,6 +221,14 @@ export function InitiativeForm({
             {cimItems.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
           </select>
         </Field>
+        {areas.length > 0 && (
+          <Field label="Area" hint="Strategic area in this initiative's plan. Initiatives without an area don't appear on the Overview.">
+            <select name="strategicAreaId" defaultValue={i?.strategicAreaId ?? ""} className={input}>
+              <option value="">— none —</option>
+              {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          </Field>
+        )}
         <Field label="Code" required={isNew}>
           {isNew ? (
             <input

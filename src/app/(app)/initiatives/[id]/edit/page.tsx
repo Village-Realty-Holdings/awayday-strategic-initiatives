@@ -6,6 +6,7 @@ import { requireEditor } from "@/lib/session";
 import { InitiativeForm } from "@/components/initiative-form";
 import { updateInitiative } from "@/app/(app)/initiatives/actions";
 import { cimKpiMap } from "@/lib/sources";
+import { getActivePlan, getPlanAreas } from "@/lib/active-plan";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +23,12 @@ export default async function EditInitiativePage({
   const initiative = await prisma.initiative.findUnique({ where: { id } });
   if (!initiative) notFound();
 
-  const [roster, risks] = await Promise.all([
+  // Areas of the initiative's own plan (or the active plan for a legacy one).
+  const areaPlanId = initiative.planVersionId ?? (await getActivePlan())?.id;
+  const [roster, risks, areas] = await Promise.all([
     prisma.rosterMember.findMany({ select: { name: true } }),
     prisma.cimRisk.findMany({ orderBy: { code: "asc" }, select: { code: true, risk: true } }),
+    getPlanAreas(areaPlanId),
   ]);
   // Owners are people from the People directory.
   const owners = [...new Set(roster.map((r) => r.name).filter(Boolean))].sort() as string[];
@@ -54,6 +58,13 @@ export default async function EditInitiativePage({
         </div>
       )}
 
+      {error === "area" && (
+        <div className="mb-5 flex items-center gap-2 rounded-lg border border-risk/40 bg-risk-soft px-3.5 py-2.5 text-sm text-ink">
+          <TriangleAlert size={16} className="shrink-0 text-risk" aria-hidden />
+          That area isn&apos;t part of this initiative&apos;s plan. Pick one from the list.
+        </div>
+      )}
+
       <InitiativeForm
         action={updateInitiative}
         initiative={initiative}
@@ -62,6 +73,7 @@ export default async function EditInitiativePage({
         owners={owners}
         cimItems={cimItems}
         cimKpis={cimKpis}
+        areas={areas}
         problemError={error === "problem"}
       />
     </div>
