@@ -40,7 +40,7 @@ export function RosterForm({
       <div className="flex items-center gap-3">
         <SubmitButton>{submitLabel}</SubmitButton>
         <Button asChild variant="faint" size="bare" className="text-sm font-normal text-ink-muted">
-          <Link href="/roster">Cancel</Link>
+          <Link href="/settings/people">Cancel</Link>
         </Button>
       </div>
     </form>

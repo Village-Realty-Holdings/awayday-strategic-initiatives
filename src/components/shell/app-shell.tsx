@@ -1,17 +1,8 @@
 import Image from "next/image";
-import { Users, KeyRound } from "lucide-react";
 import { SidebarNav } from "@/components/shell/nav";
-import { FooterLink } from "@/components/shell/footer-link";
-import { SignOutButton } from "@/components/sign-out-button";
+import { UserMenu } from "@/components/shell/user-menu";
 import { AskPanel } from "@/components/ask-panel";
 import { FlashToaster } from "@/components/flash-toaster";
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
 
 // Shared app chrome (sidebar, header strip, footer, flash toaster). Layouts
 // own their auth/access checks and pass the session user in.
@@ -19,7 +10,7 @@ export function AppShell({
   user,
   children,
 }: {
-  user: { name: string; role?: string | null };
+  user: { name: string; email?: string | null; role?: string | null };
   children: React.ReactNode;
 }) {
   return (
@@ -36,27 +27,7 @@ export function AppShell({
           />
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-          <SidebarNav isAdmin={user.role === "admin"} />
-        </div>
-        <FooterLink href="/people" match={["/people", "/roster"]}>
-          <Users size={16} strokeWidth={1.75} aria-hidden />
-          People &amp; access
-        </FooterLink>
-        <FooterLink href="/account" match={["/account"]}>
-          <KeyRound size={16} strokeWidth={1.75} aria-hidden />
-          Change password
-        </FooterLink>
-        <div className="flex items-center gap-2.5 border-t border-border px-4 py-3">
-          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-navy/10 text-[11px] font-semibold text-navy-deep">
-            {initials(user.name)}
-          </span>
-          <div className="min-w-0 flex-1 leading-tight">
-            <p className="truncate text-xs font-medium text-ink">{user.name}</p>
-            <p className="truncate text-[10px] text-ink-faint">
-              {user.role === "admin" ? "Admin" : "Member"}
-            </p>
-          </div>
-          <SignOutButton />
+          <SidebarNav />
         </div>
       </aside>
 
@@ -65,7 +36,10 @@ export function AppShell({
           <p className="text-[11px] text-ink-faint">
             Confidential · for Awayday leadership
           </p>
-          <AskPanel />
+          <div className="flex items-center gap-3">
+            <AskPanel />
+            <UserMenu user={user} />
+          </div>
         </header>
         <main className="flex-1 bg-bg px-6 py-7">{children}</main>
         <footer data-chrome className="border-t border-border bg-surface px-6 py-4 text-center text-[11px] text-ink-faint">

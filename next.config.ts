@@ -51,6 +51,20 @@ const nextConfig: NextConfig = {
   },
   // Attachment uploads go through a server action (3 MB file cap + form fields).
   experimental: { serverActions: { bodySizeLimit: "4mb" } },
+  // Old locations from before the Settings and Reporting sections; kept so
+  // bookmarks and links in sent emails still resolve.
+  async redirects() {
+    return [
+      { source: "/account", destination: "/settings/password", permanent: false },
+      { source: "/people", destination: "/settings/people", permanent: false },
+      { source: "/roster", destination: "/settings/people", permanent: false },
+      { source: "/roster/:path*", destination: "/settings/people/roster/:path*", permanent: false },
+      { source: "/admin", destination: "/settings/admin", permanent: false },
+      { source: "/admin/:path*", destination: "/settings/admin/:path*", permanent: false },
+      { source: "/narrative", destination: "/reporting", permanent: false },
+      { source: "/gantt", destination: "/reporting?view=gantt", permanent: false },
+    ];
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

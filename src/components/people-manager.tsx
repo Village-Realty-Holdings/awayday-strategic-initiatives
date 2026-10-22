@@ -13,8 +13,8 @@ import {
   adminRemoveUser,
   adminSetAppAccess,
   type AdminResult,
-} from "@/app/(app)/admin/actions";
-import { upsertPersonDetails } from "@/app/(platform)/roster/actions";
+} from "@/app/(app)/settings/admin/actions";
+import { upsertPersonDetails } from "@/app/(app)/settings/people/roster/actions";
 import { ConfirmAction } from "@/components/confirm-action";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,12 +92,12 @@ export function PeopleManager({
       {editable && (
         <div className="flex flex-wrap items-center gap-2">
           <Button asChild size="sm" className="py-2">
-            <Link href="/roster/new">
+            <Link href="/settings/people/roster/new">
               <UserPlus size={14} aria-hidden /> Add person
             </Link>
           </Button>
           <Button asChild variant="secondary" size="sm" className="py-2">
-            <Link href="/roster/lists">
+            <Link href="/settings/people/roster/lists">
               <SlidersHorizontal size={14} aria-hidden /> Manage lists
             </Link>
           </Button>

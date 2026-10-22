@@ -7,7 +7,7 @@ import type { BoardItem } from "@/lib/sources";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CodeMultiSelect, type CodeOption } from "@/components/code-multiselect";
-import { saveQ2Board } from "@/app/(app)/admin/q2board/actions";
+import { saveQ2Board } from "@/app/(app)/settings/admin/q2board/actions";
 
 // Editor-side row: cim/sis held as comma strings for the multi-select bridge.
 type Row = { id: string; name: string; desc: string; owner: string; cim: string; sis: string; color: string };

@@ -8,7 +8,7 @@ import { CodeMultiSelect, type CodeOption } from "@/components/code-multiselect"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
-import { saveScorecard } from "@/app/(app)/admin/scorecard/actions";
+import { saveScorecard } from "@/app/(app)/settings/admin/scorecard/actions";
 
 const toArr = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
 

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EbitdaBuild } from "@/components/ebitda-build";
-import { saveEbitdaInline } from "@/app/(app)/admin/scoreboard/actions";
+import { saveEbitdaInline } from "@/app/(app)/settings/admin/scoreboard/actions";
 
 const fmt = (n: number) => `$${n.toFixed(1)}M`;
 

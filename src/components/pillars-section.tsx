@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PillarCards, ProgressMini, siProgress, type SiMap } from "@/components/overview-sections";
 import { CodeMultiSelect, type CodeOption } from "@/components/code-multiselect";
-import { savePillars } from "@/app/(app)/admin/pillars/actions";
+import { savePillars } from "@/app/(app)/settings/admin/pillars/actions";
 
 const toArr = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
 

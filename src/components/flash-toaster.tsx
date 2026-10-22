@@ -3,7 +3,7 @@ import { FLASH_COOKIE, type FlashKind } from "@/lib/flash-cookie";
 import { Toaster } from "@/components/ui/sonner";
 import { FlashListener } from "@/components/flash-listener";
 
-// Mounted once per app layout ((app) and (platform)). Renders the Sonner
+// Mounted once in the app shell. Renders the Sonner
 // <Toaster /> and hands any pending flash cookie (see src/lib/flash.ts) to the
 // client listener.
 export async function FlashToaster() {
