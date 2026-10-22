@@ -101,9 +101,12 @@ function Gauge({ tone, value, target }: { tone: ReviewTone; value: number; targe
 
 function InitiativeCard({ initiative, onOpen }: { initiative: ReviewInitiative; onOpen: (initiative: ReviewInitiative) => void }) {
   // The "Open charter" button is the single tab stop; its ::after stretches
-  // over the whole card so the entire card is clickable.
+  // over the whole card so the entire card is clickable. The button must not
+  // move on press: a transform makes it the ::after's containing block, the
+  // overlay collapses to the button mid-click and the click is lost. The card
+  // takes the press feedback instead.
   return (
-    <Card className={`${CARD} group relative gap-2 border-l-4 border-l-navy transition hover:border-navy hover:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-gold`}>
+    <Card className={`${CARD} group relative gap-2 border-l-4 border-l-navy transition hover:border-navy hover:shadow-sm has-[button:active]:translate-y-px has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-gold`}>
       <CardHeader className={`${PAD} grid-cols-[1fr_auto]`}>
         <div className="min-w-0">
           <span className="tabular block text-[10px] text-ink-faint">{initiative.code}</span>
@@ -121,7 +124,7 @@ function InitiativeCard({ initiative, onOpen }: { initiative: ReviewInitiative; 
             variant="link"
             size="xs"
             onClick={() => onOpen(initiative)}
-            className="font-semibold text-navy-deep after:absolute after:inset-0 after:content-[''] hover:no-underline"
+            className="font-semibold text-navy-deep after:absolute after:inset-0 after:content-[''] hover:no-underline active:translate-none"
           >
             Open charter <ArrowUpRight size={13} aria-hidden />
             <span className="sr-only"> for {initiative.name}</span>
