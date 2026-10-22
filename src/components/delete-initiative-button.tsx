@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { Trash2 } from "@/components/icons";
 import { deleteInitiative } from "@/app/(app)/initiatives/actions";
 import { ConfirmAction } from "@/components/confirm-action";
 

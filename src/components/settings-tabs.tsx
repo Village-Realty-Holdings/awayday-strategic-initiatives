@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { KeyRound, Users, ShieldCheck, Archive, type LucideIcon } from "lucide-react";
+import { KeyRound, Users, ShieldCheck, Archive, type AppIcon } from "@/components/icons";
 
-type Tab = { label: string; href: string; icon: LucideIcon; adminOnly?: boolean };
+type Tab = { label: string; href: string; icon: AppIcon; adminOnly?: boolean };
 
 const TABS: Tab[] = [
   { label: "Change password", href: "/settings/password", icon: KeyRound },

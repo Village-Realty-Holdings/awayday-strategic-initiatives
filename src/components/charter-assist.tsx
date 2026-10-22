@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Copy, Check, Loader2 } from "lucide-react";
+import { Sparkles, Copy, Check, Loader2 } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { assistCharter } from "@/app/(app)/ai-actions";
 

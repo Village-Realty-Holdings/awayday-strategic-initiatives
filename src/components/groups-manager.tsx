@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { FolderPlus, Pencil, Trash2, X, Archive, ArchiveRestore } from "lucide-react";
+import { FolderPlus, Pencil, Trash2, X, Archive, ArchiveRestore } from "@/components/icons";
 import { createGroup, updateGroup, deleteGroup, setGroupArchived } from "@/app/(app)/groups/actions";
 import { ConfirmAction } from "@/components/confirm-action";
 import { Badge } from "@/components/ui/badge";

@@ -5,7 +5,7 @@
 // swapped for an injected mock and Button for the legacy snapshot.
 
 import { useState } from "react";
-import { Sparkles, X, Loader2, Send } from "lucide-react";
+import { Sparkles, X, Loader2, Send } from "@/components/icons";
 import type { AiResult } from "@/app/(app)/ai-actions";
 import { LegacyButton as Button } from "./legacy-button";
 import { Textarea } from "@/components/ui/textarea";

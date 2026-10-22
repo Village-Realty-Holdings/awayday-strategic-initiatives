@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { UploadCloud, FileCheck2 } from "lucide-react";
+import { UploadCloud, FileCheck2 } from "@/components/icons";
 
 // The app's one file-pick control: a drop zone that is also a click-to-browse
 // button, wrapping a real <input type="file"> so plain <form action> server

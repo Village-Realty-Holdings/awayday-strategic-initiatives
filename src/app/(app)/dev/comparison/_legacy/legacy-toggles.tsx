@@ -5,7 +5,7 @@
 //  - the Scorecard / Exposure map switch in src/components/risk-views.tsx
 //  - the Working team chips and Value / Non-value switch in
 //    src/components/initiative-form.tsx
-import { LayoutGrid, ScatterChart } from "lucide-react";
+import { LayoutGrid, ScatterChart } from "@/components/icons";
 
 function Toggle({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
   return (

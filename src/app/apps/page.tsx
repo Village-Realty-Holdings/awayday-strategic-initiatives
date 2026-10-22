@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, Compass, LayoutGrid, Settings } from "lucide-react";
+import { ArrowRight, Compass, LayoutGrid, Settings } from "@/components/icons";
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { accessibleApps, type AppKey } from "@/lib/apps";

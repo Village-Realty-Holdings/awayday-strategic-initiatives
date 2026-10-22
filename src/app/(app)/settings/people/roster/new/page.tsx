@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "@/components/icons";
 import { prisma } from "@/lib/prisma";
 import { requireEditor } from "@/lib/session";
 import { RosterForm } from "@/components/roster-form";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Flame, LayoutGrid, ScatterChart } from "lucide-react";
+import { Flame, LayoutGrid, ScatterChart } from "@/components/icons";
 import { RiskMatrix, type RiskPoint } from "@/components/risk-matrix";
 import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";

@@ -4,7 +4,7 @@ import { createContext, useContext, useState } from "react";
 import { APPS as APP_DEFS } from "@/lib/apps";
 import Link from "next/link";
 import { toast } from "sonner";
-import { UserPlus, KeyRound, ShieldCheck, Loader2, Check, RefreshCw, SlidersHorizontal, Pencil, UserMinus } from "lucide-react";
+import { UserPlus, KeyRound, ShieldCheck, Loader2, Check, RefreshCw, SlidersHorizontal, Pencil, UserMinus } from "@/components/icons";
 import {
   adminCreateUser,
   adminSetRole,

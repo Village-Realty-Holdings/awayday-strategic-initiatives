@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, X } from "lucide-react";
+import { Pencil, X } from "@/components/icons";
 import type { Goal } from "@/lib/sources";
 import { Button } from "@/components/ui/button";
 import { ScorecardEditor } from "@/components/scorecard-editor";

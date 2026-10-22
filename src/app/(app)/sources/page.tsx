@@ -1,5 +1,5 @@
 import { VALUE_CREATION as VC, Q2_BOARD } from "@/lib/sources";
-import { FileText, Download } from "lucide-react";
+import { FileText, Download } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 

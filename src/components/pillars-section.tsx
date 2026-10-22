@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Target, Pencil, X, Plus, Trash2 } from "lucide-react";
+import { Target, Pencil, X, Plus, Trash2 } from "@/components/icons";
 import type { Pillar } from "@/lib/sources";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

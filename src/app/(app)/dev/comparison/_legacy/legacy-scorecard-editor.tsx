@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "@/components/icons";
 import type { Goal } from "@/lib/sources";
 import type { CodeOption } from "@/components/code-multiselect";
 import { LegacyCodeMultiSelect as CodeMultiSelect } from "./legacy-code-multiselect";

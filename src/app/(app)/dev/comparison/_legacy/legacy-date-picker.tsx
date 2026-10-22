@@ -5,7 +5,7 @@
 // relied on in globals.css is inlined below (DP_POP_CSS) since that rule is gone.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight } from "@/components/icons";
 import {
   MONTHS,
   WEEKDAYS,

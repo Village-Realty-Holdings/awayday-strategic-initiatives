@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { Search } from "lucide-react";
+import { Search } from "@/components/icons";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

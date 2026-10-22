@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { StatusBadge, QuadrantBadge, ProgressBar } from "@/components/badges";
 import { STATUS_META, QUADRANT_META, formatMoney, formatTeam } from "@/lib/initiatives";
 import type { InitiativeStatus, Quadrant } from "@/generated/prisma/client";
-import { TriangleAlert, ChevronRight, Plus, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { TriangleAlert, ChevronRight, Plus, ChevronUp, ChevronDown, ChevronsUpDown } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

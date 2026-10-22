@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, TriangleAlert } from "lucide-react";
+import { ArrowLeft, TriangleAlert } from "@/components/icons";
 import { requireEditor } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { CimForm } from "@/components/cim-form";

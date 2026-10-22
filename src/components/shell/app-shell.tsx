@@ -1,11 +1,10 @@
 import Image from "next/image";
-import { Settings } from "lucide-react";
+import { Settings } from "@/components/icons";
 import { SidebarNav } from "@/components/shell/nav";
 import { FooterLink } from "@/components/shell/footer-link";
 import { SignOutButton } from "@/components/sign-out-button";
 import { BreadcrumbProvider, Breadcrumbs } from "@/components/shell/breadcrumbs";
 import { InsetScrollReset } from "@/components/shell/inset-scroll-reset";
-import { SectionNavProvider } from "@/components/shell/section-nav";
 import { AskPanel } from "@/components/ask-panel";
 import { FlashToaster } from "@/components/flash-toaster";
 
@@ -27,7 +26,6 @@ export function AppShell({
 }) {
   return (
     <BreadcrumbProvider>
-    <SectionNavProvider>
     <div className="app-shell flex h-dvh overflow-hidden bg-bg">
       <aside data-chrome className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-surface">
         <div className="flex h-14 shrink-0 items-center border-b border-border px-5">
@@ -80,7 +78,6 @@ export function AppShell({
       </div>
       <FlashToaster />
     </div>
-    </SectionNavProvider>
     </BreadcrumbProvider>
   );
 }

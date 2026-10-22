@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Sparkles, Loader2, Copy, Check, TriangleAlert, FileDown, Pencil, Eye } from "lucide-react";
+import { Sparkles, Loader2, Copy, Check, TriangleAlert, FileDown, Pencil, Eye } from "@/components/icons";
 import { generateBoardNarrative } from "@/app/(app)/ai-actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";

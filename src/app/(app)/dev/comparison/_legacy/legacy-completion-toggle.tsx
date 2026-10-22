@@ -1,7 +1,7 @@
 // SNAPSHOT of the milestone / action-item done toggle inlined in
 // src/app/(app)/initiatives/[id]/page.tsx before the shadcn Button migration,
 // kept only for /dev/comparison.
-import { Check } from "lucide-react";
+import { Check } from "@/components/icons";
 
 export function LegacyCompletionToggle({ id, done, action }: { id: string; done: boolean; action: (fd: FormData) => void | Promise<void> }) {
   return (

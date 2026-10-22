@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, CalendarDays, ClipboardCheck, Database, FileText, Inbox, ListTree, UserCheck, Users } from "lucide-react";
+import { ArrowRight, BookOpen, CalendarDays, ClipboardCheck, Database, FileText, Inbox, ListTree, UserCheck, Users } from "@/components/icons";
 import { requireApp } from "@/lib/session";
 import { MockNote, V2Header } from "./_components/preview";
 import { LATEST_PERIOD } from "./_mock/selectors";

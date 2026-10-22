@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LineChart, ChevronRight, ClipboardCheck, PanelsTopLeft } from "lucide-react";
+import { LineChart, ChevronRight, ClipboardCheck, PanelsTopLeft } from "@/components/icons";
 import { requireSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";

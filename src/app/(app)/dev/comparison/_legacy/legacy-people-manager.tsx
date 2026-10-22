@@ -8,7 +8,7 @@ import { useState } from "react";
 import { APPS as APP_DEFS } from "@/lib/apps";
 import Link from "next/link";
 import { toast } from "sonner";
-import { UserPlus, KeyRound, ShieldCheck, Loader2, Check, RefreshCw, SlidersHorizontal, Pencil, UserMinus } from "lucide-react";
+import { UserPlus, KeyRound, ShieldCheck, Loader2, Check, RefreshCw, SlidersHorizontal, Pencil, UserMinus } from "@/components/icons";
 import type { AdminResult } from "@/app/(app)/settings/admin/actions";
 import { usePeopleActions, type Person } from "@/components/people-manager";
 import { ConfirmAction } from "@/components/confirm-action";

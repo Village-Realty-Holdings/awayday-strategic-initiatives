@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Sparkles, Trash2 } from "lucide-react";
+import { Loader2, Sparkles, Trash2 } from "@/components/icons";
 import { AskPanel } from "@/components/ask-panel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

@@ -1,6 +1,6 @@
 "use client";
 
-import { Flame } from "lucide-react";
+import { Flame } from "@/components/icons";
 
 export type RiskPoint = {
   id: string;

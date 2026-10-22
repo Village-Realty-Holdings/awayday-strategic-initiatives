@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Plus, X } from "lucide-react";
+import { ArrowLeft, Plus, X } from "@/components/icons";
 import { prisma } from "@/lib/prisma";
 import { requireEditor } from "@/lib/session";
 import { Badge } from "@/components/ui/badge";

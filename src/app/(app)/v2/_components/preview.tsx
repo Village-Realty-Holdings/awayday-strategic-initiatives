@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { FlaskConical } from "lucide-react";
+import { FlaskConical } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
 import { V2Tabs } from "./v2-tabs";
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Check, ArrowLeft } from "lucide-react";
+import { Check, ArrowLeft } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { prisma } from "@/lib/prisma";

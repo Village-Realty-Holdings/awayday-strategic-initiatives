@@ -62,7 +62,7 @@ import {
   CalendarCheck,
   UserCheck,
   HandCoins,
-} from "lucide-react";
+} from "@/components/icons";
 import { BreadcrumbTitle } from "@/components/shell/breadcrumbs";
 
 const ATTACH_ERRORS: Record<string, string> = {

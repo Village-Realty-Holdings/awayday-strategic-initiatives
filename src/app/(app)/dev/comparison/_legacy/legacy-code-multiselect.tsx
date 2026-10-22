@@ -3,7 +3,7 @@
 // SNAPSHOT of src/components/code-multiselect.tsx before the shadcn
 // Popover + Command migration, kept only for /dev/comparison.
 
-import { X } from "lucide-react";
+import { X } from "@/components/icons";
 
 type CodeOption = { code: string; label: string };
 

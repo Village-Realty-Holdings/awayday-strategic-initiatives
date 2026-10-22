@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, TriangleAlert } from "lucide-react";
+import { ArrowLeft, TriangleAlert } from "@/components/icons";
 import { prisma } from "@/lib/prisma";
 import { requireEditor } from "@/lib/session";
 import { InitiativeForm } from "@/components/initiative-form";

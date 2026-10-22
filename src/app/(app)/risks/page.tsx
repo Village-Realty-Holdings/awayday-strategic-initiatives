@@ -7,7 +7,7 @@ import { RiskViews } from "@/components/risk-views";
 import { RiskTargetHighlight } from "@/components/risk-target-highlight";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Flame, Star, Plus, Pencil } from "lucide-react";
+import { Flame, Star, Plus, Pencil } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Loader2, Send, RotateCcw } from "lucide-react";
+import { Sparkles, Loader2, Send, RotateCcw } from "@/components/icons";
 import { askBoard, type AiResult } from "@/app/(app)/ai-actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
