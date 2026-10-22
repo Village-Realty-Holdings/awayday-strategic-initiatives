@@ -45,5 +45,4 @@ export async function saveQ2Board(formData: FormData) {
   });
   await audit(session.user.id, "UPDATE", "Setting", Q2_SETTING_KEY, { after: { rows: data.length } });
   revalidatePath("/");
-  revalidatePath("/legacy");
 }

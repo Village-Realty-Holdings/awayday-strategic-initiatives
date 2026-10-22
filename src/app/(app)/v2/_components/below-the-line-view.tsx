@@ -108,10 +108,10 @@ export function BelowTheLineView({ groups }: { groups: BtlGroup[] }) {
                         {r.owner}
                         <span className="block text-[11px] text-ink-faint">{r.team}</span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <Badge variant={STATUS_META[r.status].variant}>{STATUS_META[r.status].label}</Badge>
                       </TableCell>
-                      <TableCell className="tabular text-right text-ink-muted">{r.dueLabel}</TableCell>
+                      <TableCell className="tabular whitespace-nowrap text-right text-ink-muted">{r.dueLabel}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Flame, LayoutGrid, ScatterChart } from "lucide-react";
 import { RiskMatrix, type RiskPoint } from "@/components/risk-matrix";
 import { Badge } from "@/components/ui/badge";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 function healthChip(cov: number): string {
   if (cov < 0.34) return "bg-risk-soft text-risk";
@@ -12,7 +13,7 @@ function healthChip(cov: number): string {
 }
 
 export function RiskViews({ risks }: { risks: RiskPoint[] }) {
-  const [view, setView] = useState<"scorecard" | "matrix">("scorecard");
+  const [view, setView] = useState<RiskView>("scorecard");
 
   // Group by category, preserving first-seen order.
   const groups: { category: string; items: RiskPoint[] }[] = [];
@@ -24,14 +25,7 @@ export function RiskViews({ risks }: { risks: RiskPoint[] }) {
 
   return (
     <div>
-      <div className="mb-3 inline-flex rounded-lg border border-border bg-surface p-0.5 text-xs font-medium">
-        <Toggle active={view === "scorecard"} onClick={() => setView("scorecard")} icon={<LayoutGrid size={13} aria-hidden />}>
-          Scorecard
-        </Toggle>
-        <Toggle active={view === "matrix"} onClick={() => setView("matrix")} icon={<ScatterChart size={13} aria-hidden />}>
-          Exposure map
-        </Toggle>
-      </div>
+      <RiskViewSwitch view={view} onChange={setView} className="mb-3" />
 
       {view === "matrix" ? (
         <RiskMatrix risks={risks} />
@@ -81,17 +75,25 @@ export function RiskViews({ risks }: { risks: RiskPoint[] }) {
   );
 }
 
-function Toggle({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
+export type RiskView = "scorecard" | "matrix";
+
+/** Scorecard / Exposure map switch (single choice, never empty). */
+export function RiskViewSwitch({ view, onChange, className }: { view: RiskView; onChange: (v: RiskView) => void; className?: string }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 transition-colors ${
-        active ? "bg-navy text-white" : "text-ink-muted hover:text-ink"
-      }`}
+    <ToggleGroup
+      type="single"
+      size="sm"
+      value={view}
+      onValueChange={(v) => v && onChange(v as RiskView)}
+      aria-label="Risk view"
+      className={className}
     >
-      {icon}
-      {children}
-    </button>
+      <ToggleGroupItem value="scorecard">
+        <LayoutGrid size={13} aria-hidden /> Scorecard
+      </ToggleGroupItem>
+      <ToggleGroupItem value="matrix">
+        <ScatterChart size={13} aria-hidden /> Exposure map
+      </ToggleGroupItem>
+    </ToggleGroup>
   );
 }

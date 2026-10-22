@@ -56,5 +56,4 @@ export async function saveScorecard(formData: FormData) {
   // No redirect: edited inline on the Overview, the client toggles back to the
   // read view after this resolves and revalidatePath refreshes the data.
   revalidatePath("/");
-  revalidatePath("/legacy");
 }

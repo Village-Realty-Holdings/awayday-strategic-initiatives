@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { InitiativeChecklist } from "@/components/initiative-checklist";
 
 type Initiative = { id: string; code: string; name: string };
 type Group = { id: string; name: string; description: string | null; archived: boolean; members: Initiative[] };
@@ -172,16 +173,7 @@ function GroupForm({
         </Label>
       </div>
       <p className="mb-2 mt-4 text-xs font-medium text-ink-muted">Initiatives in this group</p>
-      <div className="grid max-h-64 grid-cols-1 gap-x-4 gap-y-1.5 overflow-y-auto rounded-lg border border-border bg-surface p-3 sm:grid-cols-2 lg:grid-cols-3">
-        {initiatives.map((i) => (
-          <Label key={i.id} className="flex items-center gap-2 font-normal text-ink">
-            <input type="checkbox" name="initiativeIds" value={i.id} defaultChecked={memberIds.has(i.id)} className="h-3.5 w-3.5 shrink-0 rounded border-border accent-navy" />
-            <span className="truncate" title={`${i.code} · ${i.name}`}>
-              <span className="tabular text-ink-faint">{i.code}</span> {i.name}
-            </span>
-          </Label>
-        ))}
-      </div>
+      <InitiativeChecklist name="initiativeIds" initiatives={initiatives} defaultSelected={[...memberIds]} className="max-h-64" />
       <div className="mt-4 flex items-center gap-3">
         <SubmitButton>{submitLabel}</SubmitButton>
         <Button type="button" onClick={onClose} variant="faint" size="bare" className="text-sm font-normal text-ink-muted">Cancel</Button>

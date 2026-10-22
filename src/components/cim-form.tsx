@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { DatePicker } from "@/components/date-picker";
+import { InitiativeChecklist } from "@/components/initiative-checklist";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -66,7 +68,6 @@ export function CimForm({
   const derived = useMemo(() => parsePrizeNum(prize), [prize]);
   const effectivePrizeNum = prizeTouched || prizeNum !== "" ? prizeNum : derived != null ? String(derived) : "";
 
-  const linkedSet = useMemo(() => new Set(linkedIds), [linkedIds]);
 
   return (
     <form action={action} className="flex flex-col gap-5">
@@ -147,23 +148,7 @@ export function CimForm({
         <p className="mb-2 mt-0.5 text-[11px] text-ink-faint">
           The SIs that drive this risk toward mitigation. Coverage = their average progress.
         </p>
-        <div className="grid max-h-56 grid-cols-1 gap-x-4 gap-y-1.5 overflow-y-auto rounded-lg border border-border bg-surface p-3 sm:grid-cols-2 lg:grid-cols-3">
-          {initiatives.length === 0 && <p className="text-xs text-ink-faint">No initiatives yet.</p>}
-          {initiatives.map((i) => (
-            <Label key={i.id} className="flex items-center gap-2 text-xs font-normal text-ink">
-              <input
-                type="checkbox"
-                name="initiativeIds"
-                value={i.id}
-                defaultChecked={linkedSet.has(i.id)}
-                className="h-3.5 w-3.5 shrink-0 rounded border-border accent-navy"
-              />
-              <span className="truncate" title={`${i.code} · ${i.name}`}>
-                <span className="tabular text-ink-faint">{i.code}</span> {i.name}
-              </span>
-            </Label>
-          ))}
-        </div>
+        <InitiativeChecklist name="initiativeIds" initiatives={initiatives} defaultSelected={linkedIds} />
       </div>
 
       <div className="flex items-center gap-3">
@@ -205,9 +190,9 @@ function Field({
 
 function CheckField({ label, name, checked }: { label: string; name: string; checked: boolean }) {
   return (
-    <Label className="flex items-center gap-2 pt-6 text-base font-normal text-ink">
-      <input type="checkbox" name={name} defaultChecked={checked} className="h-4 w-4 rounded border-border accent-navy" />
-      <span className="text-sm text-ink">{label}</span>
+    <Label className="flex w-fit cursor-pointer items-center gap-2 pt-6 text-sm font-normal text-ink">
+      <Checkbox name={name} defaultChecked={checked} />
+      {label}
     </Label>
   );
 }

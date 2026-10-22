@@ -172,7 +172,7 @@ export function StrategyReview({ snapshot }: { snapshot: ReviewSnapshot }) {
 
   return (
     <div className="strategy-review mx-auto max-w-[1400px] text-sm">
-      <div className="sticky top-14 z-20 -mx-6 border-b border-border bg-surface/95 px-6 py-2 backdrop-blur">
+      <div className="sticky top-0 z-20 -mx-6 border-b border-border bg-surface/95 px-6 py-2 backdrop-blur">
         <div className="flex items-center gap-3 overflow-x-auto">
           <a href="#top" className="shrink-0 font-semibold tracking-tight text-ink">AWAYDAY · STRATEGY REVIEW</a>
           <nav aria-label="Review sections" className="flex min-w-max gap-1">

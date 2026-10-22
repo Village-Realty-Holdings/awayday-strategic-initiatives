@@ -16,6 +16,7 @@
   --color-surface-2: oklch(0.974 0.004 205);
   --color-border: oklch(0.91 0.005 205);
   --color-border-strong: oklch(0.84 0.007 205);
+  --color-ground: oklch(0.955 0.006 205); /* app background behind the inset content panel */
 
   /* Ink — dark teal-slate (≈ #2D4447), darker for body contrast */
   --color-ink: oklch(0.29 0.022 200);
@@ -137,6 +138,18 @@ body {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
+
+  /* Tailwind v4 resets buttons to cursor: default; restore the pointer for
+     every clickable control (shadcn Buttons and hand-rolled ones alike). */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary,
+  label[for],
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  select:not(:disabled) {
+    cursor: pointer;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -168,6 +181,19 @@ body {
   main {
     padding: 0 !important;
   }
+  /* The inset content panel prints as plain page, not a floating card. */
+  .app-shell {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  .app-inset {
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
   body {
     background: #fff;
     -webkit-print-color-adjust: exact;
@@ -176,23 +202,6 @@ body {
   .print-avoid-break {
     break-inside: avoid;
   }
-}
-
-/* DatePicker popover enter: fast fade + settle (see components/onboarding/date-picker.tsx).
-   The global prefers-reduced-motion rule above collapses this to instant. */
-@keyframes dp-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-.dp-pop {
-  animation: dp-in 140ms var(--ease-out-quint);
-  transform-origin: top;
 }
 
 /* Transient highlight when you click a CIM risk in the scorecard/heat-map and

@@ -8,7 +8,6 @@ import {
   FileText,
   Compass,
   Layers,
-  History,
   type LucideIcon,
 } from "lucide-react";
 
@@ -16,7 +15,6 @@ type Item = { label: string; href: string; icon: LucideIcon };
 
 const NAV: Item[] = [
   { label: "Strategy Review", href: "/", icon: LayoutDashboard },
-  { label: "Legacy overview", href: "/legacy", icon: History },
   { label: "Initiatives", href: "/initiatives", icon: Target },
   { label: "Groups", href: "/groups", icon: Layers },
   { label: "Strategy Sources", href: "/sources", icon: Compass },
@@ -44,7 +42,7 @@ export function SidebarNav() {
             className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
               active
                 ? "bg-navy/10 font-medium text-navy-deep"
-                : "text-ink-muted hover:bg-surface-2 hover:text-ink"
+                : "text-ink-muted hover:bg-surface hover:text-ink"
             }`}
           >
             <Icon size={16} strokeWidth={1.75} aria-hidden />

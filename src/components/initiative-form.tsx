@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, Check } from "lucide-react";
 import { DatePicker } from "@/components/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { Initiative } from "@/generated/prisma/client";
 import {
   QUADRANT_META,
@@ -136,8 +137,6 @@ export function InitiativeForm({
   // Working team: People multi-select (Jakob). Stored as a comma list of names.
   const initialTeam = parseTeam(i?.supports);
   const [team, setTeam] = useState<string[]>(initialTeam);
-  const toggleTeam = (name: string) =>
-    setTeam((t) => (t.includes(name) ? t.filter((x) => x !== name) : [...t, name]));
 
   // Simplified scoring: Targeted Value ($) drives the Value score; Effort drives Lift.
   const [targetedRaw, setTargetedRaw] = useState(i?.progressTarget != null ? formatDollarsInput(String(i.progressTarget)) : "");
@@ -277,23 +276,7 @@ export function InitiativeForm({
         {teamChips.length === 0 ? (
           <p className="text-[11px] text-ink-faint">No people in the directory yet.</p>
         ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {teamChips.map((name) => {
-              const on = team.includes(name);
-              return (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => toggleTeam(name)}
-                  className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
-                    on ? "border-navy bg-navy text-white" : "border-border bg-surface text-ink-muted hover:border-navy/50"
-                  }`}
-                >
-                  {name}
-                </button>
-              );
-            })}
-          </div>
+          <TeamPicker options={teamChips} value={team} onChange={setTeam} />
         )}
         <p className="mt-1 text-[10px] text-ink-faint">Supporting contributors beyond the lead and secondary lead.</p>
       </div>
@@ -302,23 +285,7 @@ export function InitiativeForm({
       <div className="rounded-lg border border-border bg-surface-2/30 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Type, value &amp; priority</p>
-          <div className="inline-flex rounded-md border border-border bg-surface p-0.5">
-            {[
-              { v: "VALUE", label: "Value" },
-              { v: "NON_VALUE", label: "Non-value" },
-            ].map((o) => (
-              <button
-                key={o.v}
-                type="button"
-                onClick={() => setValueType(o.v)}
-                className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  valueType === o.v ? "bg-navy text-white" : "text-ink-muted hover:text-ink"
-                }`}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
+          <ValueTypeSwitch value={valueType} onChange={setValueType} />
         </div>
         <p className="mt-1 text-[10px] leading-snug text-ink-faint">
           {isValue
@@ -469,5 +436,34 @@ function Field({
       {children}
       {hint && <span className="text-[10px] leading-snug text-ink-faint">{hint}</span>}
     </Wrap>
+  );
+}
+
+/** Working-team chips: multi-select people; selected chips carry a check, not colour alone. */
+export function TeamPicker({ options, value, onChange }: { options: string[]; value: string[]; onChange: (v: string[]) => void }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <ToggleGroup type="multiple" variant="chip" size="xs" value={value} onValueChange={onChange} aria-label="Working team">
+        {options.map((name) => (
+          <ToggleGroupItem key={name} value={name} className="group px-2.5 py-1 text-[11px] font-normal">
+            <Check size={11} strokeWidth={2.5} className="hidden group-data-[state=on]:block" aria-hidden />
+            {name}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+      <p className="text-[10px] text-ink-faint" aria-live="polite">
+        {value.length === 0 ? "No one selected" : `${value.length} selected: ${value.join(", ")}`}
+      </p>
+    </div>
+  );
+}
+
+/** Value / Non-value switch (single choice, never empty). */
+export function ValueTypeSwitch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <ToggleGroup type="single" size="xs" value={value} onValueChange={(v) => v && onChange(v)} aria-label="Initiative type" className="[&>button]:px-2.5 [&>button]:py-1 [&>button]:text-[11px]">
+      <ToggleGroupItem value="VALUE">Value</ToggleGroupItem>
+      <ToggleGroupItem value="NON_VALUE">Non-value</ToggleGroupItem>
+    </ToggleGroup>
   );
 }

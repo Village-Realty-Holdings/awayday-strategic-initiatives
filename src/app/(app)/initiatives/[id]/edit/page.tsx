@@ -7,6 +7,7 @@ import { InitiativeForm } from "@/components/initiative-form";
 import { updateInitiative } from "@/app/(app)/initiatives/actions";
 import { cimKpiMap } from "@/lib/sources";
 import { getActivePlan, getPlanAreas } from "@/lib/active-plan";
+import { BreadcrumbTitle } from "@/components/shell/breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,7 @@ export default async function EditInitiativePage({
 
   return (
     <div className="mx-auto max-w-3xl">
+      <BreadcrumbTitle path={`/initiatives/${initiative.id}`} title={`${initiative.code} ${initiative.name}`} />
       <Link
         href={`/initiatives/${id}`}
         className="mb-5 inline-flex items-center gap-1.5 text-sm text-ink-muted transition-colors hover:text-ink"

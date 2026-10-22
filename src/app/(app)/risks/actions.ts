@@ -73,7 +73,6 @@ export async function createCimRisk(formData: FormData) {
   });
   revalidatePath("/risks");
   revalidatePath("/");
-  revalidatePath("/legacy");
   await flash("Risk created");
   redirect("/risks");
 }
@@ -102,7 +101,6 @@ export async function updateCimRisk(formData: FormData) {
   });
   revalidatePath("/risks");
   revalidatePath("/");
-  revalidatePath("/legacy");
   await flash("Risk saved");
   redirect("/risks");
 }
@@ -118,7 +116,6 @@ export async function deleteCimRisk(formData: FormData) {
   });
   revalidatePath("/risks");
   revalidatePath("/");
-  revalidatePath("/legacy");
   await flash("Risk deleted");
   redirect("/risks");
 }

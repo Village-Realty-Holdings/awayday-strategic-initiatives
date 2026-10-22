@@ -207,10 +207,10 @@ export function DataInputsView({
               <TableBody>
                 {log.map((e) => (
                   <TableRow key={e.id}>
-                    <TableCell className="tabular">{e.when}</TableCell>
-                    <TableCell className="font-medium text-ink">{e.source}</TableCell>
+                    <TableCell className="tabular whitespace-nowrap">{e.when}</TableCell>
+                    <TableCell className="whitespace-nowrap font-medium text-ink">{e.source}</TableCell>
                     <TableCell className="whitespace-normal break-words text-ink-muted">{e.what}</TableCell>
-                    <TableCell className="text-ink-muted">{e.by}</TableCell>
+                    <TableCell className="whitespace-nowrap text-ink-muted">{e.by}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

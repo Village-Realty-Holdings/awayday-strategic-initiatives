@@ -60,7 +60,6 @@ export async function saveEbitdaBuild(formData: FormData) {
     data: { userId: session.user.id, action: "UPDATE", entity: "Setting", entityId: EBITDA_SETTING_KEY, after: JSON.parse(JSON.stringify({ asOf: next.asOf, lender: next.lender })) },
   });
   revalidatePath("/");
-  revalidatePath("/legacy");
   revalidatePath("/settings/admin/scoreboard");
   await flash("Scoreboard saved");
   redirect("/settings/admin/scoreboard");
@@ -92,6 +91,5 @@ export async function saveEbitdaInline(formData: FormData) {
     data: { userId: session.user.id, action: "UPDATE", entity: "Setting", entityId: EBITDA_SETTING_KEY, after: JSON.parse(JSON.stringify({ asOf: next.asOf, lender: next.lender })) },
   });
   revalidatePath("/");
-  revalidatePath("/legacy");
   revalidatePath("/settings/admin/scoreboard");
 }

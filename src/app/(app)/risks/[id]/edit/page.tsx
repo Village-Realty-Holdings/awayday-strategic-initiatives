@@ -6,6 +6,7 @@ import { requireEditor } from "@/lib/session";
 import { CimForm } from "@/components/cim-form";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { updateCimRisk, deleteCimRisk } from "@/app/(app)/risks/actions";
+import { BreadcrumbTitle } from "@/components/shell/breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ export default async function EditCimRiskPage({
 
   return (
     <div className="mx-auto max-w-3xl">
+      <BreadcrumbTitle path={`/risks/${risk.id}`} title={risk.code} />
       <Link href="/risks" className="mb-5 inline-flex items-center gap-1.5 text-sm text-ink-muted transition-colors hover:text-ink">
         <ArrowLeft size={15} aria-hidden /> CIM Risks
       </Link>

@@ -57,7 +57,7 @@ export function DataTable({
                     {r.cells[c.key]}
                   </TableCell>
                 ) : (
-                  <TableCell key={c.key} className={cn(right && "text-right", c.numeric ? "tabular" : "whitespace-normal", c.className)}>
+                  <TableCell key={c.key} className={cn(right && "text-right", c.numeric ? "tabular whitespace-nowrap" : "whitespace-normal", c.className)}>
                     {r.cells[c.key]}
                   </TableCell>
                 );

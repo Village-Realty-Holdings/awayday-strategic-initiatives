@@ -10,6 +10,7 @@ import {
 } from "@/lib/ai-budget";
 import { buildAiTelemetryReport, coerceReportDays, REPORT_DAYS } from "@/lib/ai-telemetry-report";
 import { AiBudgetForm, AiBudgetRecipientsForm } from "@/components/admin/ai-budget-forms";
+import { TelemetryTable } from "@/components/admin/telemetry-table";
 
 // Dark-launched admin surface (direct URL only, no nav or launcher link):
 // the monthly AI spend guardrail and the ai_invocation telemetry report
@@ -110,7 +111,7 @@ export default async function AiTelemetryPage({ searchParams }: { searchParams: 
         {/* By feature */}
         <Card title="By feature" sub="Every AI job, sorted by cost. Fallbacks include budget refusals; errors include timeouts and rate limits." count={report.byFeature.length}>
           {report.byFeature.length > 0 && (
-            <Table
+            <TelemetryTable
               headers={["Module", "Feature", "Calls", "Cost", "Avg latency", "Success", "Fallbacks", "Errors", "Accepted", "Dismissed", "Edited"]}
               rows={report.byFeature.map((f) => [
                 f.module,
@@ -132,7 +133,7 @@ export default async function AiTelemetryPage({ searchParams }: { searchParams: 
         {/* Top users */}
         <Card title="Top users by cost" sub="Signed-in users only. System jobs and public token flows are not attributed to a person." count={report.byUser.length}>
           {report.byUser.length > 0 && (
-            <Table
+            <TelemetryTable
               headers={["User", "Email", "Calls", "Cost"]}
               rows={report.byUser.map((u) => [u.name ?? u.userId, u.email ?? "(no account)", String(u.calls), usd(u.costUsd)])}
             />
@@ -147,7 +148,7 @@ export default async function AiTelemetryPage({ searchParams }: { searchParams: 
         {/* Recent */}
         <Card title="Recent invocations" sub="Newest first, last 50 in the window." count={report.recent.length}>
           {report.recent.length > 0 && (
-            <Table
+            <TelemetryTable
               headers={["When", "Module", "Feature", "Model", "Latency", "Cost", "Outcome", "Acceptance"]}
               rows={report.recent.map((r) => [
                 when(r.occurredAt),
@@ -190,34 +191,6 @@ function Card({ title, sub, count, children }: { title: string; sub: string; cou
   );
 }
 
-function Table({ headers, rows }: { headers: string[]; rows: string[][] }) {
-  return (
-    <div className="mt-3 overflow-x-auto">
-      <table className="w-full text-left text-sm">
-        <thead>
-          <tr className="border-b border-border text-xs text-ink-muted">
-            {headers.map((h) => (
-              <th key={h} className="whitespace-nowrap py-1.5 pr-4 font-medium">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((cells, i) => (
-            <tr key={i} className="border-b border-border/50 last:border-0">
-              {cells.map((c, j) => (
-                <td key={j} className={`whitespace-nowrap py-1.5 pr-4 ${j === 0 ? "text-ink" : "tabular-nums text-ink-muted"}`}>
-                  {c}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 function DayBars({ rows }: { rows: Array<{ day: string; calls: number; costUsd: number }> }) {
   const max = Math.max(...rows.map((r) => r.costUsd), 0.000001);

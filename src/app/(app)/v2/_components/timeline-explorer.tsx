@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import type { MockMilestone } from "../_mock/types";
@@ -66,10 +67,10 @@ export function TimelineExplorer({
             <option value="ALL">Through 31 Dec</option>
           </NativeSelect>
         </Label>
-        <label className="flex items-end gap-2 pb-2 text-xs text-ink-muted">
-          <input type="checkbox" className="h-3.5 w-3.5 accent-[var(--color-navy)]" checked={pastOnly} onChange={(e) => setPastOnly(e.target.checked)} />
+        <Label className="flex cursor-pointer items-center gap-2 self-end pb-2.5 font-normal">
+          <Checkbox checked={pastOnly} onCheckedChange={(c) => setPastOnly(c === true)} />
           Needs a status only
-        </label>
+        </Label>
       </div>
       <p className="text-xs text-ink-muted" aria-live="polite">
         {filtered.length} milestone{filtered.length === 1 ? "" : "s"} · amber dates have passed and need a status.

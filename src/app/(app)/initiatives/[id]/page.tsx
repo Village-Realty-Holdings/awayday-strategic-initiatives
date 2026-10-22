@@ -39,6 +39,7 @@ import {
   removeInitiativeEltRequest,
 } from "@/app/(app)/initiatives/actions";
 import { CharterAssistButton } from "@/components/charter-assist";
+import { CompletionToggle } from "@/components/completion-toggle";
 import { DatePicker } from "@/components/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -59,10 +60,10 @@ import {
   Trash2,
   AlertTriangle,
   CalendarCheck,
-  Check,
   UserCheck,
   HandCoins,
 } from "lucide-react";
+import { BreadcrumbTitle } from "@/components/shell/breadcrumbs";
 
 const ATTACH_ERRORS: Record<string, string> = {
   "1": "Enter a valid http(s) URL.",
@@ -120,6 +121,7 @@ export default async function InitiativeDetail({
 
   return (
     <div className="mx-auto max-w-4xl">
+      <BreadcrumbTitle path={`/initiatives/${i.id}`} title={`${i.code} ${i.name}`} />
       <Link
         href="/initiatives"
         className="mb-5 inline-flex items-center gap-1.5 text-sm text-ink-muted transition-colors hover:text-ink"
@@ -338,28 +340,7 @@ export default async function InitiativeDetail({
                 const overdue = !m.completedAt && m.dueAt != null && m.dueAt < now;
                 return (
                   <li key={m.id} className="flex items-center gap-3 rounded-lg border border-border bg-surface-2/40 px-3.5 py-2.5">
-                    {editable ? (
-                      <form action={toggleInitiativeMilestone} className="shrink-0">
-                        <input type="hidden" name="id" value={m.id} />
-                        <button
-                          type="submit"
-                          title={m.completedAt ? "Reopen" : "Mark complete"}
-                          className={`grid h-5 w-5 place-items-center rounded-full border transition-colors ${
-                            m.completedAt ? "border-ok bg-ok/15 text-ok" : "border-border text-transparent hover:border-ok hover:text-ok/50"
-                          }`}
-                        >
-                          <Check size={12} strokeWidth={3} aria-hidden />
-                        </button>
-                      </form>
-                    ) : (
-                      <span
-                        className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${
-                          m.completedAt ? "border-ok bg-ok/15 text-ok" : "border-border text-transparent"
-                        }`}
-                      >
-                        <Check size={12} strokeWidth={3} aria-hidden />
-                      </span>
-                    )}
+                    <CompletionToggle id={m.id} done={!!m.completedAt} label={m.title} action={toggleInitiativeMilestone} editable={editable} />
                     <div className="min-w-0 flex-1">
                       <p className={`text-sm ${m.completedAt ? "text-ink-faint line-through" : "text-ink"}`}>{m.title}</p>
                       <p className="text-[11px] text-ink-faint">
@@ -478,28 +459,7 @@ export default async function InitiativeDetail({
                 const overdue = a.status !== "DONE" && a.dueAt != null && a.dueAt < now;
                 return (
                   <li key={a.id} className="flex items-center gap-3 rounded-lg border border-border bg-surface-2/40 px-3.5 py-2.5">
-                    {editable ? (
-                      <form action={toggleInitiativeActionItem} className="shrink-0">
-                        <input type="hidden" name="id" value={a.id} />
-                        <button
-                          type="submit"
-                          title={a.status === "DONE" ? "Reopen" : "Mark done"}
-                          className={`grid h-5 w-5 place-items-center rounded-full border transition-colors ${
-                            a.status === "DONE" ? "border-ok bg-ok/15 text-ok" : "border-border text-transparent hover:border-ok hover:text-ok/50"
-                          }`}
-                        >
-                          <Check size={12} strokeWidth={3} aria-hidden />
-                        </button>
-                      </form>
-                    ) : (
-                      <span
-                        className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${
-                          a.status === "DONE" ? "border-ok bg-ok/15 text-ok" : "border-border text-transparent"
-                        }`}
-                      >
-                        <Check size={12} strokeWidth={3} aria-hidden />
-                      </span>
-                    )}
+                    <CompletionToggle id={a.id} done={a.status === "DONE"} label={a.title} action={toggleInitiativeActionItem} editable={editable} />
                     <Badge
                       variant="custom"
                       shape="pill"
