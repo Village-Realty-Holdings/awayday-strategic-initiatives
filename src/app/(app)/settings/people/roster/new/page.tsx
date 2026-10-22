@@ -1,6 +1,5 @@
-import Link from "next/link";
-import { ArrowLeft } from "@/components/icons";
 import { prisma } from "@/lib/prisma";
+import { PageHeader } from "@/components/shell/page-header";
 import { requireEditor } from "@/lib/session";
 import { RosterForm } from "@/components/roster-form";
 import { createRosterMember } from "@/app/(app)/settings/people/roster/actions";
@@ -15,10 +14,7 @@ export default async function NewRosterMemberPage() {
   ]);
   return (
     <div className="max-w-2xl">
-      <Link href="/settings/people" className="mb-5 inline-flex items-center gap-1.5 text-sm text-ink-muted transition-colors hover:text-ink">
-        <ArrowLeft size={15} aria-hidden /> People &amp; access
-      </Link>
-      <h1 className="mb-5 text-xl font-semibold tracking-tight text-ink">Add person</h1>
+      <PageHeader back={{ href: "/settings/people", label: "People & access" }} eyebrow="People & access" title="Add person" description="Add someone to the People directory so they can own initiatives, milestones and risks." />
       <RosterForm
         action={createRosterMember}
         departments={departments.map((d) => d.name)}

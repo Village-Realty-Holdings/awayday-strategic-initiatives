@@ -1,12 +1,13 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { PAGE_FRAME } from "@/components/shell/page-header";
 
 // Initiatives list: header with three stats, a filter bar, and table rows.
 export default function Loading() {
   return (
-    <div className="mx-auto max-w-[1400px]" role="status" aria-label="Loading initiatives">
+    <div className={PAGE_FRAME} role="status" aria-label="Loading initiatives">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <Skeleton className="h-6 w-56" />
+          <Skeleton className="h-7 w-64" />
           <Skeleton className="h-4 w-96 max-w-full" />
         </div>
         <div className="flex items-center gap-6">
@@ -16,15 +17,16 @@ export default function Loading() {
               <Skeleton className="h-3 w-16" />
             </div>
           ))}
+          <Skeleton className="h-8 w-32" />
         </div>
       </header>
-      <div className="mb-3 flex flex-wrap gap-2">
-        <Skeleton className="h-9 w-64" />
-        <Skeleton className="h-9 w-32" />
-        <Skeleton className="h-9 w-32" />
-        <Skeleton className="h-9 w-32" />
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Skeleton className="h-8 w-56" />
+        {Array.from({ length: 5 }).map((_, n) => (
+          <Skeleton key={n} className="h-8 w-32" />
+        ))}
       </div>
-      <div className="overflow-hidden rounded-xl border border-border bg-surface">
+      <div className="overflow-hidden rounded-lg border border-border bg-surface">
         <div className="border-b border-border px-4 py-3">
           <Skeleton className="h-3 w-full max-w-md" />
         </div>

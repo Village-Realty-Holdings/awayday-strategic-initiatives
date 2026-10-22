@@ -36,7 +36,7 @@ export function QuadrantBadge({ quadrant }: { quadrant: Quadrant }) {
 }
 
 // Thin horizontal progress bar with tabular % label.
-export function ProgressBar({ value }: { value: number }) {
+export function ProgressBar({ value, hideLabel = false }: { value: number; hideLabel?: boolean }) {
   const pct = Math.round(value * 100); // can exceed 100 (e.g. 125% of target)
   return (
     <div className="flex items-center gap-2">
@@ -46,7 +46,7 @@ export function ProgressBar({ value }: { value: number }) {
           style={{ width: `${Math.min(100, pct)}%`, transitionTimingFunction: "var(--ease-out-quint)" }}
         />
       </div>
-      <span className="tabular w-9 shrink-0 text-right text-xs text-ink-muted">{pct}%</span>
+      {!hideLabel && <span className="tabular w-9 shrink-0 text-right text-xs text-ink-muted">{pct}%</span>}
     </div>
   );
 }

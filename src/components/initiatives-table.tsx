@@ -38,20 +38,27 @@ const STATUSES = Object.keys(STATUS_META) as InitiativeStatus[];
 const QUADRANTS = Object.keys(QUADRANT_META) as Quadrant[];
 type SortKey = "code" | "name" | "cimDriver" | "teamLead" | "valueTargeted" | "quadrant" | "status" | "pct" | "endTime";
 
+/** The list pages' primary action, rendered in their PageHeader. */
+export function NewInitiativeButton() {
+  return (
+    <Button asChild size="sm">
+      <Link href="/initiatives/new"><Plus size={14} aria-hidden /> New initiative</Link>
+    </Button>
+  );
+}
+
 export function InitiativesTable({
   rows,
   owners,
   cims,
   groups = [],
   initialGroup = "",
-  editable,
 }: {
   rows: InitiativeRow[];
   owners: string[];
   cims: string[];
   groups?: { id: string; name: string }[];
   initialGroup?: string;
-  editable: boolean;
 }) {
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -117,7 +124,6 @@ export function InitiativesTable({
         <Sel value={owner} onChange={setOwner} label="Owner" options={owners} />
         {active && <Button variant="outline" size="sm" onClick={reset} className="px-2.5">Reset</Button>}
         <span className="text-xs text-ink-faint">{groupName ? `${groupName}: ` : ""}{filtered.length} of {rows.length}</span>
-        {editable && <Button asChild size="sm" className="ml-auto"><Link href="/initiatives/new"><Plus size={14} aria-hidden /> New initiative</Link></Button>}
       </div>
 
       <Table stickyHeader containerClassName="rounded-lg border border-border bg-surface" className="text-sm">
@@ -137,7 +143,7 @@ export function InitiativesTable({
           {filtered.length === 0 && (
             <TableEmpty colSpan={8}>
               No initiatives match these filters.{" "}
-              {active && <button type="button" onClick={reset} className="text-navy underline-offset-2 hover:underline">Reset filters</button>}
+              {active && <Button type="button" variant="link" size="sm" onClick={reset}>Reset filters</Button>}
             </TableEmpty>
           )}
           {filtered.map((i) => (

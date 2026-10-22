@@ -1,6 +1,7 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, TriangleAlert } from "@/components/icons";
+import { TriangleAlert } from "@/components/icons";
+import { Alert } from "@/components/ui/alert";
+import { FORM_COLUMN, PAGE_FRAME, PageHeader } from "@/components/shell/page-header";
 import { prisma } from "@/lib/prisma";
 import { requireEditor } from "@/lib/session";
 import { InitiativeForm } from "@/components/initiative-form";
@@ -37,47 +38,45 @@ export default async function EditInitiativePage({
   const cimKpis = cimKpiMap();
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className={PAGE_FRAME}>
       <BreadcrumbTitle path={`/initiatives/${initiative.id}`} title={`${initiative.code} ${initiative.name}`} />
-      <Link
-        href={`/initiatives/${id}`}
-        className="mb-5 inline-flex items-center gap-1.5 text-sm text-ink-muted transition-colors hover:text-ink"
-      >
-        <ArrowLeft size={15} aria-hidden /> Back to initiative
-      </Link>
-      <h1 className="mb-1 text-xl font-semibold tracking-tight text-ink">Edit initiative</h1>
-      <p className="mb-5 text-sm text-ink-muted">
-        <span className="tabular text-ink-faint">{initiative.code}</span> · changes are recorded in the audit log.
-      </p>
-
-      {conflict && (
-        <div className="mb-5 flex items-start gap-2 rounded-lg border border-warn/40 bg-warn-soft px-3.5 py-2.5 text-sm text-ink">
-          <TriangleAlert size={16} className="mt-0.5 shrink-0 text-warn" aria-hidden />
-          <span>
-            Someone else saved this initiative while you were editing. The latest version is loaded
-            below, review and re-apply your changes.
-          </span>
-        </div>
-      )}
-
-      {error === "area" && (
-        <div className="mb-5 flex items-center gap-2 rounded-lg border border-risk/40 bg-risk-soft px-3.5 py-2.5 text-sm text-ink">
-          <TriangleAlert size={16} className="shrink-0 text-risk" aria-hidden />
-          That area isn&apos;t part of this initiative&apos;s plan. Pick one from the list.
-        </div>
-      )}
-
-      <InitiativeForm
-        action={updateInitiative}
-        initiative={initiative}
-        submitLabel="Save changes"
-        cancelHref={`/initiatives/${id}`}
-        owners={owners}
-        cimItems={cimItems}
-        cimKpis={cimKpis}
-        areas={areas}
-        problemError={error === "problem"}
+      <PageHeader
+        back={{ href: `/initiatives/${id}`, label: "charter" }}
+        eyebrow={<span className="tabular">{initiative.code}</span>}
+        title="Edit initiative"
+        description={<>{initiative.name}. Changes are recorded in the audit log.</>}
       />
+      <div className={FORM_COLUMN}>
+
+        {conflict && (
+          <Alert variant="warn" className="mb-4">
+            <TriangleAlert size={16} aria-hidden />
+            <span>
+              Someone else saved this initiative while you were editing. The latest version is loaded
+              below; review it and re-apply your changes.
+            </span>
+          </Alert>
+        )}
+
+        {error === "area" && (
+          <Alert variant="risk" className="mb-4">
+            <TriangleAlert size={16} aria-hidden />
+            That area isn&apos;t part of this initiative&apos;s plan. Pick one from the list.
+          </Alert>
+        )}
+
+        <InitiativeForm
+          action={updateInitiative}
+          initiative={initiative}
+          submitLabel="Save changes"
+          cancelHref={`/initiatives/${id}`}
+          owners={owners}
+          cimItems={cimItems}
+          cimKpis={cimKpis}
+          areas={areas}
+          problemError={error === "problem"}
+        />
+      </div>
     </div>
   );
 }

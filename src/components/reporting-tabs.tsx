@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FileText, CalendarDays } from "@/components/icons";
 
 export type ReportingView = "narrative" | "gantt";
 
@@ -29,9 +30,13 @@ export function ReportingTabs({
       }}
       className="gap-5"
     >
-      <TabsList className="no-print">
-        <TabsTrigger value="narrative">Board Narrative</TabsTrigger>
-        <TabsTrigger value="gantt">Gantt</TabsTrigger>
+      <TabsList variant="line" className="no-print w-full justify-start border-b border-border pb-1">
+        <TabsTrigger value="narrative" className="flex-none px-3">
+          <FileText size={15} aria-hidden /> Board Narrative
+        </TabsTrigger>
+        <TabsTrigger value="gantt" className="flex-none px-3">
+          <CalendarDays size={15} aria-hidden /> Timeline
+        </TabsTrigger>
       </TabsList>
       <TabsContent value="narrative" forceMount className="data-[state=inactive]:hidden">
         {narrative}

@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Sparkles, Loader2, Check } from "@/components/icons";
+import { Sparkles, Loader2, Check, TriangleAlert } from "@/components/icons";
+import { Alert } from "@/components/ui/alert";
 import { DatePicker } from "@/components/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -206,95 +207,98 @@ export function InitiativeForm({
   };
 
   return (
-    <form action={action} className="flex flex-col gap-5">
+    <form action={action} className="grid gap-4">
       {i && <input type="hidden" name="id" value={i.id} />}
       {i && <input type="hidden" name="updatedAt" value={i.updatedAt.toISOString()} />}
       <input type="hidden" name="effort" value={effort} />
       <input type="hidden" name="supports" value={serializeTeam(team)} />
       <input type="hidden" name="valueType" value={valueType} />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="CIM driver / theme" required={isNew} hint="Broad strategic driver. Used for grouping and the code prefix.">
-          <NativeSelect value={cim} onChange={(e) => onCimChange(e.target.value)} name="cimDriver">
-            {!CIM_DRIVERS.includes(cim) && <option value={cim}>{cim}</option>}
-            {CIM_DRIVERS.map((c) => <option key={c} value={c}>{c}</option>)}
-          </NativeSelect>
-        </Field>
-        <Field label="CIM item" hint="The CIM register item this ties back to. Sets the KPI options below.">
-          <NativeSelect value={cimItem} onChange={(e) => setCimItem(e.target.value)} name="cimItemCode">
-            <option value="">— none —</option>
-            {cimItem && !cimItems.some((c) => c.code === cimItem) && <option value={cimItem}>{cimItem}</option>}
-            {cimItems.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
-          </NativeSelect>
-        </Field>
-        {areas.length > 0 && (
-          <Field label="Area" hint="Strategic area in this initiative's plan. Initiatives without an area don't appear on the Overview.">
-            <NativeSelect name="strategicAreaId" defaultValue={i?.strategicAreaId ?? ""}>
-              <option value="">— none —</option>
-              {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+      <FormSection title="Identity" description="Where this initiative sits in the strategy, and what it's called.">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="CIM driver / theme" required={isNew} hint="Broad strategic driver. Used for grouping and the code prefix.">
+            <NativeSelect value={cim} onChange={(e) => onCimChange(e.target.value)} name="cimDriver">
+              {!CIM_DRIVERS.includes(cim) && <option value={cim}>{cim}</option>}
+              {CIM_DRIVERS.map((c) => <option key={c} value={c}>{c}</option>)}
             </NativeSelect>
           </Field>
-        )}
-        <Field label="Code" required={isNew}>
-          {isNew ? (
-            <Input
-              name="code"
-              required
-              value={code}
-              onChange={(e) => { setCode(e.target.value); setCodeTouched(true); }}
-              className="tabular"
-            />
+          <Field label="CIM item" hint="The CIM register item this ties back to. Sets the KPI options below.">
+            <NativeSelect value={cimItem} onChange={(e) => setCimItem(e.target.value)} name="cimItemCode">
+              <option value="">— none —</option>
+              {cimItem && !cimItems.some((c) => c.code === cimItem) && <option value={cimItem}>{cimItem}</option>}
+              {cimItems.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+            </NativeSelect>
+          </Field>
+          {areas.length > 0 && (
+            <Field label="Area" hint="Strategic area in this initiative's plan. Initiatives without an area don't appear on the Strategy Review.">
+              <NativeSelect name="strategicAreaId" defaultValue={i?.strategicAreaId ?? ""}>
+                <option value="">— none —</option>
+                {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </NativeSelect>
+            </Field>
+          )}
+          <Field label="Code" required={isNew} hint={isNew ? "Suggested from the driver. Must be unique." : "Codes can't change after creation."}>
+            {isNew ? (
+              <Input
+                name="code"
+                required
+                value={code}
+                onChange={(e) => { setCode(e.target.value); setCodeTouched(true); }}
+                className="tabular"
+              />
+            ) : (
+              <>
+                <input type="hidden" name="code" value={i!.code} />
+                <ReadOnlyValue className="tabular">{i!.code}</ReadOnlyValue>
+              </>
+            )}
+          </Field>
+          <div className="sm:col-span-2">
+            <Field label="Initiative name" required>
+              <Input name="name" required value={name2} onChange={(e) => setName(e.target.value)} placeholder="Plain-English name" />
+            </Field>
+          </div>
+        </div>
+      </FormSection>
+
+      <FormSection title="People" description="Who leads it and who helps. Names come from the People directory.">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Lead">
+            <NativeSelect name="teamLead" defaultValue={i?.teamLead ?? ""}>
+              <option value="">— unassigned —</option>
+              {i?.teamLead && !ownerOptions.includes(i.teamLead) && <option value={i.teamLead}>{i.teamLead}</option>}
+              {ownerOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+            </NativeSelect>
+          </Field>
+          <Field label="Secondary lead">
+            <NativeSelect name="secondaryLead" defaultValue={i?.secondaryLead ?? ""}>
+              <option value="">— none —</option>
+              {i?.secondaryLead && !ownerOptions.includes(i.secondaryLead) && <option value={i.secondaryLead}>{i.secondaryLead}</option>}
+              {ownerOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+            </NativeSelect>
+          </Field>
+        </div>
+        {/* Working team: pick supporting people from the directory (Jakob). */}
+        <Field label="Working team" hint="Supporting contributors beyond the lead and secondary lead." asDiv>
+          {teamChips.length === 0 ? (
+            <p className="text-[11px] text-ink-faint">No people in the directory yet.</p>
           ) : (
-            <>
-              <input type="hidden" name="code" value={i!.code} />
-              <p className="tabular py-2 text-sm text-ink-muted">{i!.code} (fixed)</p>
-            </>
+            <TeamPicker options={teamChips} value={team} onChange={setTeam} />
           )}
         </Field>
-        <Field label="Initiative name" required>
-          <Input name="name" required value={name2} onChange={(e) => setName(e.target.value)} placeholder="Plain-English name" />
-        </Field>
-        <Field label="Lead">
-          <NativeSelect name="teamLead" defaultValue={i?.teamLead ?? ""}>
-            <option value="">— unassigned —</option>
-            {i?.teamLead && !ownerOptions.includes(i.teamLead) && <option value={i.teamLead}>{i.teamLead}</option>}
-            {ownerOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-          </NativeSelect>
-        </Field>
-        <Field label="Secondary lead">
-          <NativeSelect name="secondaryLead" defaultValue={i?.secondaryLead ?? ""}>
-            <option value="">— none —</option>
-            {i?.secondaryLead && !ownerOptions.includes(i.secondaryLead) && <option value={i.secondaryLead}>{i.secondaryLead}</option>}
-            {ownerOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-          </NativeSelect>
-        </Field>
-      </div>
+      </FormSection>
 
-      {/* Working team: pick supporting people from the directory (Jakob). */}
-      <div>
-        <p className="mb-1.5 text-xs font-medium text-ink-muted">Working team</p>
-        {teamChips.length === 0 ? (
-          <p className="text-[11px] text-ink-faint">No people in the directory yet.</p>
-        ) : (
-          <TeamPicker options={teamChips} value={team} onChange={setTeam} />
-        )}
-        <p className="mt-1 text-[10px] text-ink-faint">Supporting contributors beyond the lead and secondary lead.</p>
-      </div>
-
-      {/* Type + value & priority */}
-      <div className="rounded-lg border border-border bg-surface-2/30 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Type, value &amp; priority</p>
-          <ValueTypeSwitch value={valueType} onChange={setValueType} />
-        </div>
-        <p className="mt-1 text-[10px] leading-snug text-ink-faint">
-          {isValue
+      <FormSection
+        title="Type, value & priority"
+        description={
+          isValue
             ? "Creates measurable dollar value. Scored on the Lift × Value map."
-            : "Enabler / milestone (e.g. a key hire). No dollar value; tracked by status, not on the Lift × Value map."}
-        </p>
-
+            : "Enabler or milestone (e.g. a key hire). No dollar value; tracked by status, not on the Lift × Value map."
+        }
+        action={<ValueTypeSwitch value={valueType} onChange={setValueType} />}
+      >
         {isValue && (
-          <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Targeted value ($/yr)" hint="Annualized value created when complete. Sets the Value score.">
               <Input
                 name="targetedValue"
@@ -320,93 +324,134 @@ export function InitiativeForm({
                 {EFFORT_OPTS.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
               </NativeSelect>
             </Field>
-            <Field label="Priority (derived)">
-              <div className="flex items-center gap-2 py-1.5">
+            <Field label="Priority (derived)" asDiv>
+              <ReadOnlyValue className="flex items-center gap-2">
                 <Badge variant="custom" className={`rounded ${QUADRANT_META[quadrant].bg} ${QUADRANT_META[quadrant].fg}`}>
                   {QUADRANT_META[quadrant].label}
                 </Badge>
                 <span className="text-[11px] text-ink-faint">
                   Value {value} · {targeted != null ? formatMoney(targeted) : "set $"}
                 </span>
-              </div>
+              </ReadOnlyValue>
             </Field>
           </div>
         )}
-      </div>
+      </FormSection>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Field label="Status">
-          <NativeSelect name="status" defaultValue={i?.status ?? "IN_PROGRESS"}>
-            {STATUSES.map((s) => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
-          </NativeSelect>
-        </Field>
-        {isValue ? (
-          <Field label="% complete (calculated)" hint="Value realized ÷ targeted value.">
-            <p className="tabular py-2 text-sm text-ink">{pctCalc != null ? `${Math.round(pctCalc * 100)}%` : "—"}</p>
+      <FormSection title="Schedule & status" description="Dates drive pace and the Reporting timeline.">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Status">
+            <NativeSelect name="status" defaultValue={i?.status ?? "IN_PROGRESS"}>
+              {STATUSES.map((s) => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
+            </NativeSelect>
           </Field>
-        ) : (
-          <Field label="Completion" hint="Tracked by status (Done = complete).">
-            <p className="py-2 text-sm text-ink-muted">By status</p>
+          {isValue ? (
+            <Field label="% complete (calculated)" hint="Value realized ÷ targeted value." asDiv>
+              <ReadOnlyValue className="tabular">{pctCalc != null ? `${Math.round(pctCalc * 100)}%` : "Not yet calculable"}</ReadOnlyValue>
+            </Field>
+          ) : (
+            <Field label="Completion" hint="Tracked by status (Done = complete)." asDiv>
+              <ReadOnlyValue>By status</ReadOnlyValue>
+            </Field>
+          )}
+          <Field label="Start date" asDiv>
+            <DatePicker name="startDate" label="Start date" defaultValue={dateValue(i?.startDate ?? null)} clearable />
           </Field>
-        )}
-        <Field label="Start date" asDiv>
-          <DatePicker name="startDate" label="Start date" defaultValue={dateValue(i?.startDate ?? null)} clearable />
-        </Field>
-        <Field label="Target date" asDiv>
-          <DatePicker
-            name="endDate"
-            label="Target date"
-            defaultValue={dateValue(i?.endDate ?? null)}
-            clearable
-            align="end"
-          />
-        </Field>
-      </div>
+          <Field label="Target date" asDiv>
+            <DatePicker
+              name="endDate"
+              label="Target date"
+              defaultValue={dateValue(i?.endDate ?? null)}
+              clearable
+              align="end"
+            />
+          </Field>
+        </div>
+      </FormSection>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Primary KPI" hint={cimItem ? `Scoped to ${cimItem}.` : `Pick a CIM item to scope these, or by ${cim}.`}>
-          <NativeSelect onChange={(e) => onKpiPick(e.target.value)} defaultValue="" className="mb-1.5">
-            <option value="">— pick a KPI for this driver —</option>
-            {kpiOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-          </NativeSelect>
-          <Input name="quantMetric" value={metric} onChange={(e) => setMetric(e.target.value)} placeholder="The one number this moves" />
-        </Field>
-        <Field label="KPI target">
-          <Input name="quantTarget" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="e.g. ≥4.65" />
-        </Field>
-      </div>
+      <FormSection title="KPI" description={cimItem ? `KPI options are scoped to ${cimItem}.` : `Pick a CIM item to scope the KPI options, or choose from ${cim}.`}>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Primary KPI">
+            <NativeSelect onChange={(e) => onKpiPick(e.target.value)} defaultValue="" className="mb-1.5">
+              <option value="">— pick a KPI for this driver —</option>
+              {kpiOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+            </NativeSelect>
+            <Input name="quantMetric" value={metric} onChange={(e) => setMetric(e.target.value)} placeholder="The one number this moves" />
+          </Field>
+          <Field label="KPI target">
+            <Input name="quantTarget" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="e.g. ≥4.65" />
+          </Field>
+        </div>
+      </FormSection>
 
-      <div className="rounded-lg border border-border bg-surface-2/30 p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Charter</p>
+      <FormSection
+        title="Charter"
+        description="The problem, the measurable objective and what gets delivered."
+        action={
           <Button type="button" variant="accent" size="xs" onClick={draft} disabled={drafting} className="px-2.5">
             {drafting ? <Loader2 size={12} className="animate-spin" aria-hidden /> : <Sparkles size={12} aria-hidden />}
             Draft from name + CIM with Claude
           </Button>
-        </div>
-        {draftError && <p className="mb-2 text-[11px] text-risk">{draftError}</p>}
-        {problemError && <p className="mb-2 text-[11px] text-risk">A problem statement is required before saving.</p>}
-        <div className="flex flex-col gap-4">
-          <Field label="Problem statement" required hint="Required. What is broken, for whom, and what it costs us.">
-            <Textarea name="problem" required rows={2} placeholder="What is broken, for whom, and what does it cost us?" value={problem} onChange={(e) => setProblem(e.target.value)} />
-          </Field>
-          <Field label="Objective">
-            <Textarea name="valueWhenComplete" rows={2} placeholder="One measurable sentence: clearly done or not done at closeout." value={objective} onChange={(e) => setObjective(e.target.value)} />
-          </Field>
-          <Field label="Deliverables">
-            <Textarea name="workRequired" rows={2} placeholder="Concrete outputs: a doc, tool, dashboard, recommendation." value={deliverables} onChange={(e) => setDeliverables(e.target.value)} />
-          </Field>
-        </div>
-      </div>
+        }
+      >
+        {draftError && <Alert variant="risk"><TriangleAlert size={15} aria-hidden />{draftError}</Alert>}
+        {problemError && <Alert variant="risk"><TriangleAlert size={15} aria-hidden />A problem statement is required before saving.</Alert>}
+        <Field label="Problem statement" required hint="What is broken, for whom, and what it costs us.">
+          <Textarea name="problem" required rows={3} placeholder="What is broken, for whom, and what does it cost us?" value={problem} onChange={(e) => setProblem(e.target.value)} />
+        </Field>
+        <Field label="Objective">
+          <Textarea name="valueWhenComplete" rows={3} placeholder="One measurable sentence: clearly done or not done at closeout." value={objective} onChange={(e) => setObjective(e.target.value)} />
+        </Field>
+        <Field label="Deliverables">
+          <Textarea name="workRequired" rows={3} placeholder="Concrete outputs: a doc, tool, dashboard, recommendation." value={deliverables} onChange={(e) => setDeliverables(e.target.value)} />
+        </Field>
+      </FormSection>
 
-      <div className="flex items-center gap-3">
+      {/* Sticky save bar: stays in reach at the bottom of the scrolling inset. */}
+      <div className="sticky bottom-0 z-10 -mx-2 flex flex-wrap items-center gap-3 border-t border-border bg-bg/95 px-2 py-3 backdrop-blur supports-[backdrop-filter]:bg-bg/80">
         <SubmitButton>{submitLabel}</SubmitButton>
-        <Button asChild variant="link" className="font-normal text-ink-muted hover:text-ink hover:no-underline">
+        <Button asChild variant="outline">
           <Link href={cancelHref}>Cancel</Link>
         </Button>
+        {i && (
+          <span className="ml-auto text-[11px] text-ink-faint">
+            Last saved {i.updatedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+          </span>
+        )}
       </div>
     </form>
   );
+}
+
+/** A titled form card: heading + one-line description on the left, an optional control on the right. */
+function FormSection({
+  title,
+  description,
+  action,
+  children,
+}: {
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="grid gap-4 rounded-md border border-border bg-surface px-4 py-4 sm:px-5">
+      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-ink">{title}</h2>
+          {description && <p className="mt-0.5 text-xs leading-5 text-ink-muted">{description}</p>}
+        </div>
+        {action}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+/** A value the form shows but doesn't let you type: same height as an input, no box. */
+function ReadOnlyValue({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={`flex min-h-9 items-center rounded-md bg-surface-2 px-3 text-sm text-ink-muted ${className}`}>{children}</div>;
 }
 
 function Field({

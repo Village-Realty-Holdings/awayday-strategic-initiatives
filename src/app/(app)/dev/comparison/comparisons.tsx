@@ -291,7 +291,7 @@ const COMPARISONS: Comparison[] = [
     ],
     tryIt: "Hover a column header, sort by Targeted value, Tab into the rows, and search for “zzz” to see the empty state.",
     before: <LegacyInitiativesTable rows={MOCK_INITIATIVES} owners={MOCK_OWNERS} cims={MOCK_CIMS} editable={false} />,
-    after: <InitiativesTable rows={MOCK_INITIATIVES} owners={MOCK_OWNERS} cims={MOCK_CIMS} editable={false} />,
+    after: <InitiativesTable rows={MOCK_INITIATIVES} owners={MOCK_OWNERS} cims={MOCK_CIMS} />,
   },
   {
     id: "si-submission",

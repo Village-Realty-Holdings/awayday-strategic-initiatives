@@ -1,10 +1,11 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Trash2, TriangleAlert } from "@/components/icons";
+import { Alert } from "@/components/ui/alert";
+import { ConfirmAction } from "@/components/confirm-action";
+import { FORM_COLUMN, PAGE_FRAME, PageHeader } from "@/components/shell/page-header";
+import { Trash2, TriangleAlert } from "@/components/icons";
 import { prisma } from "@/lib/prisma";
 import { requireEditor } from "@/lib/session";
 import { CimForm } from "@/components/cim-form";
-import { SubmitButton } from "@/components/ui/submit-button";
 import { updateCimRisk, deleteCimRisk } from "@/app/(app)/risks/actions";
 import { BreadcrumbTitle } from "@/components/shell/breadcrumbs";
 
@@ -34,34 +35,37 @@ export default async function EditCimRiskPage({
   const owners = [...new Set(roster.map((m) => m.name).filter(Boolean))] as string[];
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className={PAGE_FRAME}>
       <BreadcrumbTitle path={`/risks/${risk.id}`} title={risk.code} />
-      <Link href="/risks" className="mb-5 inline-flex items-center gap-1.5 text-sm text-ink-muted transition-colors hover:text-ink">
-        <ArrowLeft size={15} aria-hidden /> CIM Risks
-      </Link>
-      <div className="mb-5 flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-ink">Edit CIM risk</h1>
-          <p className="mt-0.5 text-sm text-ink-muted">
-            <span className="tabular text-ink-faint">{risk.code}</span> · changes are recorded in the audit log.
-          </p>
-        </div>
-        <form action={deleteCimRisk}>
-          <input type="hidden" name="id" value={risk.id} />
-          <SubmitButton variant="destructive" size="sm" className="px-2.5">
+      <PageHeader
+        back={{ href: "/risks", label: "CIM Risks" }}
+        eyebrow={<span className="tabular">{risk.code}</span>}
+        title="Edit CIM risk"
+        description="Changes are recorded in the audit log."
+        actions={
+          <ConfirmAction
+            action={deleteCimRisk}
+            fields={{ id: risk.id }}
+            title="Delete CIM risk?"
+            description={`Delete ${risk.code}? Linked initiatives are not affected. This can't be undone.`}
+            confirmLabel="Delete risk"
+            triggerProps={{ variant: "destructive", size: "sm", className: "px-2.5" }}
+          >
             <Trash2 size={13} aria-hidden /> Delete
-          </SubmitButton>
-        </form>
-      </div>
+          </ConfirmAction>
+        }
+      />
+      <div className={FORM_COLUMN}>
 
       {conflict && (
-        <div className="mb-5 flex items-start gap-2 rounded-lg border border-warn/40 bg-warn-soft px-3.5 py-2.5 text-sm text-ink">
-          <TriangleAlert size={16} className="mt-0.5 shrink-0 text-warn" aria-hidden />
+        <Alert variant="warn" className="mb-4">
+          <TriangleAlert size={16} aria-hidden />
           <span>Someone else saved this risk while you were editing. The latest version is loaded below.</span>
-        </div>
+        </Alert>
       )}
 
       <CimForm action={updateCimRisk} risk={risk} submitLabel="Save changes" initiatives={initiatives} linkedIds={linkedIds} owners={owners} />
+      </div>
     </div>
   );
 }
