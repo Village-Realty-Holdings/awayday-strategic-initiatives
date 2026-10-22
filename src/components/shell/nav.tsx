@@ -8,7 +8,6 @@ import {
   FileText,
   Compass,
   Layers,
-  History,
   type LucideIcon,
 } from "lucide-react";
 
@@ -16,7 +15,6 @@ type Item = { label: string; href: string; icon: LucideIcon };
 
 const NAV: Item[] = [
   { label: "Strategy Review", href: "/", icon: LayoutDashboard },
-  { label: "Legacy overview", href: "/legacy", icon: History },
   { label: "Initiatives", href: "/initiatives", icon: Target },
   { label: "Groups", href: "/groups", icon: Layers },
   { label: "Strategy Sources", href: "/sources", icon: Compass },
