@@ -7,6 +7,7 @@ import { FY27_PLAN, type Fy27Initiative } from "../src/lib/fy27-plan";
 const connectionString = process.env.DIRECT_URL;
 if (!connectionString) throw new Error("Set DIRECT_URL to the target Postgres connection string.");
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+const isoDate = (value?: string) => (value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00.000Z`) : null);
 
 const sourceHash = createHash("sha256")
   .update(JSON.stringify(FY27_PLAN))
@@ -73,6 +74,31 @@ async function main() {
       areas.set(area.code, row.id);
     }
 
+    const sourceKeys = new Set(FY27_PLAN.initiatives.map((item) => item.sourceKey));
+    const stale = await tx.initiative.findMany({
+      where: {
+        planVersionId: plan.id,
+        sourceManaged: true,
+        sourceKey: { notIn: [...sourceKeys] },
+      },
+      select: { id: true, code: true, name: true },
+    });
+    if (stale.length > 0) {
+      for (const item of stale) {
+        await tx.$executeRawUnsafe('DELETE FROM "Attachment" WHERE "initiativeId" = $1', item.id);
+        await tx.$executeRawUnsafe('DELETE FROM "InitiativeActionItem" WHERE "initiativeId" = $1', item.id);
+        await tx.$executeRawUnsafe('DELETE FROM "InitiativeComment" WHERE "initiativeId" = $1', item.id);
+        await tx.$executeRawUnsafe('DELETE FROM "InitiativeEltRequest" WHERE "initiativeId" = $1', item.id);
+        await tx.$executeRawUnsafe('DELETE FROM "InitiativeMilestone" WHERE "initiativeId" = $1', item.id);
+        await tx.$executeRawUnsafe('DELETE FROM "InitiativeRisk" WHERE "initiativeId" = $1', item.id);
+        await tx.$executeRawUnsafe('DELETE FROM "RiskInitiative" WHERE "initiativeId" = $1', item.id);
+        await tx.$executeRawUnsafe('DELETE FROM "SubInitiative" WHERE "initiativeId" = $1', item.id);
+        await tx.$executeRawUnsafe('DELETE FROM "_InitiativeToInitiativeGroup" WHERE "A" = $1', item.id);
+        await tx.$executeRawUnsafe('DELETE FROM "InitiativeUpdate" WHERE "initiativeId" = $1', item.id);
+      }
+      await tx.initiative.deleteMany({ where: { id: { in: stale.map((item) => item.id) } } });
+    }
+
     let created = 0;
     let updated = 0;
     for (const item of FY27_PLAN.initiatives as readonly Fy27Initiative[]) {
@@ -116,7 +142,7 @@ async function main() {
               initiativeId: createdInitiative.id,
               title: milestone.title,
               owner: milestone.owner,
-              dueAt: milestone.dueAt ? new Date(milestone.dueAt) : null,
+              dueAt: isoDate(milestone.dueAt),
               order,
             })),
           });
@@ -136,8 +162,8 @@ async function main() {
       },
     });
 
-    return { plan: plan.code, run: run.id, created, updated };
-  });
+    return { plan: plan.code, run: run.id, created, updated, removed: stale.length };
+  }, { timeout: 30_000 });
 
   console.log(JSON.stringify(result, null, 2));
 }
