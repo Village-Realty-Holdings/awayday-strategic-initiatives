@@ -16,7 +16,6 @@
   --color-surface-2: oklch(0.974 0.004 205);
   --color-border: oklch(0.91 0.005 205);
   --color-border-strong: oklch(0.84 0.007 205);
-  --color-ground: oklch(0.955 0.006 205); /* app background behind the inset content panel */
 
   /* Ink — dark teal-slate (≈ #2D4447), darker for body contrast */
   --color-ink: oklch(0.29 0.022 200);
@@ -181,17 +180,14 @@ body {
   main {
     padding: 0 !important;
   }
-  /* The inset content panel prints as plain page, not a floating card. */
+  /* The shell is a fixed-height frame with an inner scroller on screen;
+     print it as one flowing page. */
   .app-shell {
     height: auto !important;
     overflow: visible !important;
     background: #fff !important;
   }
   .app-inset {
-    margin: 0 !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
     overflow: visible !important;
   }
   body {

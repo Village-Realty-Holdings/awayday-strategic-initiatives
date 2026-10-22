@@ -23,7 +23,7 @@ export function FooterLink({
       className={`flex items-center gap-2.5 border-t border-border px-4 py-2.5 text-sm transition-colors ${
         active
           ? "bg-navy/10 font-medium text-navy-deep"
-          : "text-ink-muted hover:bg-surface hover:text-ink"
+          : "text-ink-muted hover:bg-surface-2 hover:text-ink"
       }`}
     >
       {children}

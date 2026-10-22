@@ -47,7 +47,7 @@ export function SidebarNav() {
             className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
               active
                 ? "bg-navy/10 font-medium text-navy-deep"
-                : "text-ink-muted hover:bg-surface hover:text-ink"
+                : "text-ink-muted hover:bg-surface-2 hover:text-ink"
             }`}
           >
             <Icon size={16} strokeWidth={1.75} aria-hidden />
@@ -66,7 +66,7 @@ export function SidebarNav() {
                       href={`#${sec.id}`}
                       aria-current={on ? "location" : undefined}
                       className={`block truncate rounded-md px-2.5 py-1 text-[13px] transition-colors ${
-                        on ? "bg-navy/10 font-medium text-navy-deep" : "text-ink-muted hover:bg-surface hover:text-ink"
+                        on ? "bg-navy/10 font-medium text-navy-deep" : "text-ink-muted hover:bg-surface-2 hover:text-ink"
                       }`}
                     >
                       {sec.label}

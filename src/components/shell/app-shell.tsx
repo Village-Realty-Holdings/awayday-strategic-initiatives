@@ -28,9 +28,9 @@ export function AppShell({
   return (
     <BreadcrumbProvider>
     <SectionNavProvider>
-    <div className="app-shell flex h-dvh overflow-hidden bg-ground">
-      <aside data-chrome className="flex h-full w-60 shrink-0 flex-col">
-        <div className="flex h-14 shrink-0 items-center px-5">
+    <div className="app-shell flex h-dvh overflow-hidden bg-bg">
+      <aside data-chrome className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-surface">
+        <div className="flex h-14 shrink-0 items-center border-b border-border px-5">
           <Image
             src="/awayday-logo.png"
             alt="Awayday"
@@ -62,15 +62,15 @@ export function AppShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Top bar sits on the sidebar ground, level with the logo, so sidebar
-            and top bar frame the content card together. */}
-        <header data-chrome className="flex h-14 shrink-0 items-center justify-between gap-4 pl-1 pr-4">
+        {/* Top bar is level with the logo row; its bottom border continues the
+            logo row's, so sidebar and top bar form one white frame. */}
+        <header data-chrome className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-surface px-6">
           <Breadcrumbs />
           <AskPanel />
         </header>
-        {/* Inset content card: the page's scroll container, with a border and
-            soft shadow, below the top bar and beside the sidebar. */}
-        <div className="app-inset mb-2 mr-2 flex min-h-0 flex-1 flex-col overflow-y-auto scroll-smooth rounded-xl border border-border-strong/70 bg-bg shadow-[0_1px_3px_rgb(0_0_0/0.06),0_10px_28px_-8px_rgb(0_0_0/0.16)]">
+        {/* Content area: the page's scroll container, framed by the sidebar
+            and top bar. */}
+        <div className="app-inset flex min-h-0 flex-1 flex-col overflow-y-auto scroll-smooth">
           <InsetScrollReset />
           <main className="flex-1 px-6 py-7">{children}</main>
           <footer data-chrome className="border-t border-border bg-surface px-6 py-4 text-center text-[11px] text-ink-faint">
