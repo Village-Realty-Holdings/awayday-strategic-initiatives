@@ -61,6 +61,7 @@ export async function adminActivatePlan(fd: FormData): Promise<void> {
   });
 
   revalidatePath("/");
+  revalidatePath("/settings/archive");
   revalidatePath("/initiatives");
   revalidatePath("/settings/admin/plans");
   await flash(`Active plan switched to ${selected.code}`);

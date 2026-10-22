@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { KeyRound, Users, ShieldCheck, type LucideIcon } from "lucide-react";
+import { KeyRound, Users, ShieldCheck, Archive, type LucideIcon } from "lucide-react";
 
 type Tab = { label: string; href: string; icon: LucideIcon; adminOnly?: boolean };
 
@@ -10,6 +10,7 @@ const TABS: Tab[] = [
   { label: "Change password", href: "/settings/password", icon: KeyRound },
   { label: "People & access", href: "/settings/people", icon: Users },
   { label: "Admin settings", href: "/settings/admin", icon: ShieldCheck, adminOnly: true },
+  { label: "Archive", href: "/settings/archive", icon: Archive },
 ];
 
 export function SettingsTabs({ isAdmin = false }: { isAdmin?: boolean }) {

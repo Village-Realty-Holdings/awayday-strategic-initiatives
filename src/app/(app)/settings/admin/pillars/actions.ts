@@ -52,4 +52,5 @@ export async function savePillars(formData: FormData) {
   });
   await audit(session.user.id, "UPDATE", "Setting", PILLARS_SETTING_KEY, { after: { pillars: data.length } });
   revalidatePath("/");
+  revalidatePath("/settings/archive");
 }

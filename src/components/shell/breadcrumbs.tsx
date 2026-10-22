@@ -35,6 +35,7 @@ const LABELS: Record<string, string> = {
   completeness: "FY27 completeness",
   plans: "Plan versions",
   scoreboard: "Scoreboard editor",
+  archive: "Archive",
   v2: "V2 preview",
   asks: "Asks",
   "below-the-line": "Below the line",
