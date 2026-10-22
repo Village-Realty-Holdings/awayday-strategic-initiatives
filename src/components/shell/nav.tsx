@@ -13,15 +13,6 @@ import {
   MonitorCog,
   ShieldCheck,
   Layers,
-  FlaskConical,
-  ClipboardCheck,
-  UserCheck,
-  CalendarDays,
-  Inbox,
-  Users,
-  BookOpen,
-  ListTree,
-  Database,
   History,
   type LucideIcon,
 } from "lucide-react";
@@ -53,20 +44,6 @@ const NAV: Group[] = [
     ],
   },
   { label: "Modules", items: [{ label: "IT Dashboard", icon: MonitorCog, soon: true }] },
-  {
-    label: "V2 preview",
-    items: [
-      { label: "V2 home", href: "/v2", icon: FlaskConical },
-      { label: "Strategy Review", href: "/v2/review", icon: ClipboardCheck },
-      { label: "My SIs", href: "/v2/my", icon: UserCheck },
-      { label: "Timeline", href: "/v2/timeline", icon: CalendarDays },
-      { label: "Inbox", href: "/v2/inbox", icon: Inbox },
-      { label: "Asks by leader", href: "/v2/asks", icon: Users },
-      { label: "Below the line", href: "/v2/below-the-line", icon: ListTree },
-      { label: "Definitions", href: "/v2/definitions", icon: BookOpen },
-      { label: "Data inputs", href: "/v2/data", icon: Database },
-    ],
-  },
 ];
 
 const ADMIN_GROUP: Group = {
