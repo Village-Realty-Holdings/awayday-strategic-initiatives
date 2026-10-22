@@ -5,6 +5,7 @@ import { FooterLink } from "@/components/shell/footer-link";
 import { SignOutButton } from "@/components/sign-out-button";
 import { BreadcrumbProvider, Breadcrumbs } from "@/components/shell/breadcrumbs";
 import { InsetScrollReset } from "@/components/shell/inset-scroll-reset";
+import { SectionNavProvider } from "@/components/shell/section-nav";
 import { AskPanel } from "@/components/ask-panel";
 import { FlashToaster } from "@/components/flash-toaster";
 
@@ -26,6 +27,7 @@ export function AppShell({
 }) {
   return (
     <BreadcrumbProvider>
+    <SectionNavProvider>
     <div className="app-shell flex h-dvh overflow-hidden bg-ground">
       <aside data-chrome className="flex h-full w-60 shrink-0 flex-col">
         <div className="flex h-14 shrink-0 items-center px-5">
@@ -68,7 +70,7 @@ export function AppShell({
         </header>
         {/* Inset content card: the page's scroll container, with a border and
             soft shadow, below the top bar and beside the sidebar. */}
-        <div className="app-inset mb-2 mr-2 flex min-h-0 flex-1 flex-col overflow-y-auto rounded-xl border border-border-strong/70 bg-bg shadow-[0_1px_3px_rgb(0_0_0/0.06),0_10px_28px_-8px_rgb(0_0_0/0.16)]">
+        <div className="app-inset mb-2 mr-2 flex min-h-0 flex-1 flex-col overflow-y-auto scroll-smooth rounded-xl border border-border-strong/70 bg-bg shadow-[0_1px_3px_rgb(0_0_0/0.06),0_10px_28px_-8px_rgb(0_0_0/0.16)]">
           <InsetScrollReset />
           <main className="flex-1 px-6 py-7">{children}</main>
           <footer data-chrome className="border-t border-border bg-surface px-6 py-4 text-center text-[11px] text-ink-faint">
@@ -78,6 +80,7 @@ export function AppShell({
       </div>
       <FlashToaster />
     </div>
+    </SectionNavProvider>
     </BreadcrumbProvider>
   );
 }

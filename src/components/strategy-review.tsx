@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -27,6 +27,7 @@ import {
   type ReviewSnapshot,
   type ReviewTone,
 } from "@/lib/strategy-review-data";
+import { RegisterSections } from "@/components/shell/section-nav";
 
 // Review tone -> shared status badge variant (good=ahead, warn=watch, risk=behind).
 const toneVariant: Record<ReviewTone, "ok" | "default" | "warn" | "risk" | "outline"> = {
@@ -139,6 +140,19 @@ export function StrategyReview({ snapshot }: { snapshot: ReviewSnapshot }) {
   const [charterOpen, setCharterOpen] = useState(false);
   const linkMap = useMemo(() => new Map(initiativeLinks.map((item) => [item.code, item.id])), [initiativeLinks]);
 
+  // Sticky title: a 1px sentinel just above it scrolls out of the content card
+  // exactly when the title pins, which switches it to its compact style.
+  const titleSentinel = useRef<HTMLDivElement>(null);
+  const [titleStuck, setTitleStuck] = useState(false);
+  useEffect(() => {
+    const el = titleSentinel.current;
+    const root = document.querySelector<HTMLElement>(".app-inset");
+    if (!el || !root) return;
+    const io = new IntersectionObserver(([entry]) => setTitleStuck(!entry.isIntersecting), { root });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   // Opening a charter writes #si-CODE (replaceState: no scroll jump, no extra
   // history entry); closing clears it, so a re-render can never reopen it.
   const openCharter = useCallback((initiative: ReviewInitiative) => {
@@ -172,20 +186,49 @@ export function StrategyReview({ snapshot }: { snapshot: ReviewSnapshot }) {
 
   return (
     <div className="strategy-review mx-auto max-w-[1400px] text-sm">
-      <div className="sticky top-0 z-20 -mx-6 border-b border-border bg-surface/95 px-6 py-2 backdrop-blur">
-        <div className="flex items-center gap-3 overflow-x-auto">
-          <a href="#top" className="shrink-0 font-semibold tracking-tight text-ink">AWAYDAY · STRATEGY REVIEW</a>
-          <nav aria-label="Review sections" className="flex min-w-max gap-1">
-            {["summary", "financials", ...pillars.map((pillar) => pillar.id), "enablers", "milestones", "asks"].map((id) => (
-              <a key={id} href={`#${id}`} className="rounded px-2 py-1 text-[11px] capitalize text-ink-muted hover:bg-surface-2 hover:text-ink">{id}</a>
-            ))}
-          </nav>
+      <RegisterSections
+        sections={[
+          { id: "summary", label: "Summary" },
+          { id: "financials", label: "Financials" },
+          ...pillars.map((pillar) => ({ id: pillar.id, label: pillar.name })),
+          { id: "enablers", label: "Enablers" },
+          { id: "milestones", label: "Milestones" },
+          { id: "asks", label: "Asks" },
+        ]}
+      />
+
+      {/* The title is a direct child of the review so it stays pinned to the
+          top of the content card for the whole page; it compacts once stuck. */}
+      <span id="top" className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-faint">{meta.eyebrow}</span>
+      <div ref={titleSentinel} aria-hidden className="h-px" />
+      <div
+        className={`sticky top-0 z-20 -mx-6 px-6 transition-[padding,background-color,box-shadow] duration-200 ${
+          titleStuck ? "border-b border-border bg-surface/95 py-2.5 shadow-[0_1px_8px_-4px_rgb(0_0_0/0.12)] backdrop-blur" : "py-1.5"
+        }`}
+      >
+        <div className="flex items-end justify-between gap-6">
+          <div className="min-w-0">
+            {/* Copies of the eyebrow and meta line ride along once pinned; the
+                originals scroll away, so these are hidden from screen readers. */}
+            {titleStuck && (
+              <span aria-hidden className="block truncate text-[9px] font-semibold uppercase tracking-[0.12em] text-ink-faint">{meta.eyebrow}</span>
+            )}
+            <h1 className={`truncate font-semibold tracking-tight text-ink transition-[font-size,line-height] duration-200 ${titleStuck ? "text-lg leading-6" : "text-3xl"}`}>
+              {meta.title}
+            </h1>
+          </div>
+          {titleStuck && (
+            <div aria-hidden className="hidden shrink-0 items-center gap-x-4 pb-0.5 text-[11px] text-ink-muted lg:flex">
+              <span>Prepared by {meta.preparedBy}</span>
+              <span className="h-3 w-px bg-border" />
+              <span>{meta.asOf}</span>
+              <span className="h-3 w-px bg-border" />
+              <span className="max-w-72 truncate" title={meta.finance}>{meta.finance}</span>
+            </div>
+          )}
         </div>
       </div>
-
-      <header id="top" className="grid scroll-mt-28 gap-2 py-7">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-faint">{meta.eyebrow}</span>
-        <h1 className="text-3xl font-semibold tracking-tight text-ink">{meta.title}</h1>
+      <header className="grid gap-2 pb-7">
         <p className="max-w-4xl text-sm leading-6 text-ink-muted">Where each pillar stands against the 2026 goal and FY27 target, the so-whats from September, and the strategic initiatives that need the ELT&apos;s attention.</p>
         <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-ink-muted"><span>Prepared by {meta.preparedBy}</span><span>{meta.asOf}</span><span>{meta.finance}</span></div>
       </header>
@@ -219,7 +262,7 @@ export function StrategyReview({ snapshot }: { snapshot: ReviewSnapshot }) {
         <div className="bg-navy px-3 py-1.5 text-center text-[10px] font-semibold uppercase tracking-[0.1em] text-white">Servant Leadership · Ownership Mentality · Local · Excellence</div>
       </section>
 
-      <section id="summary" className="scroll-mt-28 border-t border-border py-7">
+      <section id="summary" className="scroll-mt-16 border-t border-border py-7">
         <SectionHeader id="summary-heading" title="Summary" owner="Four things to take from September" />
         <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {summaryTiles.map(([label, value, delta, tone]) => <Card key={label} className="gap-0 rounded-md py-3"><CardContent className="px-3"><p className="text-xs text-ink-muted">{label}</p><p className="tabular mt-1 text-2xl font-semibold text-ink">{value}</p><p className={`mt-1 text-[11px] ${tone === "risk" ? "text-risk" : "text-ok"}`}>{delta}</p></CardContent></Card>)}
@@ -230,7 +273,7 @@ export function StrategyReview({ snapshot }: { snapshot: ReviewSnapshot }) {
         </div>
       </section>
 
-      <section id="financials" className="scroll-mt-28 border-t border-border py-7">
+      <section id="financials" className="scroll-mt-16 border-t border-border py-7">
         <SectionHeader id="financials-heading" title="September financials" owner="Base business · Finance Flash Results, vFinal 12 Oct" />
         <div className="grid gap-4 xl:grid-cols-2">
           <div><h3 className="mb-2 text-sm font-semibold text-ink">P&L · September MTD and YTD ($M)</h3><ReviewTable caption="P&L, September MTD and YTD" headers={["Line", "Sept", "vs Bud", "vs PY", "YTD", "vs Bud", "vs PY"]} rows={financeRows} /></div>
@@ -243,7 +286,7 @@ export function StrategyReview({ snapshot }: { snapshot: ReviewSnapshot }) {
       </section>
 
       {pillars.map((pillar) => (
-        <section key={pillar.id} id={pillar.id} className="scroll-mt-28 border-t border-border py-7">
+        <section key={pillar.id} id={pillar.id} className="scroll-mt-16 border-t border-border py-7">
           <SectionHeader id={`${pillar.id}-heading`} title={`Pillar ${pillar.number} · ${pillar.name}`} owner={pillar.owner} tone={pillar.status} />
           <div className="grid gap-4 lg:grid-cols-2">
             <Card className={CARD}>
@@ -261,17 +304,17 @@ export function StrategyReview({ snapshot }: { snapshot: ReviewSnapshot }) {
         </section>
       ))}
 
-      <section id="enablers" className="scroll-mt-28 border-t border-border py-7">
+      <section id="enablers" className="scroll-mt-16 border-t border-border py-7">
         <SectionHeader id="enablers-heading" title="Enablers" owner="The capabilities that make the pillars executable" />
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{enablers.map(([name, owner, id]) => <Card key={id} id={id} className={`${CARD} scroll-mt-28 items-start`}><CardHeader className={`${PAD} self-stretch`}><CardTitle role="heading" aria-level={3} className="text-base">{name}</CardTitle><p className="text-xs text-ink-muted">{owner}</p></CardHeader><CardContent className={`${PAD} grid justify-items-start gap-3`}><p className="text-xs leading-5 text-ink-muted">Leader view and charter detail to be completed in the next dashboard iteration.</p><StatusBadge tone="neutral">TBD</StatusBadge></CardContent></Card>)}</div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{enablers.map(([name, owner, id]) => <Card key={id} id={id} className={`${CARD} scroll-mt-16 items-start`}><CardHeader className={`${PAD} self-stretch`}><CardTitle role="heading" aria-level={3} className="text-base">{name}</CardTitle><p className="text-xs text-ink-muted">{owner}</p></CardHeader><CardContent className={`${PAD} grid justify-items-start gap-3`}><p className="text-xs leading-5 text-ink-muted">Leader view and charter detail to be completed in the next dashboard iteration.</p><StatusBadge tone="neutral">TBD</StatusBadge></CardContent></Card>)}</div>
       </section>
 
-      <section id="milestones" className="scroll-mt-28 border-t border-border py-7">
+      <section id="milestones" className="scroll-mt-16 border-t border-border py-7">
         <SectionHeader id="milestones-heading" title="Upcoming milestones" owner="The next dates that change the conversation" />
         <Card className="gap-0 rounded-md py-0">{pillars.flatMap((pillar) => pillar.initiatives.flatMap((initiative) => initiative.milestones.slice(0, 2).map((milestone) => ({ pillar, initiative, milestone })))).slice(0, 12).map(({ pillar, initiative, milestone }) => { const [title, date] = milestone.split(" · "); return <div key={`${initiative.code}-${milestone}`} className="grid gap-2 border-b border-border/60 px-4 py-3 last:border-0 sm:grid-cols-[110px_1fr_auto] sm:items-baseline"><span className="tabular text-xs text-ink-muted">{date ?? "TBD"}</span><span className="text-xs text-ink"><b className="font-semibold">{title}</b><span className="ml-2 text-ink-muted">{initiative.name}</span></span><span className="text-[10px] uppercase tracking-[0.08em] text-ink-faint">{pillar.name}</span></div>; })}</Card>
       </section>
 
-      <section id="asks" className="scroll-mt-28 border-t border-border py-7">
+      <section id="asks" className="scroll-mt-16 border-t border-border py-7">
         <SectionHeader id="asks-heading" title="Asks by leader" owner="Decisions and unblockers for the ELT meeting" />
         <div className="grid gap-3 md:grid-cols-2">{pillars.flatMap((pillar) => pillar.initiatives.filter((initiative) => initiative.ask).map((initiative) => <Card key={initiative.code} className={`${CARD} gap-0 border-navy/20 bg-navy/5`}><CardContent className={PAD}><p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-navy-deep">{initiative.sponsor}</p><h3 className="mt-1 font-semibold text-ink">{initiative.name}</h3><p className="mt-2 text-xs leading-5 text-ink-muted">{initiative.ask}</p></CardContent></Card>))}</div>
       </section>

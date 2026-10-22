@@ -13,11 +13,9 @@ export function InsetScrollReset() {
     if (window.location.hash) return;
     const panel = document.querySelector<HTMLElement>(".app-inset");
     if (!panel) return;
-    panel.scrollTop = 0;
+    panel.scrollTo({ top: 0, behavior: "instant" });
     // Next may scroll after this effect; settle once more on the next frame.
-    const raf = requestAnimationFrame(() => {
-      panel.scrollTop = 0;
-    });
+    const raf = requestAnimationFrame(() => panel.scrollTo({ top: 0, behavior: "instant" }));
     return () => cancelAnimationFrame(raf);
   }, [pathname]);
   return null;
