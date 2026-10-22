@@ -3,15 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
-  ArrowLeft,
   ArrowUp,
   ArrowUpRight,
   BarChart,
   Building,
   Check,
-  CheckCircle2,
   ChevronDown,
-  CircleHelp,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
   Flag,
   Handshake,
   House,
@@ -166,6 +166,148 @@ function InitiativeCard({ initiative, onOpen }: { initiative: ReviewInitiative; 
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function CharterLabel({ icon: Icon, children }: { icon: AppIcon; children: React.ReactNode }) {
+  return (
+    <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
+      <Icon size={13} aria-hidden />
+      {children}
+    </p>
+  );
+}
+
+/** Milestones arrive as "Title · 30 Oct 2026"; split them and find the next one still ahead. */
+function charterMilestones(milestones: string[]) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const rows = milestones.map((milestone) => {
+    const [title, date] = milestone.split(" · ");
+    const time = date ? Date.parse(date) : NaN;
+    return { key: milestone, title, date, past: !Number.isNaN(time) && time < today.getTime() };
+  });
+  const nextIndex = rows.findIndex((row) => row.date && !row.past);
+  return rows.map((row, index) => ({ ...row, next: index === nextIndex }));
+}
+
+// The charter dialog: who owns it, what it is and is going for, the dated
+// milestone path, and any ask of the ELT. Previous/Next walk the pillar's
+// initiatives so a review can go through them without closing the dialog.
+function CharterBody({
+  initiative,
+  siblings,
+  recordId,
+  onNavigate,
+}: {
+  initiative: ReviewInitiative;
+  siblings: ReviewInitiative[];
+  recordId?: string;
+  onNavigate: (initiative: ReviewInitiative) => void;
+}) {
+  const index = Math.max(0, siblings.findIndex((item) => item.code === initiative.code));
+  const prev = siblings[index - 1];
+  const next = siblings[index + 1];
+  const milestones = charterMilestones(initiative.milestones);
+  return (
+    <>
+      <DialogHeader className="gap-3 border-b border-border px-6 pb-5 pt-5 pr-14">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          <span className="tabular text-[10px] text-ink-faint">{initiative.code}</span>
+          <span className="h-3 w-px bg-border" aria-hidden />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-faint">{initiative.pillar}</span>
+          <StatusBadge tone={initiative.status} />
+        </div>
+        <DialogTitle className="text-xl leading-7 tracking-tight">{initiative.name}</DialogTitle>
+        <DialogDescription asChild>
+          <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs">
+            <div className="flex gap-1.5"><dt className="text-ink-faint">Sponsor</dt><dd className="font-medium text-ink">{initiative.sponsor}</dd></div>
+            <div className="flex gap-1.5"><dt className="text-ink-faint">Owner</dt><dd className="font-medium text-ink">{initiative.owner}</dd></div>
+          </dl>
+        </DialogDescription>
+      </DialogHeader>
+      <DialogClose asChild>
+        <Button type="button" variant="ghost" size="icon" className="absolute right-3 top-3 h-8 w-8 p-0" aria-label="Close charter"><X size={17} aria-hidden /></Button>
+      </DialogClose>
+
+      <div className="grid min-h-0 gap-6 overflow-y-auto px-6 py-5 text-sm">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid content-start gap-1.5">
+            <CharterLabel icon={Note}>What it is</CharterLabel>
+            <p className="leading-6 text-ink">{initiative.what}</p>
+          </div>
+          <div className="grid content-start gap-1.5 rounded-md bg-surface-2 p-3">
+            <CharterLabel icon={Target}>What it is going for</CharterLabel>
+            <p className="leading-6 text-ink">{initiative.goal}</p>
+          </div>
+        </div>
+
+        {initiative.latestUpdate && (
+          <div className="grid gap-1.5">
+            <CharterLabel icon={Clock}>Latest update</CharterLabel>
+            <p className="leading-6 text-ink-muted">{initiative.latestUpdate}</p>
+          </div>
+        )}
+
+        {milestones.length > 0 && (
+          <div className="grid gap-2">
+            <CharterLabel icon={Flag}>Milestones</CharterLabel>
+            <ol className="grid">
+              {milestones.map((milestone, i) => (
+                <li key={milestone.key} className="relative grid grid-cols-[1rem_6.5rem_1fr] items-baseline gap-x-2 pb-3 last:pb-0">
+                  {i < milestones.length - 1 && <span className="absolute bottom-0 left-[0.4375rem] top-3 w-px bg-border" aria-hidden />}
+                  <span
+                    aria-hidden
+                    className={`relative top-px size-2 justify-self-center rounded-full ${
+                      milestone.next ? "bg-navy ring-4 ring-navy/15" : milestone.past ? "bg-ink-faint" : "border border-ink-faint bg-surface"
+                    }`}
+                  />
+                  <span className={`tabular text-xs ${milestone.past ? "text-ink-faint" : "text-ink-muted"}`}>{milestone.date ?? "TBD"}</span>
+                  <span className={`flex flex-wrap items-center gap-2 text-xs ${milestone.past ? "text-ink-muted" : "text-ink"} ${milestone.next ? "font-semibold" : ""}`}>
+                    {milestone.title}
+                    {milestone.next && <Badge>Next</Badge>}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {initiative.ask && (
+          <div className="grid gap-1.5 rounded-md border border-navy/20 bg-navy/5 p-3">
+            <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-navy-deep">
+              <MessageQuestion size={13} aria-hidden />
+              Ask of the ELT
+            </p>
+            <p className="leading-6 text-ink">{initiative.ask}</p>
+          </div>
+        )}
+      </div>
+
+      <DialogFooter className="items-center gap-3 border-t border-border bg-surface-2/50 px-6 py-3 sm:justify-between">
+        {siblings.length > 1 ? (
+          <div className="flex items-center gap-1">
+            <Button type="button" variant="ghost" size="sm" disabled={!prev} onClick={() => prev && onNavigate(prev)} aria-label={prev ? `Previous initiative: ${prev.name}` : "Previous initiative"}>
+              <ChevronLeft size={14} aria-hidden /> Previous
+            </Button>
+            <span className="tabular px-1 text-[11px] text-ink-faint">{index + 1} of {siblings.length}</span>
+            <Button type="button" variant="ghost" size="sm" disabled={!next} onClick={() => next && onNavigate(next)} aria-label={next ? `Next initiative: ${next.name}` : "Next initiative"}>
+              Next <ChevronRight size={14} aria-hidden />
+            </Button>
+          </div>
+        ) : <span />}
+        <div className="flex items-center gap-2">
+          <DialogClose asChild>
+            <Button type="button" variant="outline" size="sm">Back to review</Button>
+          </DialogClose>
+          {recordId && (
+            <Button asChild size="sm">
+              <a href={`/initiatives/${recordId}`}>Open full record <ArrowUpRight size={13} aria-hidden /></a>
+            </Button>
+          )}
+        </div>
+      </DialogFooter>
+    </>
   );
 }
 
@@ -516,24 +658,14 @@ export function StrategyReview({ snapshot }: { snapshot: ReviewSnapshot }) {
       <footer className="border-t border-border py-7 text-xs text-ink-faint"><p>Sources: September Flash Results, AwayDNA operating pack, FY27 strategic initiative charters and the 13 Oct 2026 ELT working session.</p><p className="mt-1">Confidential · for Awayday leadership</p></footer>
 
       <Dialog open={charterOpen} onOpenChange={(open) => { if (!open) closeCharter(); }}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto p-5">
+        <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col gap-0 overflow-hidden p-0">
           {selected && (
-            <>
-              <DialogHeader className="pr-10">
-                <p className="tabular text-[10px] text-ink-faint">{selected.code}</p>
-                <DialogTitle className="text-xl">{selected.name}</DialogTitle>
-                <DialogDescription className="text-xs">{selected.sponsor} · {selected.owner}</DialogDescription>
-              </DialogHeader>
-              <DialogClose asChild>
-                <Button type="button" variant="ghost" size="icon" className="absolute right-3 top-3 h-8 w-8 p-0" aria-label="Close charter"><X size={17} aria-hidden /></Button>
-              </DialogClose>
-              <div className="grid gap-4 text-sm"><div><p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-faint">What it is</p><p className="mt-1 leading-6 text-ink-muted">{selected.what}</p></div><div><p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-faint">What it is going for</p><p className="mt-1 leading-6 text-ink-muted">{selected.goal}</p></div><div><p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-faint">Milestones</p><ul className="mt-2 grid gap-2">{selected.milestones.map((milestone) => <li key={milestone} className="flex gap-2 text-xs text-ink-muted"><CheckCircle2 size={14} className="mt-0.5 shrink-0 text-ok" aria-hidden />{milestone}</li>)}</ul></div>{selected.ask && <div className="rounded-md bg-navy/5 p-3 text-xs text-navy-deep"><CircleHelp size={14} className="mr-1 inline" aria-hidden />{selected.ask}</div>} {linkMap.get(selected.code) && <Button asChild variant="link" size="xs" className="justify-self-start font-semibold text-navy-deep"><a href={`/initiatives/${linkMap.get(selected.code)}`}>Open full initiative record <ArrowUpRight size={13} aria-hidden /></a></Button>}</div>
-              <DialogFooter className="sm:justify-start">
-                <DialogClose asChild>
-                  <Button type="button" variant="outline" size="sm"><ArrowLeft size={14} aria-hidden /> Back to review</Button>
-                </DialogClose>
-              </DialogFooter>
-            </>
+            <CharterBody
+              initiative={selected}
+              siblings={pillars.find((pillar) => pillar.initiatives.some((item) => item.code === selected.code))?.initiatives ?? [selected]}
+              recordId={linkMap.get(selected.code)}
+              onNavigate={openCharter}
+            />
           )}
         </DialogContent>
       </Dialog>
