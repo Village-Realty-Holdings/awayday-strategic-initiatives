@@ -93,10 +93,13 @@ describe("resolveKpi — publication state", () => {
     expect((await resolveKpi("revenue"))?.value).toBe("120");
   });
 
-  it("accepts legacy rows whose publicationState is NULL", async () => {
-    givenRows([observation({ value: "77", publicationState: null })]);
-
-    expect((await resolveKpi("revenue"))?.value).toBe("77");
+  it("still tolerates a NULL publicationState in the in-memory selector", () => {
+    // Defensive only: the column is NOT NULL since the migration, so the query no longer
+    // asks for NULL rows (Prisma rejects a null filter on a non-nullable column, and the
+    // resulting error made every resolve call fail). A row that arrives with NULL anyway
+    // is treated as current rather than silently dropped.
+    const rows = [observation({ value: "77", publicationState: null })];
+    expect(selectCurrentObservations(rows)[0]?.value).toBe("77");
   });
 
   it("pushes the approved/quality rules into the database query", async () => {
@@ -107,7 +110,7 @@ describe("resolveKpi — publication state", () => {
     const [args] = observationFindMany.mock.calls[0] as [{ where: Record<string, unknown> }];
     expect(args.where).toMatchObject({
       kpiId: "kpi_1",
-      OR: [{ publicationState: "APPROVED" }, { publicationState: null }],
+      publicationState: "APPROVED",
       quality: { notIn: ["INVALID", "UNAVAILABLE"] },
     });
   });

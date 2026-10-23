@@ -273,7 +273,11 @@ export function selectCurrentObservations(
 function buildObservationWhere(kpiId: string, filter: KpiObservationFilter) {
   return {
     kpiId,
-    OR: [{ publicationState: PUBLICATION_APPROVED }, { publicationState: null }],
+    // `publicationState` is NOT NULL DEFAULT 'APPROVED' since the consolidated-ingestion
+    // migration, so "legacy NULL rows" cannot exist — and a null filter on a non-nullable
+    // column is rejected by the generated client ("Argument `publicationState` is missing"),
+    // which made *every* resolve call throw instead of returning the approved row.
+    publicationState: PUBLICATION_APPROVED,
     quality: { notIn: [...NON_CURRENT_QUALITIES] },
     ...(filter.reportingScope != null ? { reportingScope: CONSOLIDATED_REPORTING_SCOPE } : {}),
     ...(filter.comparisonBasis != null ? { comparisonBasis: filter.comparisonBasis } : {}),
