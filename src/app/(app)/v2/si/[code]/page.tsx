@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
 import { requireApp } from "@/lib/session";
 import { MockNote, SectionTitle, V2Header } from "../../_components/preview";

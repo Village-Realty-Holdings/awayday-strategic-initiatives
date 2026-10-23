@@ -7,7 +7,8 @@ import { RiskViews } from "@/components/risk-views";
 import { RiskTargetHighlight } from "@/components/risk-target-highlight";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Flame, Star, Plus, Pencil } from "lucide-react";
+import { PAGE_FRAME, PageHeader, Stat } from "@/components/shell/page-header";
+import { Flame, Star, Plus, Pencil } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -72,30 +73,29 @@ export default async function RisksPage() {
   }));
 
   return (
-    <div className="mx-auto max-w-[1200px]">
+    <div className={PAGE_FRAME}>
       <RiskTargetHighlight />
-      <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-ink">CIM Risk Scorecard</h1>
-          <p className="mt-1 max-w-2xl text-sm text-ink-muted">
-            Every risk dimension on one page. Coverage = the average progress of the SIs driving each
-            risk toward its mitigated state.
-          </p>
-        </div>
-        <div className="flex items-center gap-6 text-sm">
-          <Stat label="Risks" value={String(risks.length)} />
-          <Stat label="Critical" value={String(critical)} tone={critical ? "risk" : undefined} />
-          <Stat label="Avg coverage" value={`${Math.round(avgCov * 100)}%`} />
-          <Stat label="Prize at stake" value={`$${totalPrize.toFixed(0)}M`} />
-          {editable && (
-            <Button asChild className="px-3 text-xs">
+      <PageHeader
+        title="CIM Risk Scorecard"
+        description="Every risk dimension on one page. Coverage = the average progress of the SIs driving each risk toward its mitigated state."
+        stats={
+          <>
+            <Stat label="Risks" value={String(risks.length)} />
+            <Stat label="Critical" value={String(critical)} tone={critical ? "risk" : undefined} />
+            <Stat label="Avg coverage" value={`${Math.round(avgCov * 100)}%`} />
+            <Stat label="Prize at stake" value={`$${totalPrize.toFixed(0)}M`} />
+          </>
+        }
+        actions={
+          editable && (
+            <Button asChild size="sm">
               <Link href="/risks/new">
                 <Plus size={14} aria-hidden /> New risk
               </Link>
             </Button>
-          )}
-        </div>
-      </header>
+          )
+        }
+      />
 
       <div className="mb-6">
         <RiskViews risks={points} />
@@ -193,11 +193,3 @@ export default async function RisksPage() {
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: "risk" }) {
-  return (
-    <div className="text-right">
-      <p className={`tabular text-lg font-semibold ${tone === "risk" ? "text-risk" : "text-ink"}`}>{value}</p>
-      <p className="text-[11px] text-ink-faint">{label}</p>
-    </div>
-  );
-}

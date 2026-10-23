@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@/components/icons";
 import { useFormStatus } from "react-dom";
 
 import { Button, type ButtonProps } from "@/components/ui/button";
@@ -22,7 +22,7 @@ function SubmitButton({
 }: Omit<ButtonProps, "type" | "asChild">) {
   const { pending } = useFormStatus();
   // Icon-only buttons (icon/bare sizes, or a lone component child such as a
-  // lucide icon) swap the icon for the spinner so the button doesn't change size.
+  // app icon) swap the icon for the spinner so the button doesn't change size.
   const kids = React.Children.toArray(children);
   const iconOnly =
     props.size === "icon" ||

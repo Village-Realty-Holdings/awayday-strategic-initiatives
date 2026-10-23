@@ -75,6 +75,8 @@
 			"vars": {
 				"APP_URL": "https://staging-awayday-strategic-initiatives.tech-dd8.workers.dev",
 				"BETTER_AUTH_URL": "https://staging-awayday-strategic-initiatives.tech-dd8.workers.dev",
+				// Entra tenant (not a secret). Client ID/secret are Worker secrets.
+				"MICROSOFT_TENANT_ID": "34b336e5-1f8c-4a90-ab9d-819749be6b27",
 				"EMAIL_FROM": "Awayday <notifications@mail.vacationhr.com>",
 				"ANTHROPIC_MODEL": "claude-sonnet-5-5",
 				"AI_MONTHLY_BUDGET_USD": "250"

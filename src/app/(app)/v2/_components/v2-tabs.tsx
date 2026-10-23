@@ -4,15 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
-  { label: "V2 home", href: "/v2" },
-  { label: "Strategy Review", href: "/v2/review" },
-  { label: "My SIs", href: "/v2/my" },
-  { label: "Timeline", href: "/v2/timeline" },
-  { label: "Inbox", href: "/v2/inbox" },
-  { label: "Asks by leader", href: "/v2/asks" },
+  { label: "Summary", href: "/v2" },
+  { label: "Personal inbox", href: "/v2/inbox" },
   { label: "Below the line", href: "/v2/below-the-line" },
-  { label: "Definitions", href: "/v2/definitions" },
-  { label: "Data inputs", href: "/v2/data" },
+  { label: "Data & definitions", href: "/v2/data" },
 ];
 
 export function V2Tabs() {

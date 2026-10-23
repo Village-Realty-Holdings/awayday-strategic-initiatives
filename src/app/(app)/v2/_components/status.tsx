@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { PeriodStatus, PillarTone, SiStatus, UpdateState } from "../_mock/types";
 
 export const SI_STATUS_META: Record<SiStatus, { label: string; variant: "ok" | "default" | "warn" | "risk"; glyph: string }> = {
@@ -58,4 +59,42 @@ export function PillarLabelBadge({ label, tone, className }: { label: string; to
 
 export function PeriodStatusBadge({ status }: { status: PeriodStatus }) {
   return status === "PUBLISHED" ? <Badge variant="ok">Published</Badge> : <Badge variant="warn">Draft</Badge>;
+}
+
+// Selected pill takes the status colour, so the choice reads at a glance.
+const STATUS_PICKED: Record<"ok" | "default" | "warn" | "risk", string> = {
+  ok: "data-[state=checked]:border-ok data-[state=checked]:bg-ok-soft data-[state=checked]:text-ok",
+  default: "",
+  warn: "data-[state=checked]:border-warn data-[state=checked]:bg-warn-soft data-[state=checked]:text-ink",
+  risk: "data-[state=checked]:border-risk data-[state=checked]:bg-risk-soft data-[state=checked]:text-risk",
+};
+
+/** Segmented SI status picker (arrow keys move the choice). */
+export function SiStatusPicker({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: SiStatus | null;
+  onChange: (s: SiStatus) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <RadioGroup
+      aria-label={label}
+      value={value ?? ""}
+      onValueChange={(v) => onChange(v as SiStatus)}
+      disabled={disabled}
+      className="flex flex-wrap gap-2"
+    >
+      {SI_STATUS_ORDER.map((s) => (
+        <RadioGroupItem key={s} value={s} variant="pill" className={STATUS_PICKED[SI_STATUS_META[s].variant]}>
+          <span aria-hidden className="text-[9px]">{SI_STATUS_META[s].glyph}</span>
+          {SI_STATUS_META[s].label}
+        </RadioGroupItem>
+      ))}
+    </RadioGroup>
+  );
 }

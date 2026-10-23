@@ -1,5 +1,6 @@
-import Link from "next/link";
-import { ArrowLeft, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "@/components/icons";
+import { Alert } from "@/components/ui/alert";
+import { FORM_COLUMN, PAGE_FRAME, PageHeader } from "@/components/shell/page-header";
 import { requireEditor } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { InitiativeForm } from "@/components/initiative-form";
@@ -42,24 +43,19 @@ export default async function NewInitiativePage({
   const { usedCodes, owners, cimItems, cimKpis, areas } = await loadFormData();
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <Link
-        href="/initiatives"
-        className="mb-5 inline-flex items-center gap-1.5 text-sm text-ink-muted transition-colors hover:text-ink"
-      >
-        <ArrowLeft size={15} aria-hidden /> All initiatives
-      </Link>
-      <h1 className="mb-1 text-xl font-semibold tracking-tight text-ink">New initiative</h1>
-      <p className="mb-5 text-sm text-ink-muted">Priority is derived from the targeted value and effort.</p>
+    <div className={PAGE_FRAME}>
+      <PageHeader back={{ href: "/initiatives", label: "Initiatives" }} eyebrow="Initiatives" title="New initiative" description="Priority is derived from the targeted value and effort. Only the driver, code, name and problem statement are required." />
+      <div className={FORM_COLUMN}>
 
-      {error && ERRORS[error] && error !== "problem" && (
-        <div className="mb-5 flex items-center gap-2 rounded-lg border border-risk/40 bg-risk-soft px-3.5 py-2.5 text-sm text-ink">
-          <TriangleAlert size={16} className="shrink-0 text-risk" aria-hidden />
-          {ERRORS[error]}
-        </div>
-      )}
+        {error && ERRORS[error] && error !== "problem" && (
+          <Alert variant="risk" className="mb-4">
+            <TriangleAlert size={16} aria-hidden />
+            {ERRORS[error]}
+          </Alert>
+        )}
 
-      <InitiativeForm action={createInitiative} submitLabel="Create initiative" cancelHref="/initiatives" owners={owners} usedCodes={usedCodes} cimItems={cimItems} cimKpis={cimKpis} areas={areas} problemError={error === "problem"} />
+        <InitiativeForm action={createInitiative} submitLabel="Create initiative" cancelHref="/initiatives" owners={owners} usedCodes={usedCodes} cimItems={cimItems} cimKpis={cimKpis} areas={areas} problemError={error === "problem"} />
+      </div>
     </div>
   );
 }

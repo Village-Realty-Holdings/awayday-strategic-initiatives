@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "@/components/icons";
 import { personName } from "../_mock/data";
 import { fmtDay, milestonesBySi, siShortCode, snapshotFor } from "../_mock/selectors";
 import type { MockSi } from "../_mock/types";

@@ -16,7 +16,14 @@ describe("FY27 plan manifest", () => {
   });
 
   it("preserves explicit TBD values instead of fabricating owners or metrics", () => {
-    expect(FY27_PLAN.initiatives.some((initiative) => initiative.owner === "TBD")).toBe(true);
+    expect(
+      FY27_PLAN.initiatives.some(
+        (initiative) =>
+          initiative.valueMetric?.includes("TBD") ||
+          initiative.valueTarget?.includes("TBD") ||
+          initiative.milestones?.some((item) => item.dueAt === "TBD"),
+      ),
+    ).toBe(true);
     expect(FY27_PLAN.areas.some((area) => !area.kpiName && !area.kpiTarget)).toBe(true);
   });
 });

@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireSession, canEdit } from "@/lib/session";
 import { activePlanInitiativeWhere } from "@/lib/active-plan";
 import { formatDateDay, formatMoney, pace } from "@/lib/initiatives";
-import { InitiativesTable, type InitiativeRow } from "@/components/initiatives-table";
+import { InitiativesTable, type InitiativeRow, NewInitiativeButton } from "@/components/initiatives-table";
+import { PAGE_FRAME, PageHeader, Stat } from "@/components/shell/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -83,43 +83,33 @@ export default async function OwnerPage({ params }: { params: Promise<{ owner: s
   const cims = [...new Set(initiatives.map((i) => i.cimDriver).filter(Boolean))].sort() as string[];
 
   return (
-    <div className="mx-auto max-w-[1400px]">
-      <Link href="/scorecard" className="mb-4 inline-block text-xs font-medium text-ink-faint hover:text-ink">
-        ← Owner Scorecard
-      </Link>
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-ink">{owner}</h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            {person && (person.position || person.department)
-              ? [person.position, person.department].filter(Boolean).join(" · ")
-              : owner === UNASSIGNED
-                ? "Initiatives without a team lead. Assign an owner on each charter."
-                : "Everything this owner is responsible for."}
-          </p>
-        </div>
-        <div className="flex items-center gap-6 text-sm">
-          <Stat label="Initiatives" value={String(initiatives.length)} />
-          <Stat label="Complete" value={String(complete)} />
-          <Stat label="Avg. complete" value={`${Math.round(avg * 100)}%`} />
-          <Stat label="Behind pace" value={String(behind)} tone={behind > 0 ? "risk" : "ok"} />
-          {toCreate > 0 && <Stat label="Value to create" value={formatMoney(toCreate)} />}
-          {toCreate > 0 && <Stat label="Value created" value={formatMoney(created)} tone="ok" />}
-        </div>
-      </header>
+    <div className={PAGE_FRAME}>
+      <PageHeader
+        back={{ href: "/scorecard", label: "Owner Scorecard" }}
+        eyebrow="Owner Scorecard"
+        title={owner}
+        description={
+          person && (person.position || person.department)
+            ? [person.position, person.department].filter(Boolean).join(" · ")
+            : owner === UNASSIGNED
+              ? "Initiatives without a team lead. Assign an owner on each charter."
+              : "Everything this owner is responsible for."
+        }
+        stats={
+          <>
+            <Stat label="Initiatives" value={String(initiatives.length)} />
+            <Stat label="Complete" value={String(complete)} />
+            <Stat label="Avg. complete" value={`${Math.round(avg * 100)}%`} />
+            <Stat label="Behind pace" value={String(behind)} tone={behind > 0 ? "risk" : "ok"} />
+            {toCreate > 0 && <Stat label="Value to create" value={formatMoney(toCreate)} />}
+            {toCreate > 0 && <Stat label="Value created" value={formatMoney(created)} tone="ok" />}
+          </>
+        }
+        actions={editable && <NewInitiativeButton />}
+      />
 
-      <InitiativesTable rows={rows} owners={owner === UNASSIGNED ? [] : [owner]} cims={cims} editable={editable} />
+      <InitiativesTable rows={rows} owners={owner === UNASSIGNED ? [] : [owner]} cims={cims} />
     </div>
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: "ok" | "risk" }) {
-  return (
-    <div className="text-right">
-      <p className={`tabular text-lg font-semibold ${tone === "risk" ? "text-risk" : tone === "ok" ? "text-ok" : "text-ink"}`}>
-        {value}
-      </p>
-      <p className="text-[11px] text-ink-faint">{label}</p>
-    </div>
-  );
-}

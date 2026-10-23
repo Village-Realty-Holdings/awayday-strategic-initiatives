@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Lock, Clock } from "lucide-react";
+import { Lock, Clock } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { SiStatus, UpdateState } from "../_mock/types";
 import { MockNote } from "./preview";
-import { SI_STATUS_META, SI_STATUS_ORDER, UpdateStateBadge } from "./status";
+import { SiStatusPicker, UpdateStateBadge } from "./status";
 
 export type MyItem = { id: string; text: string; due: string; dueLabel: string; done: boolean; pastDue: boolean };
 export type MySiRow = {
@@ -25,7 +26,7 @@ export type MySiRow = {
   actions: MyItem[];
 };
 
-function ItemChecklist({ title, items }: { title: string; items: MyItem[] }) {
+export function ItemChecklist({ title, items }: { title: string; items: MyItem[] }) {
   const [done, setDone] = useState<Record<string, boolean>>(() => Object.fromEntries(items.map((i) => [i.id, i.done])));
   if (items.length === 0) return null;
   return (
@@ -34,18 +35,17 @@ function ItemChecklist({ title, items }: { title: string; items: MyItem[] }) {
       <ul className="flex flex-col gap-1.5">
         {items.map((i) => (
           <li key={i.id}>
-            <label className="flex cursor-pointer items-start gap-2 text-xs text-ink-muted">
-              <input
-                type="checkbox"
-                className="mt-0.5 h-3.5 w-3.5 accent-[var(--color-navy)]"
+            <Label className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-0.5 font-normal text-ink-muted transition-colors hover:bg-surface-2/60">
+              <Checkbox
+                className="mt-px"
                 checked={!!done[i.id]}
-                onChange={(e) => setDone((d) => ({ ...d, [i.id]: e.target.checked }))}
+                onCheckedChange={(c) => setDone((d) => ({ ...d, [i.id]: c === true }))}
               />
-              <span className={done[i.id] ? "line-through" : ""}>
+              <span className={`transition-[color,opacity] duration-200 ${done[i.id] ? "text-ink-faint line-through opacity-70" : ""}`}>
                 {i.text} <span className="text-ink-faint">· {i.dueLabel}</span>
                 {i.pastDue && !done[i.id] && <Badge variant="warn" className="ml-1.5">Needs a status</Badge>}
               </span>
-            </label>
+            </Label>
           </li>
         ))}
       </ul>
@@ -98,20 +98,7 @@ function SiUpdateCard({ row, locked }: { row: MySiRow; locked: boolean }) {
         >
           <fieldset disabled={readOnly} className="flex flex-col gap-3 disabled:opacity-70">
             <legend className="mb-1 text-xs font-medium text-ink-muted">Status</legend>
-            <div role="radiogroup" aria-label={`Status for ${row.name}`} className="flex flex-wrap gap-2">
-              {SI_STATUS_ORDER.map((s) => (
-                <label
-                  key={s}
-                  className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
-                    status === s ? "border-navy bg-navy/10 font-medium text-navy-deep" : "border-border text-ink-muted hover:bg-surface-2"
-                  }`}
-                >
-                  <input type="radio" name={`status-${row.code}`} className="sr-only" checked={status === s} onChange={() => setStatus(s)} />
-                  <span aria-hidden className="text-[9px]">{SI_STATUS_META[s].glyph}</span>
-                  {SI_STATUS_META[s].label}
-                </label>
-              ))}
-            </div>
+            <SiStatusPicker label={`Status for ${row.name}`} value={status} onChange={setStatus} disabled={readOnly} />
             <Label className="flex flex-col gap-1.5">
               Latest progress
               <Textarea rows={3} value={progress} onChange={(e) => setProgress(e.target.value)} placeholder="What moved since last month?" />

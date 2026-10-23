@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession, canEdit } from "@/lib/session";
 import { activePlanInitiativeWhere } from "@/lib/active-plan";
 import { GroupsManager } from "@/components/groups-manager";
+import { PAGE_FRAME } from "@/components/shell/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -27,14 +28,7 @@ export default async function GroupsPage() {
   }));
 
   return (
-    <div className="mx-auto max-w-[1000px]">
-      <header className="mb-6">
-        <h1 className="text-xl font-semibold tracking-tight text-ink">Initiative Groups</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          Build custom collections of initiatives (for example, &quot;Q3 Board Meeting&quot;). Groups
-          become a filter on the Initiatives table so you can pull up exactly the set you need.
-        </p>
-      </header>
+    <div className={PAGE_FRAME}>
       <GroupsManager groups={data} initiatives={initiatives} editable={editable} />
     </div>
   );

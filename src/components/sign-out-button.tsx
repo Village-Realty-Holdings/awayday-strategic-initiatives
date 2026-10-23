@@ -2,11 +2,20 @@
 
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
-import { LogOut } from "lucide-react";
+import { LogOut } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 
-export function SignOutButton() {
+export function useSignOut() {
   const router = useRouter();
+  return async () => {
+    await authClient.signOut();
+    router.push("/login");
+    router.refresh();
+  };
+}
+
+export function SignOutButton() {
+  const signOut = useSignOut();
   return (
     <Button
       type="button"
@@ -14,11 +23,7 @@ export function SignOutButton() {
       size="bare"
       title="Sign out"
       aria-label="Sign out"
-      onClick={async () => {
-        await authClient.signOut();
-        router.push("/login");
-        router.refresh();
-      }}
+      onClick={signOut}
     >
       <LogOut size={15} aria-hidden />
     </Button>

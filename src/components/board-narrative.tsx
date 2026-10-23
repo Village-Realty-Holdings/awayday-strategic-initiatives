@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Sparkles, Loader2, Copy, Check, TriangleAlert, FileDown, Pencil, Eye } from "lucide-react";
+import { Sparkles, Loader2, Copy, Check, TriangleAlert, FileDown, FileText, Pencil, Eye } from "@/components/icons";
+import { Alert } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import { generateBoardNarrative } from "@/app/(app)/ai-actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -112,14 +114,37 @@ export function BoardNarrative() {
       </div>
 
       {error && (
-        <div className="no-print flex items-center gap-2 rounded-lg border border-risk/40 bg-risk-soft px-3.5 py-2.5 text-sm text-ink">
-          <TriangleAlert size={16} className="shrink-0 text-risk" aria-hidden /> {error}
+        <Alert variant="risk" className="no-print items-center">
+          <TriangleAlert size={16} aria-hidden />
+          <span className="min-w-0 flex-1">{error}</span>
+          <Button type="button" variant="secondary" size="sm" onClick={generate} disabled={loading} className="bg-surface">
+            Try again
+          </Button>
+        </Alert>
+      )}
+
+      {!text && !loading && !error && (
+        <div className="no-print grid justify-items-start gap-2 rounded-md border border-dashed border-border bg-surface px-6 py-10">
+          <span aria-hidden className="grid size-9 place-items-center rounded-md bg-navy/10 text-navy-deep">
+            <FileText size={18} />
+          </span>
+          <p className="text-sm font-medium text-ink">No draft yet</p>
+          <p className="max-w-lg text-xs leading-5 text-ink-muted">
+            Generate a draft to get a branded board update you can edit, copy, or save as a PDF.
+          </p>
         </div>
       )}
 
       {loading && !text && (
-        <div className="no-print rounded-xl border border-border bg-surface p-6 text-sm text-ink-muted">
-          Reading the live EBITDA build, initiative pace, 2026 goals, and CIM risk exposure, then writing the update…
+        <div className="no-print grid gap-3 rounded-md border border-border bg-surface px-8 py-7" role="status" aria-label="Drafting the board narrative">
+          <p className="text-xs text-ink-muted">Reading the live EBITDA build, initiative pace, goals and CIM risk exposure, then writing the update…</p>
+          <Skeleton className="h-5 w-56" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-11/12" />
+          <Skeleton className="h-4 w-4/5" />
+          <Skeleton className="mt-3 h-5 w-48" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-3/4" />
         </div>
       )}
 
@@ -129,13 +154,13 @@ export function BoardNarrative() {
           onChange={(e) => setText(e.target.value)}
           rows={26}
           spellCheck={false}
-          className="no-print w-full rounded-xl p-5 font-mono text-[13px] leading-relaxed"
+          className="no-print w-full rounded-md p-5 font-mono text-[13px] leading-relaxed"
           aria-label="Board narrative source (editable markdown)"
         />
       )}
 
       {text && !editing && (
-        <article className="bn-card rounded-xl border border-border bg-surface px-8 py-7 shadow-sm">
+        <article className="bn-card rounded-md border border-border bg-surface px-8 py-7">
           {/* Branded document header (also serves as the PDF masthead). */}
           <header className="mb-6 flex items-end justify-between gap-4 border-b-2 border-navy/25 pb-4">
             <Image src="/awayday-logo.png" alt="Awayday" width={475} height={101} className="h-7 w-auto" priority />

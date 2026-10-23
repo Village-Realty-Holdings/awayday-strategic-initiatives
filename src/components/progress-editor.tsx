@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Check, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Check } from "@/components/icons";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -10,24 +9,42 @@ import { ProgressBar } from "@/components/badges";
 import { parseDollars, formatDollarsInput } from "@/lib/initiatives";
 import { updateProgress } from "@/app/(app)/initiatives/actions";
 
-export function ProgressEditor({
+/** Read-only progress readout: big %, bar, pace note and KPI line. */
+export function ProgressSummary({
+  pct,
+  paceNote,
+  kpiLine,
+}: {
+  pct: number;
+  paceNote?: { behind: boolean; text: string } | null;
+  kpiLine?: string | null;
+}) {
+  return (
+    <div>
+      <span className="tabular text-2xl font-semibold text-ink">{Math.round(pct * 100)}%</span>
+      <div className="mt-2">
+        <ProgressBar value={pct} hideLabel />
+      </div>
+      {paceNote && (
+        <p className={`mt-2 text-xs ${paceNote.behind ? "text-warn" : "text-ink-muted"}`}>{paceNote.text}</p>
+      )}
+      {kpiLine && <p className="mt-2 text-xs text-ink-muted">KPI: <span className="text-ink">{kpiLine}</span></p>}
+    </div>
+  );
+}
+
+/** Value created / value to create form; the percent is calculated from the two. */
+export function ProgressForm({
   initiativeId,
   pct,
   actual,
   target,
-  paceNote,
-  kpiLine,
-  editable,
 }: {
   initiativeId: string;
   pct: number;
   actual: number | null;
   target: number | null;
-  paceNote?: { behind: boolean; text: string } | null;
-  kpiLine?: string | null;
-  editable: boolean;
 }) {
-  const [open, setOpen] = useState(false);
   const [a, setA] = useState(actual != null ? formatDollarsInput(String(actual)) : "");
   const [t, setT] = useState(target != null ? formatDollarsInput(String(target)) : "");
 
@@ -39,59 +56,25 @@ export function ProgressEditor({
       : Math.round(pct * 100);
 
   return (
-    <div>
-      <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <ProgressBar value={pct} />
-        </div>
-        <span className="tabular text-sm font-semibold text-ink">{Math.round(pct * 100)}%</span>
-        {editable && (
-          <Button
-            type="button"
-            variant="faint"
-            size="bare"
-            onClick={() => setOpen((v) => !v)}
-            title="Update progress"
-            aria-label="Update progress"
-            className="hover:text-navy"
-          >
-            {open ? <X size={14} aria-hidden /> : <Pencil size={13} aria-hidden />}
-          </Button>
-        )}
+    <form action={updateProgress} className="grid gap-2">
+      <input type="hidden" name="initiativeId" value={initiativeId} />
+      <p className="text-[11px] text-ink-faint">
+        Enter value created and the value-to-create goal; percent is calculated (e.g. 850k of 1.5M = 57%, and it can exceed 100%).
+      </p>
+      <div className="flex flex-wrap items-end gap-2">
+        <Label className="grid gap-1 text-xs font-medium text-ink-muted">
+          Value created ($)
+          <Input size="sm" value={a} onChange={(e) => setA(e.target.value)} onBlur={() => setA(formatDollarsInput(a))} inputMode="decimal" placeholder="e.g. 850,000" className="tabular w-40" name="actual" />
+        </Label>
+        <Label className="grid gap-1 text-xs font-medium text-ink-muted">
+          Value to create ($)
+          <Input size="sm" value={t} onChange={(e) => setT(e.target.value)} onBlur={() => setT(formatDollarsInput(t))} inputMode="decimal" placeholder="e.g. 1,500,000" className="tabular w-40" name="target" />
+        </Label>
+        <span className="pb-2 text-xs text-ink-muted">Preview: <span className="tabular font-semibold text-navy-deep">{preview}%</span></span>
+        <SubmitButton variant="secondary" size="sm" className="ml-auto">
+          <Check size={13} aria-hidden /> Save progress
+        </SubmitButton>
       </div>
-
-      {paceNote && (
-        <p className={`mt-2 text-xs ${paceNote.behind ? "text-warn" : "text-ink-muted"}`}>{paceNote.text}</p>
-      )}
-      {kpiLine && !open && (
-        <p className="mt-2 text-xs text-ink-muted">KPI: <span className="text-ink">{kpiLine}</span></p>
-      )}
-
-      {open && editable && (
-        <form action={updateProgress} className="mt-3 rounded-md border border-border bg-surface-2/40 p-3">
-          <input type="hidden" name="initiativeId" value={initiativeId} />
-          <p className="mb-2 text-[11px] text-ink-faint">
-            Enter value created and the value-to-create goal; percent is calculated (e.g. 850k of 1.5M = 57%, and it can exceed 100%).
-          </p>
-          <div className="flex flex-wrap items-end gap-2">
-            <Label className="flex flex-col gap-1">
-              <span className="text-[10px]">Value created ($)</span>
-              <Input size="sm" value={a} onChange={(e) => setA(e.target.value)} onBlur={() => setA(formatDollarsInput(a))} inputMode="decimal" placeholder="e.g. 850,000" className="w-32 px-2.5" name="actual" />
-            </Label>
-            <span className="pb-2 text-ink-faint">/</span>
-            <Label className="flex flex-col gap-1">
-              <span className="text-[10px]">Value to create ($)</span>
-              <Input size="sm" value={t} onChange={(e) => setT(e.target.value)} onBlur={() => setT(formatDollarsInput(t))} inputMode="decimal" placeholder="e.g. 1,500,000" className="w-32 px-2.5" name="target" />
-            </Label>
-            <div className="ml-auto flex items-center gap-3">
-              <span className="text-xs text-ink-muted">Preview: <span className="tabular font-semibold text-navy-deep">{preview}%</span></span>
-              <SubmitButton size="sm">
-                <Check size={13} aria-hidden /> Save
-              </SubmitButton>
-            </div>
-          </div>
-        </form>
-      )}
-    </div>
+    </form>
   );
 }

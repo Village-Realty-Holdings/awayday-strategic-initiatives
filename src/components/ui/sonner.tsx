@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleAlert, CircleCheck, Info } from "lucide-react";
+import { CircleAlert, CircleCheck, Info } from "@/components/icons";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 
 // shadcn Sonner wrapper, light-only (the app has no dark mode, so no

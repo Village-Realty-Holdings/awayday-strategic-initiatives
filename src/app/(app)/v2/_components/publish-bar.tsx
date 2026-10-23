@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Pencil, Send } from "lucide-react";
+import { Pencil, Send } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import type { PeriodStatus } from "../_mock/types";
 import { MockNote } from "./preview";

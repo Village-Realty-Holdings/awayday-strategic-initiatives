@@ -1,8 +1,10 @@
 import Image from "next/image";
-import { Users, KeyRound } from "lucide-react";
+import { Settings } from "@/components/icons";
 import { SidebarNav } from "@/components/shell/nav";
 import { FooterLink } from "@/components/shell/footer-link";
 import { SignOutButton } from "@/components/sign-out-button";
+import { BreadcrumbProvider, Breadcrumbs } from "@/components/shell/breadcrumbs";
+import { InsetScrollReset } from "@/components/shell/inset-scroll-reset";
 import { AskPanel } from "@/components/ask-panel";
 import { FlashToaster } from "@/components/flash-toaster";
 
@@ -19,13 +21,14 @@ export function AppShell({
   user,
   children,
 }: {
-  user: { name: string; role?: string | null };
+  user: { name: string; email?: string | null; role?: string | null };
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-dvh">
-      <aside data-chrome className="sticky top-0 flex h-dvh w-60 shrink-0 flex-col self-start border-r border-border bg-surface">
-        <div className="shrink-0 border-b border-border px-5 py-4">
+    <BreadcrumbProvider>
+    <div className="app-shell flex h-dvh overflow-hidden bg-bg">
+      <aside data-chrome className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-surface">
+        <div className="flex h-14 shrink-0 items-center border-b border-border px-5">
           <Image
             src="/awayday-logo.png"
             alt="Awayday"
@@ -36,15 +39,11 @@ export function AppShell({
           />
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-          <SidebarNav isAdmin={user.role === "admin"} />
+          <SidebarNav />
         </div>
-        <FooterLink href="/people" match={["/people", "/roster"]}>
-          <Users size={16} strokeWidth={1.75} aria-hidden />
-          People &amp; access
-        </FooterLink>
-        <FooterLink href="/account" match={["/account"]}>
-          <KeyRound size={16} strokeWidth={1.75} aria-hidden />
-          Change password
+        <FooterLink href="/settings" match={["/settings"]}>
+          <Settings size={16} strokeWidth={1.75} aria-hidden />
+          Settings
         </FooterLink>
         <div className="flex items-center gap-2.5 border-t border-border px-4 py-3">
           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-navy/10 text-[11px] font-semibold text-navy-deep">
@@ -61,18 +60,24 @@ export function AppShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header data-chrome className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-surface/85 px-6 backdrop-blur">
-          <p className="text-[11px] text-ink-faint">
-            Confidential · for Awayday leadership
-          </p>
+        {/* Top bar is level with the logo row; its bottom border continues the
+            logo row's, so sidebar and top bar form one white frame. */}
+        <header data-chrome className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-surface px-6">
+          <Breadcrumbs />
           <AskPanel />
         </header>
-        <main className="flex-1 bg-bg px-6 py-7">{children}</main>
-        <footer data-chrome className="border-t border-border bg-surface px-6 py-4 text-center text-[11px] text-ink-faint">
-          Awayday Strategic Initiatives · Confidential · for Awayday leadership. Changes are versioned in the audit log.
-        </footer>
+        {/* Content area: the page's scroll container, framed by the sidebar
+            and top bar. */}
+        <div className="app-inset flex min-h-0 flex-1 flex-col overflow-y-auto scroll-smooth">
+          <InsetScrollReset />
+          <main className="flex-1 px-6 py-7">{children}</main>
+          <footer data-chrome className="border-t border-border bg-surface px-6 py-4 text-center text-[11px] text-ink-faint">
+            Awayday Strategic Initiatives · Confidential · for Awayday leadership. Changes are versioned in the audit log.
+          </footer>
+        </div>
       </div>
       <FlashToaster />
     </div>
+    </BreadcrumbProvider>
   );
 }

@@ -2,7 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { getActivePlan, activePlanInitiativeWhere } from "@/lib/active-plan";
 import { requireSession, canEdit } from "@/lib/session";
 import { formatDateDay, pace } from "@/lib/initiatives";
-import { InitiativesTable, type InitiativeRow } from "@/components/initiatives-table";
+import { InitiativesTable, type InitiativeRow, NewInitiativeButton } from "@/components/initiatives-table";
+import { PAGE_FRAME, PageHeader, Stat } from "@/components/shell/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -67,37 +68,22 @@ export default async function InitiativesPage({
   const cims = [...new Set(initiatives.map((i) => i.cimDriver).filter(Boolean))].sort() as string[];
 
   return (
-    <div className="mx-auto max-w-[1400px]">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-ink">Strategic Initiatives</h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            {activePlan?.title ?? "All initiatives"}. Dashboard-owned status updates and charter details are maintained here.
-          </p>
-        </div>
-        <div className="flex items-center gap-6 text-sm">
-          <Stat label="Initiatives" value={String(initiatives.length)} />
-          <Stat label="Avg. complete" value={`${Math.round(avg * 100)}%`} />
-          <Stat label="Behind pace" value={String(behind)} tone={behind > 0 ? "risk" : "ok"} />
-        </div>
-      </header>
+    <div className={PAGE_FRAME}>
+      <PageHeader
+        title="Strategic Initiatives"
+        description={<>{activePlan?.title ?? "All initiatives"}. Status updates and charter details are maintained here.</>}
+        stats={
+          <>
+            <Stat label="Initiatives" value={String(initiatives.length)} />
+            <Stat label="Avg. complete" value={`${Math.round(avg * 100)}%`} />
+            <Stat label="Behind pace" value={String(behind)} tone={behind > 0 ? "risk" : "ok"} />
+          </>
+        }
+        actions={editable && <NewInitiativeButton />}
+      />
 
-      <InitiativesTable rows={rows} owners={owners} cims={cims} groups={groups} initialGroup={group ?? ""} editable={editable} />
+      <InitiativesTable rows={rows} owners={owners} cims={cims} groups={groups} initialGroup={group ?? ""} />
     </div>
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: "ok" | "risk" }) {
-  return (
-    <div className="text-right">
-      <p
-        className={`tabular text-lg font-semibold ${
-          tone === "risk" ? "text-risk" : tone === "ok" ? "text-ok" : "text-ink"
-        }`}
-      >
-        {value}
-      </p>
-      <p className="text-[11px] text-ink-faint">{label}</p>
-    </div>
-  );
-}

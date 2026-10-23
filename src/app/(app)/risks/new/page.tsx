@@ -1,5 +1,6 @@
-import Link from "next/link";
-import { ArrowLeft, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "@/components/icons";
+import { Alert } from "@/components/ui/alert";
+import { FORM_COLUMN, PAGE_FRAME, PageHeader } from "@/components/shell/page-header";
 import { requireEditor } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { CimForm } from "@/components/cim-form";
@@ -23,18 +24,17 @@ export default async function NewCimRiskPage({ searchParams }: { searchParams: P
   const usedCodes = risks.map((x) => x.code);
   const owners = [...new Set(roster.map((m) => m.name).filter(Boolean))] as string[];
   return (
-    <div className="mx-auto max-w-3xl">
-      <Link href="/risks" className="mb-5 inline-flex items-center gap-1.5 text-sm text-ink-muted transition-colors hover:text-ink">
-        <ArrowLeft size={15} aria-hidden /> CIM Risks
-      </Link>
-      <h1 className="mb-5 text-xl font-semibold tracking-tight text-ink">New CIM risk</h1>
+    <div className={PAGE_FRAME}>
+      <PageHeader back={{ href: "/risks", label: "CIM Risks" }} eyebrow="CIM Risks" title="New CIM risk" />
+      <div className={FORM_COLUMN}>
       {error && ERRORS[error] && (
-        <div className="mb-5 flex items-center gap-2 rounded-lg border border-risk/40 bg-risk-soft px-3.5 py-2.5 text-sm text-ink">
-          <TriangleAlert size={16} className="shrink-0 text-risk" aria-hidden />
+        <Alert variant="risk" className="mb-4">
+          <TriangleAlert size={16} aria-hidden />
           {ERRORS[error]}
-        </div>
+        </Alert>
       )}
       <CimForm action={createCimRisk} submitLabel="Create risk" initiatives={initiatives} usedCodes={usedCodes} owners={owners} />
+      </div>
     </div>
   );
 }

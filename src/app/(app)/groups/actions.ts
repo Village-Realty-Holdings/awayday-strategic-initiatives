@@ -17,7 +17,10 @@ function str(fd: FormData, k: string): string | null {
 export async function createGroup(fd: FormData) {
   const session = await requireEditor();
   const name = str(fd, "name");
-  if (!name) redirect("/groups?error=name");
+  if (!name) {
+    await flash("Give the group a name before creating it.", "error");
+    redirect("/groups");
+  }
   const ids = [...new Set(fd.getAll("initiativeIds").map(String).filter(Boolean))];
   const created = await prisma.initiativeGroup.create({
     data: { name, description: str(fd, "description"), initiatives: { connect: ids.map((id) => ({ id })) } },
@@ -35,7 +38,10 @@ export async function updateGroup(fd: FormData) {
   const session = await requireEditor();
   const id = String(fd.get("id"));
   const name = str(fd, "name");
-  if (!name) redirect("/groups");
+  if (!name) {
+    await flash("A group needs a name. Nothing was saved.", "error");
+    redirect("/groups");
+  }
   const ids = [...new Set(fd.getAll("initiativeIds").map(String).filter(Boolean))];
   // The picker only lists active-plan initiatives, so `set` would silently drop
   // members from other plans. Keep any current member outside the active plan.

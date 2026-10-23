@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { UpdateState } from "../_mock/types";
 import { MockNote } from "./preview";
@@ -107,12 +109,11 @@ export function InboxView({ sis, items, asks, periodLabel }: { sis: InboxSi[]; i
             <ul className="flex flex-col gap-2">
               {items.map((i) => (
                 <li key={i.id} className={`rounded-lg border border-border/70 px-3 py-2.5 ${i.pastDue && !done[i.id] ? "bg-warn-soft/60" : "bg-surface-2/30"}`}>
-                  <label className="flex cursor-pointer items-start gap-2.5">
-                    <input
-                      type="checkbox"
-                      className="mt-0.5 h-3.5 w-3.5 accent-[var(--color-navy)]"
+                  <Label className="flex cursor-pointer items-start gap-2.5 font-normal text-ink">
+                    <Checkbox
+                      className="mt-0.5"
                       checked={!!done[i.id]}
-                      onChange={(e) => setDone((d) => ({ ...d, [i.id]: e.target.checked }))}
+                      onCheckedChange={(c) => setDone((d) => ({ ...d, [i.id]: c === true }))}
                     />
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-1.5">
@@ -120,10 +121,10 @@ export function InboxView({ sis, items, asks, periodLabel }: { sis: InboxSi[]; i
                         {i.pastDue && !done[i.id] && <Badge variant="warn">Needs a status</Badge>}
                         <span className="text-[11px] text-ink-faint">{i.dueLabel}</span>
                       </span>
-                      <span className={`mt-1 block text-sm ${done[i.id] ? "text-ink-muted line-through" : "text-ink"}`}>{i.text}</span>
+                      <span className={`mt-1 block text-sm transition-[color,opacity] duration-200 ${done[i.id] ? "text-ink-faint line-through opacity-70" : "text-ink"}`}>{i.text}</span>
                       {i.siCode && i.siLabel && <span className="mt-0.5 block text-[11px] text-ink-faint">{i.siLabel}</span>}
                     </span>
-                  </label>
+                  </Label>
                 </li>
               ))}
             </ul>

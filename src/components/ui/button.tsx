@@ -7,8 +7,10 @@ import { cn } from "@/lib/utils";
 // Look-matched to the app's existing hand-rolled buttons (rounded-md, navy
 // fill, hairline-border secondary). Keyboard focus comes from the global
 // :focus-visible rule in globals.css (navy outline), so no ring classes here.
+// The pointer cursor comes from the global button rule in globals.css.
+// Pressed state nudges the button down 1px for tactile feedback.
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium transition-colors disabled:pointer-events-none disabled:opacity-60 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium transition-[color,background-color,border-color,box-shadow,transform] duration-150 active:translate-y-px disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -35,6 +37,7 @@ const buttonVariants = cva(
         sm: "px-3 py-1.5 text-xs",
         xs: "px-2 py-1 text-[11px]",
         icon: "h-9 w-9 text-sm",
+        "icon-sm": "h-6 w-6 text-xs",
         // No padding or size: for bare icon/text affordances.
         bare: "p-0",
       },

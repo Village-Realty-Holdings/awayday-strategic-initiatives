@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
 import { APPS as APP_DEFS } from "@/lib/apps";
 import Link from "next/link";
 import { toast } from "sonner";
-import { UserPlus, KeyRound, ShieldCheck, Loader2, Check, RefreshCw, SlidersHorizontal, Pencil, UserMinus } from "lucide-react";
+import { UserPlus, KeyRound, ShieldCheck, Loader2, Check, RefreshCw, SlidersHorizontal, Pencil, UserMinus } from "@/components/icons";
 import {
   adminCreateUser,
   adminSetRole,
@@ -13,14 +13,17 @@ import {
   adminRemoveUser,
   adminSetAppAccess,
   type AdminResult,
-} from "@/app/(app)/admin/actions";
-import { upsertPersonDetails } from "@/app/(platform)/roster/actions";
+} from "@/app/(app)/settings/admin/actions";
+import { upsertPersonDetails } from "@/app/(app)/settings/people/roster/actions";
 import { ConfirmAction } from "@/components/confirm-action";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Table, TableBody, TableCell, TableEmpty, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 export type Person = {
   key: string;
@@ -49,6 +52,22 @@ const ROLES = [
   { v: "editor", label: "Editor" },
   { v: "user", label: "Viewer" },
 ];
+
+// Every server action this screen calls. Real by default; /dev/comparison
+// provides mocks so the screen can be exercised without touching accounts.
+const REAL_ACTIONS = {
+  adminCreateUser,
+  adminSetRole,
+  adminSetPassword,
+  adminResetMfa,
+  adminRemoveUser,
+  adminSetAppAccess,
+  upsertPersonDetails: upsertPersonDetails as (fd: FormData) => Promise<unknown>,
+};
+export type PeopleActions = typeof REAL_ACTIONS;
+const PeopleActionsContext = createContext<PeopleActions>(REAL_ACTIONS);
+export const PeopleActionsProvider = PeopleActionsContext.Provider;
+export const usePeopleActions = () => useContext(PeopleActionsContext);
 
 function genPassword(): string {
   const a = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
@@ -92,12 +111,12 @@ export function PeopleManager({
       {editable && (
         <div className="flex flex-wrap items-center gap-2">
           <Button asChild size="sm" className="py-2">
-            <Link href="/roster/new">
+            <Link href="/settings/people/roster/new">
               <UserPlus size={14} aria-hidden /> Add person
             </Link>
           </Button>
           <Button asChild variant="secondary" size="sm" className="py-2">
-            <Link href="/roster/lists">
+            <Link href="/settings/people/roster/lists">
               <SlidersHorizontal size={14} aria-hidden /> Manage lists
             </Link>
           </Button>
@@ -105,26 +124,25 @@ export function PeopleManager({
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-border bg-surface">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-[11px] font-medium text-ink-faint">
-              <th className="px-4 py-2.5 font-medium">Person</th>
-              <th className="px-3 py-2.5 font-medium">Login &amp; role</th>
-              <th className="px-3 py-2.5 font-medium">Position</th>
-              <th className="px-3 py-2.5 font-medium">Department</th>
-              <th className="px-3 py-2.5 font-medium">Apps</th>
-              <th className="px-3 py-2.5 font-medium">MFA</th>
-              <th className="px-4 py-2.5 text-right font-medium">Manage</th>
-            </tr>
-          </thead>
-          <tbody>
-            {people.map((p) => (
-              <PersonRow key={p.key} p={p} isAdmin={isAdmin} editable={editable} onResult={report} />
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Table stickyHeader containerClassName="rounded-xl border border-border bg-surface" className="text-sm">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="pl-4">Person</TableHead>
+            <TableHead>Login &amp; role</TableHead>
+            <TableHead>Position</TableHead>
+            <TableHead>Department</TableHead>
+            <TableHead>Apps</TableHead>
+            <TableHead>MFA</TableHead>
+            <TableHead className="pr-4 text-right">Manage</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {people.length === 0 && <TableEmpty colSpan={7}>No people yet. Add someone to start the directory.</TableEmpty>}
+          {people.map((p) => (
+            <PersonRow key={p.key} p={p} isAdmin={isAdmin} editable={editable} onResult={report} />
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -135,6 +153,11 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
   const [editing, setEditing] = useState(false);
   const [pw, setPw] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  // Optimistic app access: pills flip at once, and revert if the save fails.
+  const [apps, setApps] = useState<string[]>(p.appAccess);
+  const [grantApps, setGrantApps] = useState<string[]>(APPS.map((a) => a.key));
+  const actions = usePeopleActions();
+  const open = editing || granting || resetting;
 
   async function run(action: (fd: FormData) => Promise<AdminResult>, fd: FormData, key: string) {
     setBusy(key);
@@ -146,79 +169,86 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
 
   return (
     <>
-      <tr className="border-b border-border/60 last:border-0">
-        <td className="px-4 py-3">
+      <TableRow data-state={open ? "selected" : undefined}>
+        <TableCell className="py-3 pl-4">
           <div className="font-medium text-ink">{p.name}{p.isSelf && <span className="ml-1.5 text-[10px] text-ink-faint">(you)</span>}</div>
           <div className="text-xs text-ink-muted">{p.email ?? <span className="text-ink-faint">no email</span>}</div>
-        </td>
-        <td className="px-3 py-3">
+        </TableCell>
+        <TableCell className="py-3">
           {p.userId ? (
             <NativeSelect
               size="xs"
               defaultValue={p.role ?? "user"}
               disabled={!isAdmin || p.isSelf || busy === "role"}
-              onChange={(e) => { const fd = new FormData(); fd.set("id", p.userId!); fd.set("role", e.target.value); run(adminSetRole, fd, "role"); }}
+              onChange={(e) => { const fd = new FormData(); fd.set("id", p.userId!); fd.set("role", e.target.value); run(actions.adminSetRole, fd, "role"); }}
               className="disabled:opacity-50"
               title={p.isSelf ? "You can't change your own role" : !isAdmin ? "Admin only" : undefined}
             >
               {ROLES.map((r) => <option key={r.v} value={r.v}>{r.label}</option>)}
             </NativeSelect>
           ) : p.email && isAdmin ? (
-            <Button onClick={() => setGranting((v) => !v)} variant="outline" size="xs" className="gap-1 text-navy-deep">
+            <Button onClick={() => setGranting((v) => !v)} aria-expanded={granting} variant="outline" size="xs" className="gap-1 text-navy-deep">
               <UserPlus size={12} aria-hidden /> Grant login
             </Button>
           ) : (
             <span className="text-xs text-ink-faint">{p.email ? "No login" : "Needs email"}</span>
           )}
-        </td>
-        <td className="px-3 py-3 text-xs text-ink-muted">{p.position ?? "—"}</td>
-        <td className="px-3 py-3 text-xs text-ink-muted">{p.department ?? "—"}</td>
-        <td className="px-3 py-3">
+        </TableCell>
+        <TableCell className="py-3 text-xs text-ink-muted">{p.position ?? "—"}</TableCell>
+        <TableCell className="py-3 text-xs text-ink-muted">{p.department ?? "—"}</TableCell>
+        <TableCell className="py-3">
           {!p.userId ? (
             <span className="text-xs text-ink-faint">—</span>
           ) : p.role === "admin" ? (
             <span className="text-[11px] text-ink-faint">All (admin)</span>
           ) : (
-            <div className="flex flex-wrap gap-1">
-              {APPS.map((a) => {
-                const on = p.appAccess.includes(a.key);
-                return (
-                  <button
+            <div className="flex items-center gap-1.5">
+              <ToggleGroup
+                type="multiple"
+                variant="chip"
+                size="xs"
+                value={apps}
+                disabled={!isAdmin}
+                aria-label={`App access for ${p.name}`}
+                onValueChange={async (next) => {
+                  if (busy === "apps") return;
+                  const prev = apps;
+                  setApps(next);
+                  const fd = new FormData();
+                  fd.set("id", p.userId!);
+                  for (const k of next) fd.append("apps", k);
+                  const r = await run(actions.adminSetAppAccess, fd, "apps");
+                  if (!r.ok) setApps(prev);
+                }}
+              >
+                {APPS.map((a) => (
+                  <ToggleGroupItem
                     key={a.key}
-                    disabled={!isAdmin || busy === "apps"}
-                    onClick={() => {
-                      const cur = new Set(p.appAccess);
-                      if (cur.has(a.key)) cur.delete(a.key); else cur.add(a.key);
-                      const fd = new FormData();
-                      fd.set("id", p.userId!);
-                      for (const k of cur) fd.append("apps", k);
-                      run(adminSetAppAccess, fd, "apps");
-                    }}
-                    title={isAdmin ? `${on ? "Remove" : "Grant"} ${a.label}` : "Admin only"}
-                    className={`rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors disabled:cursor-default disabled:opacity-60 ${
-                      on ? "border-navy bg-navy text-white" : "border-border bg-surface text-ink-faint hover:border-navy/50"
-                    }`}
+                    value={a.key}
+                    title={isAdmin ? `${apps.includes(a.key) ? "Remove" : "Grant"} ${a.label}` : "Admin only"}
+                    className="data-[state=on]:border-navy data-[state=on]:bg-navy data-[state=on]:text-white"
                   >
                     {a.label}
-                  </button>
-                );
-              })}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+              {busy === "apps" && <Loader2 size={12} className="shrink-0 animate-spin text-ink-faint" aria-label="Saving app access" />}
             </div>
           )}
-        </td>
-        <td className="px-3 py-3">
+        </TableCell>
+        <TableCell className="py-3">
           {p.userId ? (p.mfa ? <span className="inline-flex items-center gap-1 text-xs text-ok"><Check size={12} aria-hidden /> On</span> : <span className="text-xs text-ink-faint">Not set</span>) : <span className="text-xs text-ink-faint">—</span>}
-        </td>
-        <td className="px-4 py-3">
+        </TableCell>
+        <TableCell className="py-3 pr-4">
           <div className="flex items-center justify-end gap-1.5">
             {editable && (
-              <Button onClick={() => setEditing((v) => !v)} title="Edit details" variant="outline" size="xs" className="gap-1">
+              <Button onClick={() => setEditing((v) => !v)} aria-expanded={editing} title="Edit details" variant="outline" size="xs" className="gap-1">
                 <Pencil size={12} aria-hidden /> Edit
               </Button>
             )}
             {p.userId && isAdmin && (
               <>
-                <Button onClick={() => setResetting((v) => !v)} variant="outline" size="xs" className="gap-1" title="Reset password">
+                <Button onClick={() => setResetting((v) => !v)} aria-expanded={resetting} variant="outline" size="xs" className="gap-1" title="Reset password">
                   <KeyRound size={12} aria-hidden /> Password
                 </Button>
                 {p.mfa && (
@@ -227,7 +257,7 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
                     description={`Reset MFA for ${p.email}? They'll set up a new authenticator at their next login and are signed out now.`}
                     confirmLabel="Reset MFA"
                     confirmVariant="default"
-                    onConfirm={() => { const fd = new FormData(); fd.set("id", p.userId!); void run(adminResetMfa, fd, "mfa"); }}
+                    onConfirm={() => { const fd = new FormData(); fd.set("id", p.userId!); void run(actions.adminResetMfa, fd, "mfa"); }}
                     triggerProps={{ disabled: busy === "mfa", variant: "outline", size: "xs", className: "gap-1 disabled:opacity-50", title: "Reset MFA" }}
                   >
                     <ShieldCheck size={12} aria-hidden /> MFA
@@ -238,7 +268,7 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
                     title="Revoke login?"
                     description={`Revoke login for ${p.email}? They stay in the directory but can no longer sign in.`}
                     confirmLabel="Revoke login"
-                    onConfirm={() => { const fd = new FormData(); fd.set("id", p.userId!); void run(adminRemoveUser, fd, "revoke"); }}
+                    onConfirm={() => { const fd = new FormData(); fd.set("id", p.userId!); void run(actions.adminRemoveUser, fd, "revoke"); }}
                     triggerProps={{ disabled: busy === "revoke", variant: "destructive", size: "xs", className: "gap-1 disabled:opacity-50", title: "Revoke login", "aria-label": "Revoke login" }}
                   >
                     <UserMinus size={12} aria-hidden />
@@ -247,13 +277,13 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
               </>
             )}
           </div>
-        </td>
-      </tr>
+        </TableCell>
+      </TableRow>
 
       {editing && editable && (
-        <tr className="border-b border-border/60 bg-surface-2/30">
-          <td colSpan={7} className="px-4 py-3">
-            <form action={upsertPersonDetails} className="flex flex-wrap items-end gap-2" onSubmit={() => setEditing(false)}>
+        <TableRow className="bg-surface-2/40 shadow-[inset_3px_0_0_var(--color-navy)]">
+          <TableCell colSpan={7} className="px-4 py-3">
+            <form action={async (fd) => { await actions.upsertPersonDetails(fd); }} className="flex flex-wrap items-end gap-2" onSubmit={() => setEditing(false)}>
               {p.rosterId && <input type="hidden" name="rosterId" value={p.rosterId} />}
               {p.email && <input type="hidden" name="email" value={p.email} />}
               <Labeled label="Name">
@@ -271,18 +301,18 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
               <Button type="button" onClick={() => setEditing(false)} variant="outline" size="sm" className="py-2">Cancel</Button>
               {!p.email && <span className="text-[11px] text-ink-faint">Tip: add an email to enable a login later.</span>}
             </form>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       )}
 
       {granting && p.email && isAdmin && (
-        <tr className="border-b border-border/60 bg-surface-2/30">
-          <td colSpan={7} className="px-4 py-3">
+        <TableRow className="bg-surface-2/40 shadow-[inset_3px_0_0_var(--color-navy)]">
+          <TableCell colSpan={7} className="px-4 py-3">
             <form
               action={async (fd) => {
                 fd.set("email", p.email!);
                 fd.set("name", p.name);
-                const r = await run(adminCreateUser, fd, "grant");
+                const r = await run(actions.adminCreateUser, fd, "grant");
                 if (r.ok) { setGranting(false); setPw(""); }
               }}
               className="flex flex-wrap items-center gap-2"
@@ -291,14 +321,23 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
               <NativeSelect name="role" defaultValue="editor" title="Platform role">
                 {ROLES.map((r) => <option key={r.v} value={r.v}>{r.label}</option>)}
               </NativeSelect>
-              <span className="flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-1.5">
-                <span className="text-[11px] font-medium text-ink-faint">Apps:</span>
+              <fieldset className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5">
+                <legend className="sr-only">Apps</legend>
+                <span className="text-[11px] font-medium text-ink-faint" aria-hidden>
+                  Apps <span className="tabular">{grantApps.length}/{APPS.length}</span>
+                </span>
                 {APPS.map((a) => (
-                  <Label key={a.key} className="flex items-center gap-1 font-normal">
-                    <input type="checkbox" name="apps" value={a.key} defaultChecked className="accent-navy" /> {a.label}
+                  <Label key={a.key} className="flex cursor-pointer items-center gap-1.5 rounded px-1 py-0.5 font-normal text-ink hover:bg-surface-2">
+                    <Checkbox
+                      name="apps"
+                      value={a.key}
+                      checked={grantApps.includes(a.key)}
+                      onCheckedChange={(c) => setGrantApps((cur) => (c === true ? [...cur, a.key] : cur.filter((k) => k !== a.key)))}
+                    />
+                    {a.label}
                   </Label>
                 ))}
-              </span>
+              </fieldset>
               <Input name="password" value={pw} onChange={(e) => setPw(e.target.value)} minLength={12} placeholder="password (blank = email them one)" className="w-56" />
               <Button type="button" onClick={() => setPw(genPassword())} variant="outline" size="bare" className="px-2 py-1.5" title="Generate" aria-label="Generate"><RefreshCw size={13} aria-hidden /></Button>
               <Button type="submit" disabled={busy === "grant"} size="sm">
@@ -306,17 +345,17 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
               </Button>
               <span className="text-[11px] text-ink-faint">Blank password: their login details are emailed automatically. They set up MFA + change it on first login.</span>
             </form>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       )}
 
       {resetting && p.userId && isAdmin && (
-        <tr className="border-b border-border/60 bg-surface-2/30">
-          <td colSpan={7} className="px-4 py-3">
+        <TableRow className="bg-surface-2/40 shadow-[inset_3px_0_0_var(--color-navy)]">
+          <TableCell colSpan={7} className="px-4 py-3">
             <form
               action={async (fd) => {
                 fd.set("id", p.userId!);
-                const r = await run(adminSetPassword, fd, "pw");
+                const r = await run(actions.adminSetPassword, fd, "pw");
                 if (r.ok) { setResetting(false); setPw(""); }
               }}
               className="flex flex-wrap items-center gap-2"
@@ -329,8 +368,8 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
               </Button>
               <span className="text-[11px] text-ink-faint">Signs out their current sessions.</span>
             </form>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       )}
     </>
   );

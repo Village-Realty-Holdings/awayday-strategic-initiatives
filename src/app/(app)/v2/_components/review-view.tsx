@@ -29,7 +29,24 @@ import { LtmEbitdaChart } from "./review-charts";
 import { SiCard } from "./si-card";
 import { SubHeading } from "./stat";
 import { PillarLabelBadge } from "./status";
-import { TimelineGroups } from "./timeline-groups";
+import { SummaryGantt } from "./summary-gantt";
+import { getActiveV2Plan } from "@/lib/v2-data";
+
+type LivePlan = NonNullable<Awaited<ReturnType<typeof getActiveV2Plan>>>;
+
+function liveTone(rag: string): "ahead" | "on_track" | "watch" | "behind" {
+  if (rag === "GREEN") return "ahead";
+  if (rag === "RED") return "behind";
+  if (rag === "AMBER") return "watch";
+  return "on_track";
+}
+
+function liveLabel(rag: string): string {
+  if (rag === "GREEN") return "On track";
+  if (rag === "RED") return "Behind";
+  if (rag === "AMBER") return "Watch";
+  return "No data";
+}
 
 function SoWhatList({ items }: { items: ReviewSoWhat[] }) {
   return (
@@ -63,29 +80,6 @@ function FinanceTableView({ table }: { table: FinanceTable }) {
         }))}
       />
     </div>
-  );
-}
-
-function PillarCard({ area, pillar }: { area: MockArea; pillar: ReviewPillar }) {
-  return (
-    <a href={`#pillar-${area.code}`} className="group block min-w-0 rounded-xl">
-    <Card className="h-full gap-2 p-4 transition-colors group-hover:border-navy/40">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
-          {area.number} · {area.name}
-        </p>
-        <PillarLabelBadge label={pillar.label} tone={pillar.tone} className="whitespace-normal text-right" />
-      </div>
-      <p className="text-[11px] text-ink-muted">
-        {names(area.eltOwnerIds)} · {names(area.siLeadIds)}
-      </p>
-      <div>
-        <p className="text-[11px] text-ink-faint">{pillar.measure}</p>
-        <p className="tabular text-2xl font-semibold tracking-tight text-ink">{pillar.headline}</p>
-      </div>
-      <p className="text-[11px] leading-4 text-ink-muted">{pillar.cardSub}</p>
-    </Card>
-    </a>
   );
 }
 
@@ -172,7 +166,7 @@ function PillarSection({ area, pillar, period, canEdit, detail }: { area: MockAr
   );
 }
 
-export function ReviewView({ period, canEdit }: { period: ReviewPeriod; canEdit: boolean }) {
+export function ReviewView({ period, canEdit, livePlan }: { period: ReviewPeriod; canEdit: boolean; livePlan?: LivePlan | null }) {
   const pillars = pillarsFor(period.id);
   const byCode = new Map(pillars.map((p) => [p.areaCode, p]));
   const fivePillars = AREAS.filter((a) => a.number).sort((a, b) => (a.number ?? 0) - (b.number ?? 0));
@@ -182,13 +176,51 @@ export function ReviewView({ period, canEdit }: { period: ReviewPeriod; canEdit:
   const fin = financialsFor(period.id);
   const milestones = upcomingMilestones(60);
   const detail = hasDetail(period.id);
+  const liveValueDrivers = livePlan?.strategicAreas.filter((area) => area.kind === "VALUE_DRIVER").slice(0, 5) ?? [];
+  const liveEnablers = livePlan?.strategicAreas.filter((area) => area.kind === "ENABLER").slice(0, 5) ?? [];
+  const housePillars = liveValueDrivers.length > 0
+    ? liveValueDrivers.map((area, index) => {
+        const kpi = area.kpis[0];
+        const value = kpi ? kpi.overrides[0]?.value ?? kpi.observations[0]?.value ?? null : null;
+        const rag = kpi ? (kpi.observations[0]?.quality === "STALE" ? "AMBER" : value ? "GREEN" : "GREY") : "GREY";
+        return {
+          code: area.code,
+          name: area.name,
+          number: index + 1,
+          measure: kpi?.name ?? "KPI not configured",
+          headline: value ?? "—",
+          cardSub: `Target ${kpi?.target ?? area.goal ?? "not set"}`,
+          label: liveLabel(rag),
+          tone: liveTone(rag),
+          href: "#pillars",
+          initiatives: area.initiatives.map((initiative) => ({ id: initiative.id, name: initiative.name })),
+        };
+      })
+    : fivePillars.flatMap((area) => {
+        const pillar = byCode.get(area.code);
+        return pillar
+          ? [{ code: area.code, name: area.name, number: area.number ?? 0, measure: pillar.measure, headline: pillar.headline, cardSub: pillar.cardSub, label: pillar.label, tone: pillar.tone, href: `#pillar-${area.code}`, initiatives: sisForArea(area.code).map((si) => ({ id: si.code, name: si.name })) }]
+          : [];
+      });
+  const houseEnablers = liveEnablers.length > 0
+    ? liveEnablers.map((area) => ({
+        code: area.code,
+        name: area.name,
+        owner: area.owner ?? "Owner not assigned",
+        href: "#enablers",
+        initiatives: area.initiatives.map((initiative) => ({ id: initiative.id, name: initiative.name })),
+      }))
+    : [guest, ...enablers].flatMap((area) => {
+        const pillar = byCode.get(area.code);
+        return pillar ? [{ code: area.code, name: area.name, owner: `${names(area.eltOwnerIds)} · ${names(area.siLeadIds)}`, href: `#${area.code === "GUEST" ? `pillar-${area.code}` : `enabler-${area.code}`}`, initiatives: sisForArea(area.code).map((si) => ({ id: si.code, name: si.name })) }] : [];
+      });
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-8">
       <V2Header
         eyebrow="Awayday · Monthly Strategy Review"
         title={`${period.label} Strategy Review`}
-        description="Where each pillar stands against the 2026 goal and the FY27 target, the so-whats from the month, and one card per SI: what it is, what it is going for, the upcoming milestones, and the two things each owner brings to the meeting: latest progress and what next."
+        description="The few things ELT needs to know now: where the house stands, which SIs need attention, and what decisions or updates are next."
         actions={<PeriodSwitcher current={period.id} />}
       />
 
@@ -200,13 +232,12 @@ export function ReviewView({ period, canEdit }: { period: ReviewPeriod; canEdit:
         <PublishBar initialStatus={period.status} canEdit={canEdit} editHref={`/v2/review/${period.id}/edit`} />
       </div>
 
-      <nav aria-label="On this page" className="-mt-4 flex gap-1 overflow-x-auto pb-1 text-xs">
+      <nav aria-label="On this page" className="sticky top-0 z-10 -mx-2 flex gap-1 overflow-x-auto border-y border-border bg-bg/95 px-2 py-2 text-xs backdrop-blur">
         {[
-          ["#summary", "Summary"],
-          ["#pillars", "Pillars"],
-          ["#enablers", "Enablers"],
+          ["#summary", "At a glance"],
+          ["#pillars", "SIs by pillar"],
           ["#milestones", "Next 60 days"],
-          ["#asks", "Asks by leader"],
+          ["#asks", "Owner asks"],
           ["#sources", "Sources"],
         ].map(([href, label]) => (
           <a key={href} href={href} className="whitespace-nowrap rounded-md px-3 py-1.5 text-ink-muted hover:bg-surface-2 hover:text-ink">
@@ -217,31 +248,37 @@ export function ReviewView({ period, canEdit }: { period: ReviewPeriod; canEdit:
 
       <ReadFirstBanner />
 
-      <section className="rounded-xl border border-navy/20 bg-navy px-6 py-5 text-white">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold">Mission</p>
-        <h2 className="mt-1 text-xl font-semibold tracking-tight">{MOCK_HEADER.mission}</h2>
-        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm text-white/80">
-          <span>{MOCK_HEADER.target}</span>
-          <span>FY27 budget {MOCK_HEADER.fy27Budget}</span>
-          <span>BHAG {MOCK_HEADER.bhag}</span>
+      <section className="strategy-house">
+        <div className="strategy-house__roof">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] opacity-80">Mission · {MOCK_HEADER.mission}</p>
+          <p className="mt-1 text-lg font-semibold">{MOCK_HEADER.target} · FY27 budget {MOCK_HEADER.fy27Budget} · BHAG {MOCK_HEADER.bhag}</p>
         </div>
-        <p className="mt-3 text-xs text-white/60">{MOCK_HEADER.values.join(" · ")}</p>
-      </section>
-
-      <section aria-label="Pillar scorecard">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          {fivePillars.map((a) => {
-            const p = byCode.get(a.code);
-            return p ? <PillarCard key={a.code} area={a} pillar={p} /> : null;
-          })}
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {[...enablers, guest].map((a) => (
-            <a key={a.code} href={`#${a.code === "GUEST" ? `pillar-${a.code}` : `enabler-${a.code}`}`} className="rounded-lg border border-border bg-surface px-3 py-2 text-xs text-ink-muted hover:border-navy/40">
-              <span className="font-semibold text-ink">{a.name}</span> {names(a.eltOwnerIds)} · {names(a.siLeadIds)}
+        <div className="strategy-house__pillars">
+          {housePillars.map((a) => (
+            <a key={a.code} href={a.href} className={`strategy-house__pillar strategy-house__pillar--${a.tone}`}>
+              <span className="text-xs font-semibold text-ink">{a.number} · {a.name}</span>
+              <span className="mt-1 text-[11px] text-ink-muted">{a.measure}</span>
+              <span className="tabular mt-1 text-xl font-semibold text-ink">{a.headline}</span>
+              <span className="mt-1 text-[11px] leading-4 text-ink-muted">{a.cardSub}</span>
+              <PillarLabelBadge label={a.label} tone={a.tone} className="mt-2 w-fit" />
+              <span className="strategy-house__si-list">
+                {a.initiatives.map((si) => <span key={si.id}>{si.name}</span>)}
+              </span>
             </a>
           ))}
         </div>
+        <div className="strategy-house__enablers">
+          {houseEnablers.map((a) => (
+            <a key={a.code} href={a.href}>
+              <span className="font-semibold text-ink">{a.name}</span>
+              <span className="block text-[11px] text-ink-muted">{a.owner}</span>
+              <span className="strategy-house__si-list">
+                {a.initiatives.map((si) => <span key={si.id}>{si.name}</span>)}
+              </span>
+            </a>
+          ))}
+        </div>
+        <div className="strategy-house__values">{MOCK_HEADER.values.join(" · ")}</div>
       </section>
 
       <section id="summary" className="scroll-mt-20">
@@ -399,7 +436,7 @@ export function ReviewView({ period, canEdit }: { period: ReviewPeriod; canEdit:
       <section id="milestones" className="scroll-mt-20">
         <SectionTitle aside={<Link href="/v2/timeline" className="text-navy hover:underline">Open full timeline</Link>}>Next 60 days</SectionTitle>
         <p className="mb-3 text-xs text-ink-muted">Milestones the ELT should hold. Amber dates have passed and need a status.</p>
-        <TimelineGroups milestones={milestones} />
+        <SummaryGantt milestones={milestones} />
       </section>
 
       <section id="asks" className="scroll-mt-20">
@@ -447,4 +484,3 @@ export function ReviewView({ period, canEdit }: { period: ReviewPeriod; canEdit:
     </div>
   );
 }
-
