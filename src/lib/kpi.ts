@@ -36,6 +36,8 @@ export type ResolvedKpi = {
   reportingScope?: string | null;
   comparisonBasis?: string | null;
   timeBasis?: string | null;
+  entityScope?: string | null;
+  entityId?: string | null;
   revision?: number | null;
   observedAt?: Date | null;
 };
@@ -49,7 +51,17 @@ export type KpiObservationFilter = {
   reportingScope?: string | null;
   comparisonBasis?: string | null;
   timeBasis?: string | null;
+  entityScope?: string | null;
+  entityId?: string | null;
   reportingPeriod?: string | null;
+  /**
+   * Refuse to *guess* a time basis. When more than one time basis (MONTHLY / YTD / LTM)
+   * exists for the requested period and this is set, `resolveKpi` throws
+   * `AmbiguousTimeBasisError` instead of applying `DEFAULT_TIME_BASIS`. Use it wherever a
+   * screen must show a basis the caller actually named — a tile whose label reads "YTD"
+   * must never be filled with the monthly figure because the default happened to apply.
+   */
+  requireExplicitTimeBasis?: boolean;
 };
 
 /** The row shape the pure selector needs (a structural subset of KpiObservation). */
@@ -64,6 +76,8 @@ export type KpiObservationRecord = {
   reportingScope?: string | null;
   comparisonBasis?: string | null;
   timeBasis?: string | null;
+  entityScope?: string | null;
+  entityId?: string | null;
   authorityRank?: number | null;
 };
 
@@ -125,6 +139,8 @@ export function isCurrentObservation(
   }
   if (filter.comparisonBasis != null && (observation.comparisonBasis ?? null) !== filter.comparisonBasis) return false;
   if (filter.timeBasis != null && (observation.timeBasis ?? null) !== filter.timeBasis) return false;
+  if (filter.entityScope != null && (observation.entityScope ?? null) !== filter.entityScope) return false;
+  if (filter.entityId != null && (observation.entityId ?? null) !== filter.entityId) return false;
   if (filter.reportingPeriod != null && observation.reportingPeriod !== filter.reportingPeriod) return false;
 
   return true;
@@ -140,12 +156,20 @@ export function observationIdentity(observation: {
   comparisonBasis?: string | null;
   timeBasis?: string | null;
   reportingScope?: string | null;
+  entityScope?: string | null;
+  entityId?: string | null;
 }): string {
+  // Mirrors "KpiObservation_one_approved_per_identity_idx" exactly. Every column the index
+  // canonicalises with COALESCE(..., '') is here, including the entity: a shop-level figure
+  // and the consolidated figure for the same metric and period are different facts, and
+  // resolving one must never present the other.
   return [
     observation.reportingPeriod,
     observation.comparisonBasis ?? "",
     observation.timeBasis ?? "",
     observation.reportingScope ?? "",
+    observation.entityScope ?? "",
+    observation.entityId ?? "",
   ].join("\u0000");
 }
 
@@ -218,13 +242,59 @@ function scopeRank(value: string | null | undefined): number {
   return value === CONSOLIDATED_REPORTING_SCOPE ? 0 : 1;
 }
 
+/**
+ * Consolidated facts sort first, then the individual entities by their own identifier, so a
+ * series listing several entities is stable rather than dependent on row order.
+ */
+function entityRank(observation: KpiObservationRecord): [number, string] {
+  const scope = observation.entityScope ?? "";
+  const scopeOrder = scope === "CONSOLIDATED" ? 0 : scope === "" ? 1 : 2;
+  return [scopeOrder, observation.entityId ?? ""];
+}
+
 export function compareIdentities(a: KpiObservationRecord, b: KpiObservationRecord): number {
+  const [aScope, aId] = entityRank(a);
+  const [bScope, bId] = entityRank(b);
   return (
     comparisonBasisRank(a.comparisonBasis) - comparisonBasisRank(b.comparisonBasis) ||
     timeBasisRank(a.timeBasis) - timeBasisRank(b.timeBasis) ||
     scopeRank(a.reportingScope) - scopeRank(b.reportingScope) ||
+    aScope - bScope ||
+    (aId === bId ? 0 : aId < bId ? -1 : 1) ||
     compareObservations(a, b)
   );
+}
+
+/**
+ * The time basis a caller receives when it does not name one.
+ *
+ * YTD is the explicit default: it is the basis Finance publishes headline figures on, and it
+ * is what every existing consumer already receives for `total_revenue` on staging. A caller
+ * that means *the month* must ask for `{ timeBasis: "MONTHLY" }` — and now that September
+ * ACTUAL/MONTHLY and ACTUAL/YTD coexist, that distinction is the one that must never be
+ * inferred. Metrics that only publish a monthly figure (ratios such as ADR or occupancy)
+ * fall back to the strongest available basis, so nothing that resolves today changes.
+ */
+export const DEFAULT_TIME_BASIS = "YTD";
+
+/** Order in which coexisting time bases are presented, and the fallback when the default is absent. */
+export function timeBasisOrder(filter: KpiObservationFilter = {}): string[] {
+  if (filter.timeBasis != null) return [filter.timeBasis];
+  return [DEFAULT_TIME_BASIS, ...TIME_BASIS_PRECEDENCE.filter((basis) => basis !== DEFAULT_TIME_BASIS)];
+}
+
+/** Raised when a caller demanded an unambiguous time basis and none was named. */
+export class AmbiguousTimeBasisError extends Error {
+  constructor(
+    readonly metricKey: string,
+    readonly timeBases: readonly string[],
+  ) {
+    super(
+      `${metricKey} has ${timeBases.length} time bases for this period (${timeBases.join(", ")}); ` +
+        "name one with { timeBasis } — a single value cannot be chosen without changing what the figure means",
+    );
+    this.name = "AmbiguousTimeBasisError";
+  }
 }
 
 /**
@@ -282,6 +352,8 @@ function buildObservationWhere(kpiId: string, filter: KpiObservationFilter) {
     ...(filter.reportingScope != null ? { reportingScope: CONSOLIDATED_REPORTING_SCOPE } : {}),
     ...(filter.comparisonBasis != null ? { comparisonBasis: filter.comparisonBasis } : {}),
     ...(filter.timeBasis != null ? { timeBasis: filter.timeBasis } : {}),
+    ...(filter.entityScope != null ? { entityScope: filter.entityScope } : {}),
+    ...(filter.entityId != null ? { entityId: filter.entityId } : {}),
     ...(filter.reportingPeriod != null ? { reportingPeriod: filter.reportingPeriod } : {}),
   };
 }
@@ -369,6 +441,8 @@ function toResolvedKpi(
     reportingScope: observation.reportingScope ?? null,
     comparisonBasis: observation.comparisonBasis ?? null,
     timeBasis: observation.timeBasis ?? null,
+    entityScope: observation.entityScope ?? null,
+    entityId: observation.entityId ?? null,
     revision: observation.revision ?? null,
     observedAt: observation.observedAt ?? null,
   };
@@ -405,10 +479,38 @@ export async function resolveKpi(
     };
   }
 
-  const current = selectCurrentObservations(subject.observations, filter)[0];
-  if (!current) return unavailable(definition);
+  const values = selectCurrentObservations(subject.observations, filter);
+  if (values.length === 0) return unavailable(definition);
 
-  return toResolvedKpi(definition, current, false);
+  if (filter.timeBasis == null && values.length > 1) {
+    const timeBases = distinctTimeBases(values);
+    if (timeBases.length > 1 && filter.requireExplicitTimeBasis) {
+      // A caller that asked not to be guessed at gets an error, not a plausible number.
+      throw new AmbiguousTimeBasisError(metricKey, timeBases);
+    }
+  }
+
+  return toResolvedKpi(definition, selectDefaultObservation(values), false);
+}
+
+function distinctTimeBases(values: readonly KpiObservationRecord[]): string[] {
+  const seen = new Set<string>();
+  for (const value of values) seen.add(value.timeBasis ?? "");
+  return [...seen].filter((basis) => basis !== "").sort();
+}
+
+/**
+ * The one value a caller that named no time basis receives: the explicit default when the
+ * period carries it, otherwise the strongest available basis (see `timeBasisOrder`). Never
+ * a silent merge of two bases — the caller is told which one it got by `timeBasis`.
+ */
+export function selectDefaultObservation(
+  values: readonly KpiObservationRecord[],
+  filter: KpiObservationFilter = {},
+): KpiObservationRecord {
+  if (values.length === 0) throw new Error("selectDefaultObservation requires at least one value");
+  const [preferred] = timeBasisOrder(filter);
+  return values.find((value) => (value.timeBasis ?? "") === preferred) ?? values[0];
 }
 
 /**

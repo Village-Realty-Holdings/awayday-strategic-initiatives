@@ -19,11 +19,15 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import {
+  AmbiguousTimeBasisError,
   CONSOLIDATED_REPORTING_SCOPE,
+  DEFAULT_TIME_BASIS,
   comparePeriods,
+  observationIdentity,
   resolveKpi,
   resolveKpiSeries,
   selectCurrentObservations,
+  selectDefaultObservation,
   type KpiObservationRecord,
 } from "./kpi";
 
@@ -268,5 +272,133 @@ describe("resolveKpi — missing definition", () => {
     definitionFindUnique.mockResolvedValue(null);
 
     expect(await resolveKpi("nope")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------------------
+// Observation identity — the entity is part of the fact.
+//
+// The staging incident on 2026-10-23 revised an approved ACTUAL/YTD revenue into a monthly
+// prior-year figure because the resolver (and the table's unique key) identified an
+// observation by too few columns. The entity is the same class of mistake one level down: a
+// shop's figure and the consolidated figure for the same metric, period and basis are
+// different facts, and a resolver that keys only on basis/scope lets one silently replace the
+// other — and lets the second one vanish from a series.
+// ---------------------------------------------------------------------------------------
+describe("resolveKpi — entity identity", () => {
+  const consolidated = () =>
+    observation({ value: "328545736.74", timeBasis: "YTD", entityScope: "CONSOLIDATED", entityId: "AWAYDAY_CONSOLIDATED" });
+  const shopA = () =>
+    observation({ value: "1200.10", timeBasis: "YTD", entityScope: "SHOP", entityId: "shop-a" });
+  const shopB = () =>
+    observation({ value: "980.55", timeBasis: "YTD", entityScope: "SHOP", entityId: "shop-b" });
+
+  it("treats two entities with the same basis as different identities", () => {
+    const identityOf = (row: KpiObservationRecord) => observationIdentity(row);
+    expect(identityOf(consolidated())).not.toBe(identityOf(shopA()));
+    expect(identityOf(shopA())).not.toBe(identityOf(shopB()));
+  });
+
+  it("does not collapse two entities onto one row when selecting", () => {
+    const winners = selectCurrentObservations([consolidated(), shopA(), shopB()]);
+    expect(winners).toHaveLength(3);
+    expect(winners.map((row) => row.entityId)).toEqual([
+      "AWAYDAY_CONSOLIDATED",
+      "shop-a",
+      "shop-b",
+    ]);
+  });
+
+  it("returns every entity in a series and one entity when asked for it", async () => {
+    givenRows([consolidated(), shopA(), shopB()]);
+
+    const series = await resolveKpiSeries("revenue");
+    expect(series?.values).toHaveLength(3);
+    expect(new Set(series?.values.map((value) => value.entityId))).toEqual(
+      new Set(["AWAYDAY_CONSOLIDATED", "shop-a", "shop-b"]),
+    );
+
+    const one = await resolveKpi("revenue", { entityId: "shop-b" });
+    expect(one?.value).toBe("980.55");
+    expect(one?.entityScope).toBe("SHOP");
+  });
+
+  it("prefers the consolidated entity when no entity is named", async () => {
+    givenRows([shopA(), consolidated()]);
+    const resolved = await resolveKpi("revenue");
+    expect(resolved?.entityId).toBe("AWAYDAY_CONSOLIDATED");
+    expect(resolved?.value).toBe("328545736.74");
+  });
+});
+
+// ---------------------------------------------------------------------------------------
+// Monthly and YTD must never be confused.
+//
+// September 2026 consolidated revenue is published twice on purpose: ACTUAL/MONTHLY
+// 31 415 017.89 (PF REV!E20) and ACTUAL/YTD 328 545 736.74 (PF REV!O20). They are two facts
+// differing by a factor of ten, so "whichever row came back first" is not an acceptable way
+// to choose between them.
+// ---------------------------------------------------------------------------------------
+describe("resolveKpi — explicit time-basis contract", () => {
+  const monthly = () => observation({ value: "31415017.89", timeBasis: "MONTHLY" });
+  const ytd = () => observation({ value: "328545736.74", timeBasis: "YTD" });
+
+  it("names YTD as the documented default", () => {
+    expect(DEFAULT_TIME_BASIS).toBe("YTD");
+  });
+
+  it("returns the YTD fact by default when monthly and YTD coexist", async () => {
+    givenRows([monthly(), ytd()]);
+    const resolved = await resolveKpi("revenue");
+    expect(resolved).toMatchObject({ value: "328545736.74", timeBasis: "YTD" });
+  });
+
+  it("returns the monthly fact when the caller asks for it", async () => {
+    givenRows([monthly(), ytd()]);
+    const resolved = await resolveKpi("revenue", { timeBasis: "MONTHLY" });
+    expect(resolved).toMatchObject({ value: "31415017.89", timeBasis: "MONTHLY" });
+  });
+
+  it("exposes both, side by side, in the series", async () => {
+    givenRows([monthly(), ytd()]);
+    const series = await resolveKpiSeries("revenue");
+    expect(series?.values.map((value) => [value.timeBasis, value.value])).toEqual([
+      ["MONTHLY", "31415017.89"],
+      ["YTD", "328545736.74"],
+    ]);
+  });
+
+  it("falls back to the only basis that exists", async () => {
+    givenRows([observation({ value: "225.76", timeBasis: "MONTHLY" })]);
+    const resolved = await resolveKpi("revenue");
+    expect(resolved).toMatchObject({ value: "225.76", timeBasis: "MONTHLY" });
+  });
+
+  it("refuses to guess when the caller demanded an explicit basis", async () => {
+    givenRows([monthly(), ytd()]);
+    await expect(resolveKpi("revenue", { requireExplicitTimeBasis: true })).rejects.toThrow(
+      AmbiguousTimeBasisError,
+    );
+  });
+
+  it("accepts an explicit basis even in strict mode", async () => {
+    givenRows([monthly(), ytd()]);
+    const resolved = await resolveKpi("revenue", {
+      timeBasis: "MONTHLY",
+      requireExplicitTimeBasis: true,
+    });
+    expect(resolved?.value).toBe("31415017.89");
+  });
+
+  it("does not raise in strict mode when only one basis exists", async () => {
+    givenRows([ytd()]);
+    const resolved = await resolveKpi("revenue", { requireExplicitTimeBasis: true });
+    expect(resolved?.value).toBe("328545736.74");
+  });
+
+  it("picks the documented default from the pure selector too", () => {
+    const values = selectCurrentObservations([monthly(), ytd()]);
+    expect(selectDefaultObservation(values).timeBasis).toBe("YTD");
+    expect(selectDefaultObservation(values, { timeBasis: "MONTHLY" }).value).toBe("31415017.89");
   });
 });
