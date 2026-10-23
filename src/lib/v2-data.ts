@@ -63,10 +63,6 @@ export async function getActiveV2Plan() {
               overrides: { where: { active: true }, orderBy: { createdAt: "desc" }, take: 1 },
             },
           },
-          belowLineProjects: {
-            orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
-            include: { initiative: { select: { id: true, code: true, name: true } } },
-          },
         },
       },
     },

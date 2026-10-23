@@ -112,7 +112,8 @@ model Initiative {
   milestones         InitiativeMilestone[]
   actionItems        InitiativeActionItem[]
   eltRequests        InitiativeEltRequest[]
-  updates          InitiativeUpdate[]
+  updates            InitiativeUpdate[]
+  belowLineProjects  BelowLineProject[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
@@ -428,12 +429,34 @@ model StrategicArea {
   owner        String?
   order        Int               @default(0)
   initiatives Initiative[]
+  belowLineProjects BelowLineProject[]
   kpis         KpiDefinition[]
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
   @@unique([planVersionId, code])
   @@index([planVersionId, kind, order])
+}
+
+model BelowLineProject {
+  id              String        @id @default(cuid())
+  strategicAreaId String
+  strategicArea   StrategicArea @relation(fields: [strategicAreaId], references: [id], onDelete: Cascade)
+  initiativeId    String?
+  initiative      Initiative?   @relation(fields: [initiativeId], references: [id], onDelete: SetNull)
+  name            String
+  description     String?       @db.Text
+  owner           String?
+  team            String?
+  status          String        @default("NOT_STARTED")
+  dueAt           DateTime?
+  createdBy       String?
+  updatedBy       String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([strategicAreaId, status])
+  @@index([initiativeId])
 }
 
 model InitiativeUpdate {

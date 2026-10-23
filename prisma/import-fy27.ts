@@ -72,6 +72,25 @@ async function main() {
         },
       });
       areas.set(area.code, row.id);
+
+      if (area.kpiName?.trim()) {
+        const metricKey = `${FY27_PLAN.code}:${area.code}`;
+        await tx.kpiDefinition.upsert({
+          where: { metricKey },
+          update: {
+            name: area.kpiName,
+            target: area.kpiTarget ?? null,
+            strategicAreaId: row.id,
+          },
+          create: {
+            metricKey,
+            name: area.kpiName,
+            target: area.kpiTarget ?? null,
+            sourceType: "MANUAL",
+            strategicAreaId: row.id,
+          },
+        });
+      }
     }
 
     const sourceKeys = new Set(FY27_PLAN.initiatives.map((item) => item.sourceKey));
