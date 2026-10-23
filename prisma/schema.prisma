@@ -465,6 +465,7 @@ model KpiDefinition {
   strategicArea   StrategicArea?  @relation(fields: [strategicAreaId], references: [id], onDelete: SetNull)
   observations    KpiObservation[]
   overrides       KpiOverride[]
+  commentary      KpiCommentary[]
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 }
@@ -480,7 +481,100 @@ model KpiObservation {
   quality        String        @default("VALID") // VALID | STALE | UNAVAILABLE | INVALID
   sourceRef      String?
 
+  // Reporting perimeter the value belongs to. ADI publishes company-wide consolidated
+  // figures only ('AWAYDAY_CONSOLIDATED'); null means "legacy row, perimeter unknown".
+  reportingScope        String?
+  comparisonBasis       String? // ACTUAL | BUDGET | FORECAST | PRIOR_YEAR | LTM | VARIANCE
+  timeBasis             String? // MONTHLY | YTD | LTM | POINT_IN_TIME
+  entityScope           String? // CONSOLIDATED | REGION | SHOP | OTHER
+  entityId              String?
+
+  // Provenance: which document, at which version, produced this value.
+  sourceDocumentId      String?
+  sourceDocumentName    String?
+  sourceDocumentVersion String?
+  sourceContentHash     String?
+  sourceCategory        String?
+  sourceLocation        String?
+  evidence              String? @db.Text
+  extractionRunId       String?
+  authorityRank         Int?
+  valueDerivation       String? // REPORTED | DERIVED | UNKNOWN
+
+  // APPROVED rows are current facts; SUPERSEDED rows are retained history.
+  publicationState      String    @default("APPROVED")
+  revision              Int       @default(1)
+  supersededAt          DateTime?
+
+  revisions             KpiObservationRevision[]
+
+  // Uniqueness here is expressed in SQL, not as a Prisma attribute, for two reasons.
+  //
+  // 1. One source document legitimately carries several facts for the same metric and
+  //    period — ACTUAL/MONTHLY, ACTUAL/YTD, BUDGET/MONTHLY, PRIOR_YEAR/MONTHLY — so the row
+  //    key must include comparisonBasis, timeBasis, reportingScope, entityScope and
+  //    entityId. A `@@unique([kpiId, reportingPeriod, sourceRef])` (2026-10-23 incident)
+  //    made those four collapse onto one row and let a publication revise an approved
+  //    YTD actual into a monthly prior-year figure.
+  // 2. Those columns are nullable, and PostgreSQL treats NULLs as distinct in a unique
+  //    index, so a plain composite index would still permit duplicate approved facts.
+  //    The migration canonicalises every nullable identity column with COALESCE(...,'')
+  //    inside the index expression, which Prisma cannot express as an attribute.
+  //
+  // Authoritative definitions:
+  //   KpiObservation_row_identity_key          — unique, all eight identity columns
+  //   KpiObservation_one_approved_per_identity_idx — unique, logical identity, APPROVED only
+  // See prisma/migrations/20261023140000_kpi_observation_identity/migration.sql.
+  @@index([kpiId, reportingPeriod, sourceRef])
   @@index([kpiId, observedAt])
+  @@index([reportingPeriod, reportingScope, publicationState])
+}
+
+// Append-only history. Every value ever approved for an observation is retained with the
+// document version and extraction run that produced it, so a revision never destroys the
+// figure it replaced. Draft or failed extractions never reach KpiObservation.
+model KpiObservationRevision {
+  id                    String         @id @default(cuid())
+  observationId         String
+  observation           KpiObservation @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  revision              Int
+  value                 String
+  unit                  String?
+  reportingScope        String
+  comparisonBasis       String?
+  timeBasis             String?
+  entityId              String?
+  publicationState      String         @default("APPROVED")
+  sourceDocumentId      String
+  sourceDocumentVersion String?
+  sourceContentHash     String?
+  sourceCategory        String?
+  sourceLocation        String?
+  evidence              String?        @db.Text
+  extractionRunId       String?
+  authorityRank         Int?
+  valueDerivation       String?
+  observedAt            DateTime
+  recordedAt            DateTime       @default(now())
+
+  @@unique([observationId, revision])
+  @@index([sourceDocumentId])
+}
+
+// AI commentary lives apart from authoritative facts so a narrative can never be mistaken
+// for a published KPI value.
+model KpiCommentary {
+  id              String        @id @default(cuid())
+  kpiId           String
+  kpi             KpiDefinition @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  reportingPeriod String
+  body            String        @db.Text
+  modelId         String?
+  promptVersion   String?
+  extractionRunId String?
+  createdAt       DateTime      @default(now())
+
+  @@index([kpiId, reportingPeriod])
 }
 
 model KpiOverride {
