@@ -26,7 +26,6 @@ const V2_NAV: Item[] = [
   { label: "Personal inbox", href: "/v2/inbox", icon: Target },
   { label: "Below the line", href: "/v2/below-the-line", icon: Layers },
   { label: "Data & definitions", href: "/v2/data", icon: Compass },
-  { label: "Shop-level plans", href: "/v2/shop-plans", icon: FileText },
 ];
 
 export function SidebarNav() {

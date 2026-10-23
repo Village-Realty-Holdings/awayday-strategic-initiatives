@@ -8,7 +8,6 @@ const TABS = [
   { label: "Personal inbox", href: "/v2/inbox" },
   { label: "Below the line", href: "/v2/below-the-line" },
   { label: "Data & definitions", href: "/v2/data" },
-  { label: "Shop-level plans", href: "/v2/shop-plans" },
 ];
 
 export function V2Tabs() {
