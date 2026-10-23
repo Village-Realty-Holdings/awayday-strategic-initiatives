@@ -508,7 +508,24 @@ model KpiObservation {
 
   revisions             KpiObservationRevision[]
 
-  @@unique([kpiId, reportingPeriod, sourceRef])
+  // Uniqueness here is expressed in SQL, not as a Prisma attribute, for two reasons.
+  //
+  // 1. One source document legitimately carries several facts for the same metric and
+  //    period — ACTUAL/MONTHLY, ACTUAL/YTD, BUDGET/MONTHLY, PRIOR_YEAR/MONTHLY — so the row
+  //    key must include comparisonBasis, timeBasis, reportingScope, entityScope and
+  //    entityId. A `@@unique([kpiId, reportingPeriod, sourceRef])` (2026-10-23 incident)
+  //    made those four collapse onto one row and let a publication revise an approved
+  //    YTD actual into a monthly prior-year figure.
+  // 2. Those columns are nullable, and PostgreSQL treats NULLs as distinct in a unique
+  //    index, so a plain composite index would still permit duplicate approved facts.
+  //    The migration canonicalises every nullable identity column with COALESCE(...,'')
+  //    inside the index expression, which Prisma cannot express as an attribute.
+  //
+  // Authoritative definitions:
+  //   KpiObservation_row_identity_key          — unique, all eight identity columns
+  //   KpiObservation_one_approved_per_identity_idx — unique, logical identity, APPROVED only
+  // See prisma/migrations/20261023140000_kpi_observation_identity/migration.sql.
+  @@index([kpiId, reportingPeriod, sourceRef])
   @@index([kpiId, observedAt])
   @@index([reportingPeriod, reportingScope, publicationState])
 }
