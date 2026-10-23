@@ -21,17 +21,25 @@ const NAV: Item[] = [
   { label: "Reporting", href: "/reporting", icon: FileText },
 ];
 
+const V2_NAV: Item[] = [
+  { label: "Summary", href: "/v2", icon: LayoutDashboard },
+  { label: "Personal inbox", href: "/v2/inbox", icon: Target },
+  { label: "Below the line", href: "/v2/below-the-line", icon: Layers },
+  { label: "Data & definitions", href: "/v2/data", icon: Compass },
+];
+
 export function SidebarNav() {
   const pathname = usePathname();
+  const items = pathname === "/v2" || pathname.startsWith("/v2/") ? V2_NAV : NAV;
   // Longest matching href wins so nested routes (/initiatives/new) highlight
   // only the most specific item, not every prefix.
-  const activeHref = NAV.map((i) => i.href)
+  const activeHref = items.map((i) => i.href)
     .filter((h) => (h === "/" ? pathname === "/" : pathname === h || pathname.startsWith(h + "/")))
     .sort((a, b) => b.length - a.length)[0];
   return (
     <nav className="flex flex-col gap-1">
       <p className="px-3 pb-5 text-sm font-semibold tracking-tight text-ink">Strategic Initiatives</p>
-      {NAV.map((item) => {
+      {items.map((item) => {
         const active = item.href === activeHref;
         const Icon = item.icon;
         return (

@@ -1,16 +1,5 @@
 import type { ReactNode } from "react";
-import { FlaskConical } from "@/components/icons";
-import { Badge } from "@/components/ui/badge";
 import { V2Tabs } from "./v2-tabs";
-
-export function PreviewBadge() {
-  return (
-    <Badge variant="custom" className="gap-1.5 border border-gold/60 bg-gold/15 text-navy-deep">
-      <FlaskConical size={12} strokeWidth={2} aria-hidden />
-      V2 preview · mock data
-    </Badge>
-  );
-}
 
 /** Inline reminder that a form does not persist anything. */
 export function MockNote({ children = "Mock — not saved" }: { children?: ReactNode }) {
@@ -42,7 +31,6 @@ export function V2Header({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold-deep">{eyebrow}</p>
-            <PreviewBadge />
           </div>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">{title}</h1>
           {description && <p className="mt-1 max-w-3xl text-sm text-ink-muted">{description}</p>}
