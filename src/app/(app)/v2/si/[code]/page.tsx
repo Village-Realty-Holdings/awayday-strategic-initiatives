@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
 import { requireApp } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
 import { MockNote, SectionTitle, V2Header } from "../../_components/preview";
 import { SiStatusBadge, UpdateStateBadge } from "../../_components/status";
 import { ACTION_ITEMS, ELT_ASKS, personName, updatesForSi } from "../../_mock/data";
@@ -23,6 +24,11 @@ export default async function SiCharterPage({ params }: { params: Promise<{ code
   const { code } = await params;
   const si = siByCode(code);
   if (!si) notFound();
+  const liveInitiative = await prisma.initiative.findUnique({
+    where: { code: si.code },
+    select: { id: true },
+  });
+  if (liveInitiative) redirect(`/initiatives/${liveInitiative.id}`);
   const area = areaByCode(si.areaCode);
   const milestones = milestonesBySi(si.code);
   const updates = updatesForSi(si.code);

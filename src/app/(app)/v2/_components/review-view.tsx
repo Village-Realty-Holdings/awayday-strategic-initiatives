@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AREAS, personName } from "../_mock/data";
+import { prisma } from "@/lib/prisma";
+import { AREAS, personName, SIS } from "../_mock/data";
 import { MOCK_HEADER } from "../_mock/review-content";
 import { LTM_CAPTION, LTM_SO_WHAT } from "../_mock/review-detail";
 import {
@@ -30,6 +31,10 @@ import { SiCard } from "./si-card";
 import { SubHeading } from "./stat";
 import { PillarLabelBadge } from "./status";
 import { SummaryGantt } from "./summary-gantt";
+
+function areaAnchor(code: string): string {
+  return `pillar-${code.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
 import { getActiveV2Plan } from "@/lib/v2-data";
 
 type LivePlan = NonNullable<Awaited<ReturnType<typeof getActiveV2Plan>>>;
@@ -83,11 +88,11 @@ function FinanceTableView({ table }: { table: FinanceTable }) {
   );
 }
 
-function PillarSection({ area, pillar, period, canEdit, detail }: { area: MockArea; pillar: ReviewPillar; period: ReviewPeriod; canEdit: boolean; detail: boolean }) {
+function PillarSection({ area, pillar, period, canEdit, detail, recordIds }: { area: MockArea; pillar: ReviewPillar; period: ReviewPeriod; canEdit: boolean; detail: boolean; recordIds: Map<string, string> }) {
   const sis = sisForArea(area.code);
   const soWhats = soWhatsFor(period.id, area.code);
   return (
-    <Card id={`pillar-${area.code}`} className="scroll-mt-20 gap-0 p-5">
+    <Card id={areaAnchor(area.code)} className="scroll-mt-20 gap-0 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
@@ -157,7 +162,7 @@ function PillarSection({ area, pillar, period, canEdit, detail }: { area: MockAr
         <p className="mb-2 text-xs font-semibold text-ink">Strategic initiatives · click a card to open its charter</p>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {sis.map((si) => (
-            <SiCard key={si.code} si={si} periodId={period.id} />
+            <SiCard key={si.code} si={si} periodId={period.id} recordId={recordIds.get(si.code)} />
           ))}
           {sis.length === 0 && <p className="text-xs text-ink-faint">No strategic initiatives in this area for FY27.</p>}
         </div>
@@ -166,7 +171,12 @@ function PillarSection({ area, pillar, period, canEdit, detail }: { area: MockAr
   );
 }
 
-export function ReviewView({ period, canEdit, livePlan }: { period: ReviewPeriod; canEdit: boolean; livePlan?: LivePlan | null }) {
+export async function ReviewView({ period, canEdit, livePlan }: { period: ReviewPeriod; canEdit: boolean; livePlan?: LivePlan | null }) {
+  const records = await prisma.initiative.findMany({
+    where: { code: { in: SIS.map((si) => si.code) } },
+    select: { id: true, code: true },
+  });
+  const recordIds = new Map(records.map((record) => [record.code, record.id]));
   const pillars = pillarsFor(period.id);
   const byCode = new Map(pillars.map((p) => [p.areaCode, p]));
   const fivePillars = AREAS.filter((a) => a.number).sort((a, b) => (a.number ?? 0) - (b.number ?? 0));
@@ -192,14 +202,14 @@ export function ReviewView({ period, canEdit, livePlan }: { period: ReviewPeriod
           cardSub: `Target ${kpi?.target ?? area.goal ?? "not set"}`,
           label: liveLabel(rag),
           tone: liveTone(rag),
-          href: "#pillars",
+          href: `#${areaAnchor(area.code)}`,
           initiatives: area.initiatives.map((initiative) => ({ id: initiative.id, name: initiative.name })),
         };
       })
     : fivePillars.flatMap((area) => {
         const pillar = byCode.get(area.code);
         return pillar
-          ? [{ code: area.code, name: area.name, number: area.number ?? 0, measure: pillar.measure, headline: pillar.headline, cardSub: pillar.cardSub, label: pillar.label, tone: pillar.tone, href: `#pillar-${area.code}`, initiatives: sisForArea(area.code).map((si) => ({ id: si.code, name: si.name })) }]
+          ? [{ code: area.code, name: area.name, number: area.number ?? 0, measure: pillar.measure, headline: pillar.headline, cardSub: pillar.cardSub, label: pillar.label, tone: pillar.tone, href: `#${areaAnchor(area.code)}`, initiatives: sisForArea(area.code).map((si) => ({ id: si.code, name: si.name })) }]
           : [];
       });
   const houseEnablers = liveEnablers.length > 0
@@ -207,12 +217,12 @@ export function ReviewView({ period, canEdit, livePlan }: { period: ReviewPeriod
         code: area.code,
         name: area.name,
         owner: area.owner ?? "Owner not assigned",
-        href: "#enablers",
+        href: `#${area.code === "GUEST" ? areaAnchor(area.code) : `enabler-${area.code}`}`,
         initiatives: area.initiatives.map((initiative) => ({ id: initiative.id, name: initiative.name })),
       }))
     : [guest, ...enablers].flatMap((area) => {
         const pillar = byCode.get(area.code);
-        return pillar ? [{ code: area.code, name: area.name, owner: `${names(area.eltOwnerIds)} · ${names(area.siLeadIds)}`, href: `#${area.code === "GUEST" ? `pillar-${area.code}` : `enabler-${area.code}`}`, initiatives: sisForArea(area.code).map((si) => ({ id: si.code, name: si.name })) }] : [];
+        return pillar ? [{ code: area.code, name: area.name, owner: `${names(area.eltOwnerIds)} · ${names(area.siLeadIds)}`, href: `#${area.code === "GUEST" ? areaAnchor(area.code) : `enabler-${area.code}`}`, initiatives: sisForArea(area.code).map((si) => ({ id: si.code, name: si.name })) }] : [];
       });
 
   return (
@@ -384,7 +394,7 @@ export function ReviewView({ period, canEdit, livePlan }: { period: ReviewPeriod
         <SectionTitle>Value creation pillars</SectionTitle>
         {[...fivePillars, guest].map((a) => {
           const p = byCode.get(a.code);
-          return p ? <PillarSection key={a.code} area={a} pillar={p} period={period} canEdit={canEdit} detail={detail} /> : null;
+          return p ? <PillarSection key={a.code} area={a} pillar={p} period={period} canEdit={canEdit} detail={detail} recordIds={recordIds} /> : null;
         })}
       </section>
 
@@ -421,7 +431,7 @@ export function ReviewView({ period, canEdit, livePlan }: { period: ReviewPeriod
                 )}
                 <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {sis.map((si) => (
-                    <SiCard key={si.code} si={si} periodId={period.id} />
+                    <SiCard key={si.code} si={si} periodId={period.id} recordId={recordIds.get(si.code)} />
                   ))}
                   {sis.length === 0 && (
                     <p className="text-xs text-ink-faint">No FY27 SIs in the plan for {a.name} yet.</p>
