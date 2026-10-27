@@ -13,7 +13,7 @@ import {
   durationDays,
   formatTeam,
 } from "@/lib/initiatives";
-import { requireSession } from "@/lib/session";
+import { canEdit, requireSession } from "@/lib/session";
 import { DeleteInitiativeButton } from "@/components/delete-initiative-button";
 import {
   addInitiativeUpdate,
@@ -61,9 +61,9 @@ export default async function InitiativeDetail({
 }) {
   const { id } = await params;
   const session = await requireSession();
-  // Everyone can read a charter; only admins manage it.
+  // Everyone can read a charter; editors and admins can manage it.
   const isAdmin = session.user.role === "admin";
-  const editable = isAdmin;
+  const editable = canEdit(session.user.role);
   const i = await prisma.initiative.findUnique({
     where: { id },
     include: {
@@ -129,7 +129,7 @@ export default async function InitiativeDetail({
                   <Pencil size={13} aria-hidden /> Edit
                 </Link>
               </Button>
-              <DeleteInitiativeButton id={i.id} name={i.name} />
+              {isAdmin && <DeleteInitiativeButton id={i.id} name={i.name} />}
             </>
           )
         }

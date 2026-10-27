@@ -3,7 +3,7 @@ import { TriangleAlert } from "@/components/icons";
 import { Alert } from "@/components/ui/alert";
 import { PAGE_FRAME, PageHeader } from "@/components/shell/page-header";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/session";
+import { requireEditor } from "@/lib/session";
 import { InitiativeForm } from "@/components/initiative-form";
 import { updateInitiative } from "@/app/(app)/initiatives/actions";
 import { cimKpiMap } from "@/lib/sources";
@@ -23,7 +23,7 @@ export default async function EditInitiativePage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ conflict?: string; error?: string }>;
 }) {
-  await requireAdmin();
+  await requireEditor();
   const { id } = await params;
   const { conflict, error } = await searchParams;
   const initiative = await prisma.initiative.findUnique({
