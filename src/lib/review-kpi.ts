@@ -27,8 +27,8 @@ export type KpiRow = KpiObservationRecord & {
 
 const TIME_ORDER = ["MONTHLY", "YTD", "LTM", "POINT_IN_TIME"];
 const BASIS_ORDER = ["ACTUAL", "BUDGET", "FORECAST", "PRIOR_YEAR", "VARIANCE", "LTM"];
-const TIME_LABEL: Record<string, string> = { MONTHLY: "Month", YTD: "YTD", LTM: "LTM", POINT_IN_TIME: "Point" };
-const BASIS_LABEL: Record<string, string> = { ACTUAL: "Actual", BUDGET: "Budget", FORECAST: "Forecast", PRIOR_YEAR: "PY", VARIANCE: "vs Bud", LTM: "LTM" };
+export const TIME_LABEL: Record<string, string> = { MONTHLY: "Month", YTD: "YTD", LTM: "LTM", POINT_IN_TIME: "Point" };
+export const BASIS_LABEL: Record<string, string> = { ACTUAL: "Actual", BUDGET: "Budget", FORECAST: "Forecast", PRIOR_YEAR: "PY", VARIANCE: "vs Bud", LTM: "LTM" };
 
 export type FinanceColumn = { key: string; label: string };
 export type FinanceTable = { columns: FinanceColumn[]; rows: { id: string; label: string; cells: Record<string, string> }[] };

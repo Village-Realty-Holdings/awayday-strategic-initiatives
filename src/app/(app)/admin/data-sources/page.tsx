@@ -3,7 +3,9 @@ import { Card } from "@/components/ui/card";
 import { DataTable } from "@/components/review/data-table";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/session";
-import { comparePeriods } from "@/lib/kpi";
+import { comparePeriods, PUBLICATION_APPROVED } from "@/lib/kpi";
+import { loadKpiJoinedRows } from "@/lib/kpi-joined";
+import { BASIS_LABEL, TIME_LABEL } from "@/lib/review-kpi";
 import { fmtLong, isoDay, periodLabel } from "@/lib/review-model";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +16,7 @@ const SOURCE_LABEL: Record<string, string> = { SHAREPOINT_EXCEL: "SharePoint Exc
 // from, and each metric's configured source with its latest data.
 export default async function DataSourcesPage() {
   await requireAdmin();
-  const [observations, definitions] = await Promise.all([
+  const [observations, definitions, joined] = await Promise.all([
     prisma.kpiObservation.findMany({
       select: {
         reportingPeriod: true,
@@ -36,6 +38,7 @@ export default async function DataSourcesPage() {
         observations: { select: { reportingPeriod: true, observedAt: true, publicationState: true } },
       },
     }),
+    loadKpiJoinedRows(),
   ]);
 
   type DocRow = {
@@ -144,6 +147,101 @@ export default async function DataSourcesPage() {
                 area: d.strategicArea?.name ?? "Company-wide",
                 values: d.observations.length,
                 latest: latest ? periodLabel(latest) : <span className="text-ink-faint">No values yet</span>,
+              },
+            };
+          })}
+        />
+      </Card>
+      <Card className="gap-0 p-5">
+        <div className="mb-1 flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-ink">KPI values (joined)</h2>
+          <Badge variant="warn">Temporary</Badge>
+        </div>
+        <p className="mb-3 text-xs text-ink-faint">
+          Stopgap raw view of every KPI definition joined to its observations and revision history. It will be replaced.
+        </p>
+        <DataTable
+          minWidth="84rem"
+          columns={[
+            { key: "metric", label: "Metric" },
+            { key: "area", label: "Area", align: "left" },
+            { key: "period", label: "Month", align: "left" },
+            { key: "basis", label: "Basis", align: "left" },
+            { key: "value", label: "Value", numeric: true },
+            { key: "state", label: "State", align: "left" },
+            { key: "rev", label: "Rev", numeric: true },
+            { key: "source", label: "Source", align: "left" },
+            { key: "loaded", label: "Loaded", align: "left" },
+            { key: "details", label: "Details", align: "left", className: "min-w-72" },
+          ]}
+          rows={joined.map((r) => {
+            const o = r.observation;
+            const metric = (
+              <span>
+                {r.name}
+                <span className="block font-mono text-micro font-normal text-ink-faint">{r.metricKey}</span>
+              </span>
+            );
+            if (!o) {
+              return {
+                id: r.id,
+                cells: { metric, area: r.area, value: <span className="text-ink-faint">No values yet</span> },
+              };
+            }
+            const facts: [string, string | number | null][] = [
+              ["Target", r.target],
+              ["Reporting scope", o.reportingScope],
+              ["Entity", [o.entityScope, o.entityId].filter(Boolean).join(" · ") || null],
+              ["Derivation", o.valueDerivation],
+              ["Authority rank", o.authorityRank],
+              ["Observed", fmtLong(isoDay(o.observedAt))],
+              ["Raw value", o.value],
+            ];
+            return {
+              id: r.id,
+              cells: {
+                metric,
+                area: r.area,
+                period: periodLabel(o.reportingPeriod),
+                basis: `${TIME_LABEL[o.timeBasis ?? ""] ?? o.timeBasis ?? "?"} · ${BASIS_LABEL[o.comparisonBasis ?? ""] ?? o.comparisonBasis ?? "?"}`,
+                value: <span title={o.value}>{o.formattedValue}</span>,
+                state: (
+                  <span className="flex flex-wrap gap-1">
+                    <Badge variant={o.publicationState === PUBLICATION_APPROVED ? "ok" : "secondary"}>{o.publicationState.toLowerCase()}</Badge>
+                    {o.quality !== "VALID" && <Badge variant="warn">{o.quality.toLowerCase()}</Badge>}
+                  </span>
+                ),
+                rev: o.revision,
+                source: (
+                  <span>
+                    {o.sourceDocumentName ?? "Unknown document"}
+                    {o.sourceDocumentVersion && <span className="text-ink-faint"> · v{o.sourceDocumentVersion}</span>}
+                    {o.sourceLocation && <span className="block font-mono text-micro text-ink-faint">{o.sourceLocation}</span>}
+                  </span>
+                ),
+                loaded: fmtLong(isoDay(o.refreshedAt)),
+                details: (
+                  <details className="text-note">
+                    <summary className="cursor-pointer text-ink-muted">More</summary>
+                    <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+                      {facts.map(([label, value]) => (
+                        <div key={label} className="contents">
+                          <dt className="text-ink-faint">{label}</dt>
+                          <dd>{value ?? "—"}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <p className="mt-2 text-ink-faint">History</p>
+                    <ul>
+                      {o.revisions.map((h) => (
+                        <li key={h.revision} className="tabular">
+                          r{h.revision}: {h.value} · {h.publicationState.toLowerCase()} · {fmtLong(isoDay(h.recordedAt))}
+                        </li>
+                      ))}
+                      {o.revisions.length === 0 && <li className="text-ink-faint">No history recorded</li>}
+                    </ul>
+                  </details>
+                ),
               },
             };
           })}
