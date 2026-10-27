@@ -27,6 +27,10 @@ export type ReviewPlan = {
   code: string | null;
   title: string | null;
   sourceFileName: string | null;
+  /** Strategy-house roof, edited on Admin > Plan versions. */
+  mission: string | null;
+  goal: string | null;
+  values: string[];
   /** True when the plan has no StrategicArea rows and areas come from cimDriver. */
   synthesised: boolean;
   areas: ReviewArea[];
@@ -138,7 +142,7 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
   const plan = await getActivePlan();
   const planWhere = plan ? { planVersionId: plan.id } : {};
   const [version, areaRows, initiatives] = await Promise.all([
-    plan ? prisma.planVersion.findUnique({ where: { id: plan.id }, select: { sourceFileName: true } }) : null,
+    plan ? prisma.planVersion.findUnique({ where: { id: plan.id }, select: { sourceFileName: true, mission: true, goal: true, values: true } }) : null,
     plan
       ? prisma.strategicArea.findMany({
           where: { planVersionId: plan.id },
@@ -233,6 +237,9 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
     code: plan?.code ?? null,
     title: plan?.title ?? null,
     sourceFileName: version?.sourceFileName ?? null,
+    mission: version?.mission ?? null,
+    goal: version?.goal ?? null,
+    values: version?.values ?? [],
     synthesised,
     areas,
   };

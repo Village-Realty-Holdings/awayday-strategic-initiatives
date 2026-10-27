@@ -8,6 +8,13 @@ export function str(fd: FormData, key: string): string | null {
   return s === "" ? null : s;
 }
 
+/** One entry per non-blank line, trimmed, duplicates dropped, at most `max`. */
+export function lines(fd: FormData, key: string, max = 50): string[] {
+  const v = fd.get(key);
+  const all = (typeof v === "string" ? v : "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  return [...new Set(all)].slice(0, max);
+}
+
 /** Finite number, or null when missing, blank or not a number. */
 export function num(fd: FormData, key: string): number | null {
   const s = str(fd, key);

@@ -87,6 +87,9 @@ async function main() {
       create: {
         code: FY27_PLAN.code,
         title: FY27_PLAN.title,
+        mission: FY27_PLAN.mission,
+        goal: FY27_PLAN.goal,
+        values: [...FY27_PLAN.values],
         sourceFileName: FY27_PLAN.sourceFileName,
         sourceHash,
         active: true,

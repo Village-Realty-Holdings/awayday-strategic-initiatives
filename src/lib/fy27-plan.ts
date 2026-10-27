@@ -79,6 +79,11 @@ export const FY27_PLAN = {
   code: "FY27",
   title: "Awayday Strategic Initiatives — FY27",
   sourceFileName: "260930 Awayday SI Refresh_v1.pdf",
+  // Strategy-house roof, written on first import only; after that it is edited
+  // on Admin > Plan versions and a re-import leaves it alone.
+  mission: "To Perfect the Vacation Rental Experience",
+  goal: "$300M EBITDA by 12/31/28 · FY27 budget $180M, BHAG $200M",
+  values: ["Servant Leadership", "Ownership Mentality", "Local", "Excellence"],
   areas: [
     { code: "M&A", kind: "VALUE_DRIVER", name: "M&A", goal: "Deepen our moat as the acquirer of choice in the industry, through the fastest and easiest acquisition process in the industry.", kpiName: "Acquired EBITDA closed", kpiTarget: "$26M total; $11M via tuck-ins; $47M stretch", owner: "Ryan McKendry / Curt Stark / Bart Williams", order: 1 },
     { code: "GROW", kind: "VALUE_DRIVER", name: "Grow New Units", goal: "Build the highest skilled, best trained and tech-enabled salesforce and sales management capability.", kpiName: "Gross unit adds", kpiTarget: "23% budget; 28% stretch", owner: "Ryan Olin / David Jensen", order: 2 },

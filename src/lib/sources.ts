@@ -31,16 +31,6 @@ export const EBITDA_BUILD = {
   ],
 };
 
-// The Value Creation "house" (4/10/26 board deck).
-export const VALUE_CREATION = {
-  mission: "To Perfect the Vacation Rental Experience",
-  objective: "$150M EBITDA by 12/31/27 · Guest CSAT > 4.65",
-  valueDrivers: ["Grow new units", "Owner retention", "Margin expansion", "TrevPAR expansion", "M&A engine"],
-  keyEnablers: ["Talent", "Technology", "Service"],
-  values: ["Servant leadership", "Ownership mentality", "Local", "Excellence"],
-  source: "4/10/26 board deck",
-};
-
 export type GoalColor = "green" | "amber" | "red" | "grey";
 
 // 2026 cultural pillars (the bright future) — each item links to CIM risks + SIs.

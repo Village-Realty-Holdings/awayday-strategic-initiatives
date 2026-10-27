@@ -19,7 +19,6 @@ Strategy (admins) writes them on `/review/[period]/edit`.
 | **Non-SI milestones** (`InitiativeMilestone.initiativeId` is required) | SI-process steps and company events (Summit, Vrbo change, board update) in Next 60 days and the timeline. |
 | **ELT ask details** ("raised by" and due date on `InitiativeEltRequest`) | Who raised an ask and when it's due, on Inbox and Asks by leader. |
 | **Area owners as people** (`StrategicArea.owner` is one string mixing ELT owners and SI leads); no link between `user` and `RosterMember` | ELT owner vs SI lead can't be told apart per area. Asks by leader groups by each SI's sponsor and lead instead. "My SIs" matches the signed-in user by the lead's name, because no SI has `ownerUserId` set (0 of 31). |
-| **Plan header** (mission, EBITDA goal, budget, BHAG per plan version) | The strategy-house roof comes from `src/lib/plan-headers.ts`, keyed by plan code. |
 
 ## Missing data (rows, not schema)
 

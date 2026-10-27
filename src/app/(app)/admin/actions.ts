@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { str } from "@/lib/form";
+import { str, lines } from "@/lib/form";
 import { auth } from "@/lib/auth";
 import { flash } from "@/lib/flash";
 import { requireSession } from "@/lib/session";
@@ -61,6 +61,36 @@ export async function adminActivatePlan(fd: FormData): Promise<void> {
   revalidatePath("/admin/initiatives");
   revalidatePath("/admin/plans");
   await flash(`Active plan switched to ${selected.code}`);
+  redirect("/admin/plans");
+}
+
+/** Strategy-house roof (mission, goal, values) shown on the monthly review. */
+export async function adminSetPlanHeader(fd: FormData): Promise<void> {
+  const session = await requireSession({ role: "admin" });
+  const id = s(fd, "planVersionId");
+  if (!id) redirect("/admin/plans?error=missing");
+
+  const before = await prisma.planVersion.findUnique({
+    where: { id },
+    select: { code: true, mission: true, goal: true, values: true },
+  });
+  if (!before) redirect("/admin/plans?error=not-found");
+
+  const after = {
+    mission: str(fd, "mission")?.slice(0, 300) ?? null,
+    goal: str(fd, "goal")?.slice(0, 300) ?? null,
+    values: lines(fd, "values", 12).map((v) => v.slice(0, 80)),
+  };
+  await prisma.planVersion.update({ where: { id }, data: after });
+  await audit(session.user.id, "UPDATE", "PlanVersion", id, {
+    before: { mission: before.mission, goal: before.goal, values: before.values },
+    after,
+  });
+
+  revalidatePath("/");
+  revalidatePath("/review", "layout");
+  revalidatePath("/admin/plans");
+  await flash(`${before.code} header saved`);
   redirect("/admin/plans");
 }
 

@@ -3,7 +3,6 @@ import Link from "next/link";
 import { Pencil } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { planHeader } from "@/lib/plan-headers";
 import type { ReviewPeriod, ReviewPlan } from "@/lib/review-data";
 import type { FinanceTable } from "@/lib/review-kpi";
 import { addDaysIso, fmtLong, ragLabel, ragTone, type ReviewArea, type ReviewMilestone, type SoWhat } from "@/lib/review-model";
@@ -102,7 +101,6 @@ export function ReviewView({
   /** Admins (Strategy) get the Edit review link. */
   canAuthor?: boolean;
 }) {
-  const header = planHeader(plan.code);
   const pillars = plan.areas.filter((a) => a.kind === "VALUE_DRIVER");
   const enablers = plan.areas.filter((a) => a.kind === "ENABLER");
   const sis = plan.areas.flatMap((a) => a.sis);
@@ -166,8 +164,8 @@ export function ReviewView({
 
       <section className="strategy-house" aria-label="Strategy house">
         <div className="strategy-house__roof">
-          <p>Mission · {header.mission}</p>
-          {header.goal && <p>{header.goal}</p>}
+          {plan.mission && <p>Mission · {plan.mission}</p>}
+          {plan.goal && <p>{plan.goal}</p>}
         </div>
         <div className="strategy-house__pillars" style={{ "--house-cols": Math.max(1, pillars.length) } as CSSProperties}>
           {pillars.map((a) => {
@@ -200,7 +198,7 @@ export function ReviewView({
             ))}
           </div>
         )}
-        <div className="strategy-house__values">{header.values.join(" · ")}</div>
+        {plan.values.length > 0 && <div className="strategy-house__values">{plan.values.join(" · ")}</div>}
       </section>
 
       <section id="summary" className="scroll-mt-20">

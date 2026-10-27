@@ -420,6 +420,10 @@ model PlanVersion {
   sourceHash     String?
   active         Boolean      @default(false)
   importedAt     DateTime?
+  // Strategy-house roof on the monthly review. Edited on Admin > Plan versions.
+  mission        String?
+  goal           String? // e.g. EBITDA goal, budget and BHAG on one line
+  values         String[]     @default([])
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   initiatives    Initiative[]
