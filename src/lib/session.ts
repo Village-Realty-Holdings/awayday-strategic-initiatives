@@ -25,7 +25,14 @@ const mfaExempt = cache(async (userId: string): Promise<boolean> => {
 // Per-request memoized session lookup. The app layout and the page (and any
 // helper) each call requireSession, so without this every render validated the
 // session more than once. Keyed on nothing: one lookup per request.
-const getSession = cache(async () => auth.api.getSession({ headers: await headers() }));
+//
+// disableRefresh: a page render can't set cookies, so a refresh here would
+// extend the session in the DB while the browser cookie kept its old expiry,
+// and the day's refresh would be used up. Renewal happens in SessionKeepalive's
+// call to /api/auth/get-session, a route handler that can write the cookie.
+const getSession = cache(async () =>
+  auth.api.getSession({ headers: await headers(), query: { disableRefresh: true } }),
+);
 
 type RequireOptions = {
   /** Require completed MFA enrollment (default true). Set false only for the MFA setup flow. */
@@ -62,7 +69,12 @@ export async function requireSession(options: RequireOptions = {}) {
   }
 
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) {
+    // The proxy only sees that a cookie exists; an expired or revoked session
+    // lands here. Keep the page so sign-in can return to it.
+    const from = (await headers()).get("x-pathname");
+    redirect(from && from !== "/" ? `/login?redirect=${encodeURIComponent(from)}` : "/login");
+  }
   // App TOTP is required unless the account holds no password to enrol it with
   // (Entra SSO, sign-in link); see mfa-policy.ts. The account lookup only runs
   // for users who are not yet enrolled, so enrolled password users pay nothing.

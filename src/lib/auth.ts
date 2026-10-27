@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { twoFactor, admin, magicLink } from "better-auth/plugins";
+import { nextCookies } from "better-auth/next-js";
 import { prisma } from "@/lib/prisma";
 import { buildTrustedOrigins } from "@/lib/trusted-origins";
 import { magicLinkAllowed } from "@/lib/magic-link-policy";
@@ -20,6 +21,19 @@ const trustedOrigins = buildTrustedOrigins(process.env);
 // Tenant-pinned (never "common"), see sso.ts. Deferred for this app at launch
 // (fresh database, no Entra app registration yet); the code path stays inert.
 const microsoft = microsoftProviderFromEnv(process.env);
+
+// Exported so tests exercise the same lifetimes as the app.
+export const sessionConfig = {
+  expiresIn: 60 * 60 * 24 * 7, // 7 days
+  updateAge: 60 * 60 * 24, // refresh daily
+  // Validate the session from a short-lived signed cookie instead of hitting the
+  // DB on every request (getSession runs on essentially every page + action via
+  // requireSession). maxAge is deliberately short (60s): it bounds how long a
+  // role change or a revoked/banned session can lag to ~1 minute, which matters
+  // here since security is a priority. App entitlement (appAccess) is read
+  // separately from the DB, so per-app access stays immediate regardless.
+  cookieCache: { enabled: true, maxAge: 60 },
+};
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
@@ -88,6 +102,13 @@ export const auth = betterAuth({
         await sendEmail({ to: address, subject: msg.subject, html: msg.html, text: msg.text });
       },
     }),
+    // Must stay LAST. Server-side getSession (requireSession) extends the
+    // session in the DB once a day and issues a fresh cookie; without this
+    // plugin that Set-Cookie was dropped, so the browser cookie still died 7
+    // days after sign-in however active the user was. This writes it through
+    // from server actions and route handlers; page renders can't set cookies,
+    // so SessionKeepalive in the shell covers people who only read.
+    nextCookies(),
   ],
   databaseHooks: {
     user: {
@@ -103,17 +124,7 @@ export const auth = betterAuth({
       },
     },
   },
-  session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days
-    updateAge: 60 * 60 * 24, // refresh daily
-    // Validate the session from a short-lived signed cookie instead of hitting the
-    // DB on every request (getSession runs on essentially every page + action via
-    // requireSession). maxAge is deliberately short (60s): it bounds how long a
-    // role change or a revoked/banned session can lag to ~1 minute, which matters
-    // here since security is a priority. App entitlement (appAccess) is read
-    // separately from the DB, so per-app access stays immediate regardless.
-    cookieCache: { enabled: true, maxAge: 60 },
-  },
+  session: sessionConfig,
   // Auth-flow failures (an OAuth callback that cannot complete, a bad state
   // cookie) come back to the login page with ?error=<code> so the person sees
   // why. The default sends them to "/?error=", which the proxy turns into a
@@ -137,6 +148,10 @@ export const auth = betterAuth({
       // Each request sends mail to someone else's inbox, so this is tighter
       // than password sign-in: enough for a mistyped address and a retry.
       "/sign-in/magic-link": { window: 60, max: 5 },
+      // SessionKeepalive calls this from every open tab (at most every 5
+      // minutes each), and an office shares one IP, so the default 60/min
+      // would start returning 429s to colleagues.
+      "/get-session": { window: 60, max: 300 },
     },
   },
 });

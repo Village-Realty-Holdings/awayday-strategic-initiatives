@@ -7,6 +7,8 @@ import { BreadcrumbProvider, Breadcrumbs } from "@/components/shell/breadcrumbs"
 import { InsetScrollReset } from "@/components/shell/inset-scroll-reset";
 import { AskPanel } from "@/components/ask-panel";
 import { FlashToaster } from "@/components/flash-toaster";
+import { SessionKeepalive } from "@/components/shell/session-keepalive";
+import { isDevAuthEnabled } from "@/lib/dev-auth";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -83,6 +85,8 @@ export function AppShell({
         </div>
       </div>
       <FlashToaster />
+      {/* The local DEV_AUTH_AS bypass has no real session to keep alive. */}
+      {!isDevAuthEnabled() && <SessionKeepalive />}
     </div>
     </BreadcrumbProvider>
   );

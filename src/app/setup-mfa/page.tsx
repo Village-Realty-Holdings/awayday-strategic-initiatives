@@ -20,7 +20,8 @@ export const metadata = { title: "Set up MFA | Awayday" };
  * rather than from anything the browser claims: no password, no password box.
  */
 export default async function SetupMfaPage() {
-  const session = await auth.api.getSession({ headers: await headers() });
+  // No refresh from a render; see getSession in lib/session.ts.
+  const session = await auth.api.getSession({ headers: await headers(), query: { disableRefresh: true } });
   if (!session) redirect("/login");
   // Already enrolled: nothing to set up, and leaving the page reachable would
   // let someone re-roll a working authenticator by accident.
