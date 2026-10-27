@@ -105,7 +105,10 @@ model Initiative {
   pctComplete        Float               @default(0) // 0..1
   qualImpact         ImpactLevel?
   quantMetric        String? // "TTM owner churn"
-  quantTarget        String? // "<12%"
+  quantTarget        String? // "<12%" (charter: FY27 target + stretch)
+  baseline           String? // charter: where the metric stands today, e.g. "70 to 120 days"
+  ebitdaValue        String?             @db.Text // charter: EBITDA value ($), as written, e.g. "$11M (~30 extra tuck-ins per yr)"
+  investmentCost     String?             @db.Text // charter: investment cost ($) to deliver the SI
   progressActual     Float? // numeric current value, for actual/target auto-% in the charter
   progressTarget     Float? // numeric goal value; pctComplete derives from actual/target when both set
   // EBITDA run-rate impact (from OSI); powers the EBITDA Gap & Risk-Coverage view.
@@ -195,6 +198,7 @@ model InitiativeActionItem {
   title        String
   owner        String
   dueAt        DateTime?
+  byWhen       String? // free-text due ("In progress", "Q1 2027") when there's no date
   status       String     @default("OPEN") // OPEN | DONE
   order        Int        @default(0)
   createdAt    DateTime   @default(now())

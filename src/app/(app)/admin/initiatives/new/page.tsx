@@ -1,6 +1,6 @@
 import { TriangleAlert } from "@/components/icons";
 import { Alert } from "@/components/ui/alert";
-import { FORM_COLUMN, PAGE_FRAME, PageHeader } from "@/components/shell/page-header";
+import { PAGE_FRAME, PageHeader } from "@/components/shell/page-header";
 import { requireAdmin } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { InitiativeForm } from "@/components/initiative-form";
@@ -43,8 +43,8 @@ export default async function NewInitiativePage({
 
   return (
     <div className={PAGE_FRAME}>
-      <PageHeader sticky back={{ href: "/admin/initiatives", label: "Initiatives" }} eyebrow="Initiatives" title="New initiative" description="Priority is derived from the targeted value and effort. Only the driver, code, name and problem statement are required." />
-      <div className={FORM_COLUMN}>
+      <PageHeader sticky back={{ href: "/admin/initiatives", label: "Initiatives" }} eyebrow="Initiatives" title="New initiative" description="Priority is derived from the targeted value and effort. Laid out like the one-page SI charter. Only the code and name are required." />
+      <div className="w-full max-w-section">
 
         {error && ERRORS[error] && (
           <Alert variant="risk" className="mb-4">

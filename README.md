@@ -143,7 +143,7 @@ After applying the migration to the intended database branch, run:
 DIRECT_URL=postgresql://… npm run db:import:fy27
 ```
 
-The import is safe to rerun: it deactivates prior plan versions, assigns unversioned legacy records to an archived FY26 version, upserts FY27 areas and initiatives, removes obsolete source-managed FY27 rows and their imported child records, preserves existing dashboard-owned status/update fields on matching records, and records an `ImportRun` summary. Deck fields that are blank or marked TBD remain visible as TBD and are listed under **Admin → FY27 completeness report**.
+The import is safe to rerun: it deactivates prior plan versions, assigns unversioned legacy records to an archived FY26 version, upserts FY27 areas and initiatives, removes obsolete source-managed FY27 rows and their imported child records, and records an `ImportRun` summary. Each SI's charter comes from `src/lib/fy27-charters.json`, transcribed from the deck's one-page charters: objective, value (metric, baseline, target, EBITDA value, investment cost), sponsor and lead. Each run replaces an SI's risks, dependencies and milestones with the deck's, keeping completion by title, and sets the status only where the slide marks one. Monthly updates are never touched. Slide notes and unmarked statuses are listed in the `ImportRun` warnings.
 
 The KPI service (`src/lib/kpi.ts`) resolves active manual overrides before the latest automated observation and otherwise returns an explicit unavailable/stale state. Snowflake and Finance SharePoint workbook refresh jobs still require source identifiers, credentials, permissions, and query/workbook mappings; no production integration is claimed until those external prerequisites are configured and tested.
 

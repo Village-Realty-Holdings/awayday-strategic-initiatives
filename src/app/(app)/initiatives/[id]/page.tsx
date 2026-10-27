@@ -45,6 +45,7 @@ import {
   HandCoins,
   RefreshCw,
   TrendingUp,
+  TriangleAlert,
 } from "@/components/icons";
 import { BreadcrumbTitle } from "@/components/shell/breadcrumbs";
 import { PAGE_FRAME, PageHeader } from "@/components/shell/page-header";
@@ -66,7 +67,7 @@ export default async function InitiativeDetail({
   const i = await prisma.initiative.findUnique({
     where: { id },
     include: {
-      risks: { include: { cimRisk: true } },
+      riskLog: { orderBy: { order: "asc" } },
       milestones: { orderBy: [{ dueAt: "asc" }, { order: "asc" }] },
       actionItems: { orderBy: { order: "asc" } },
       eltRequests: { orderBy: { order: "asc" } },
@@ -156,8 +157,8 @@ export default async function InitiativeDetail({
 
             <RailGroup title="People">
               <dl className="grid gap-2">
-                <RailRow label="Lead" value={i.teamLead ?? "Unassigned"} muted={!i.teamLead} />
-                <RailRow label="Secondary lead" value={i.secondaryLead ?? "Unassigned"} muted={!i.secondaryLead} />
+                <RailRow label="SI lead" value={i.teamLead ?? "Unassigned"} muted={!i.teamLead} />
+                <RailRow label="ELT sponsor" value={i.secondaryLead ?? "Unassigned"} muted={!i.secondaryLead} />
                 <RailRow label="Working team" value={formatTeam(i.supports) || "None yet"} muted={!formatTeam(i.supports)} />
               </dl>
             </RailGroup>
@@ -203,16 +204,18 @@ export default async function InitiativeDetail({
           <Block
             title="Objective"
             body={i.valueWhenComplete}
-            footer={
-              objectiveLine ? (
-                <p className="mt-3 border-t border-dashed border-border pt-3 text-sm">
-                  <span className="font-semibold text-ink">{objectiveLine}</span>
-                  {i.endDate && <span className="text-ink-muted"> · by {formatDateDay(i.endDate)}</span>}
-                </p>
-              ) : null
-            }
             assist={editable && <CharterAssistButton initiativeId={i.id} kind="objective" label="Sharpen with Claude" />}
           />
+          <section className="rounded-md border border-border bg-surface px-4 py-4 sm:px-5">
+            <h2 className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">Value</h2>
+            <dl className="mt-2 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+              <ValueRow label="Metric" value={i.quantMetric} wide />
+              <ValueRow label="Baseline" value={i.baseline} />
+              <ValueRow label="FY27 target + stretch" value={i.quantTarget} />
+              <ValueRow label="EBITDA value ($)" value={i.ebitdaValue} wide />
+              <ValueRow label="Investment cost ($)" value={i.investmentCost} wide />
+            </dl>
+          </section>
           <Block
             title="Deliverables"
             body={i.workRequired}
@@ -237,6 +240,24 @@ export default async function InitiativeDetail({
               </p>
             </DetailSection>
           )}
+
+          <DetailSection
+            icon={TriangleAlert}
+            title="Risks and mitigations"
+            count={i.riskLog.length > 0 && String(i.riskLog.length)}
+            isEmpty={i.riskLog.length === 0}
+            emptyText={editable ? "No risks logged. Add them in Edit." : "No risks logged."}
+          >
+            <DetailList>
+              {i.riskLog.map((r) => (
+                <li key={r.id} className="grid gap-1 py-2.5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_8rem] sm:gap-4">
+                  <p className="text-sm text-ink">{r.risk}</p>
+                  <p className="text-sm text-ink-muted">{r.mitigation ?? "No mitigation yet"}</p>
+                  <p className="text-note text-ink-faint">{r.owner ?? "No owner"}</p>
+                </li>
+              ))}
+            </DetailList>
+          </DetailSection>
 
           <DetailSection
             icon={CalendarCheck}
@@ -320,7 +341,7 @@ export default async function InitiativeDetail({
                     <div className="min-w-0 flex-1">
                       <p className={`text-sm ${a.status === "DONE" ? "text-ink-faint line-through" : "text-ink"}`}>{a.title}</p>
                       <p className="text-note text-ink-faint">
-                        {[a.owner, a.dueAt ? `due ${formatDateDay(a.dueAt)}` : null].filter(Boolean).join(" · ")}
+                        {[a.owner, a.dueAt ? `due ${formatDateDay(a.dueAt)}` : a.byWhen].filter(Boolean).join(" · ")}
                       </p>
                     </div>
                     {overdue && <Badge variant="risk" shape="pill" className="shrink-0">Past due</Badge>}
@@ -467,15 +488,22 @@ function RailRow({ label, value, muted, tabular }: { label: string; value: React
   );
 }
 
+function ValueRow({ label, value, wide }: { label: string; value: string | null; wide?: boolean }) {
+  return (
+    <div className={wide ? "sm:col-span-2" : undefined}>
+      <dt className="text-note text-ink-faint">{label}</dt>
+      <dd className={value ? "text-ink" : "text-ink-faint"}>{value ?? "Not set"}</dd>
+    </div>
+  );
+}
+
 function Block({
   title,
   body,
-  footer,
   assist,
 }: {
   title: string;
   body: string | null;
-  footer?: React.ReactNode;
   assist?: React.ReactNode;
 }) {
   return (
@@ -484,9 +512,8 @@ function Block({
       {body ? (
         <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-ink">{body}</p>
       ) : (
-        !footer && <p className="mt-2 text-sm text-ink-faint">Not yet documented.</p>
+        <p className="mt-2 text-sm text-ink-faint">Not yet documented.</p>
       )}
-      {footer}
       {assist && <div className="mt-auto pt-3">{assist}</div>}
     </section>
   );

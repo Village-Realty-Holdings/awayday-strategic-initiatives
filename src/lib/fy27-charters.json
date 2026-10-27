@@ -1,0 +1,2089 @@
+[
+  {
+    "code": "FY27-SI-001",
+    "page": 15,
+    "name": "Build tuck-in M&A machine",
+    "aopObjective": null,
+    "eltSponsor": "Ryan McKendry",
+    "siLead": "Curt Stark",
+    "status": "On track",
+    "objective": "Cut analysis to close from 70-120 days down to 30-45 by year end, so tuck-in volume, underwriting quality, conversion rates rise – shift toward deals with less structure, higher quality post-integration outcomes\nPut the team in place to lead this, including a VP Tuck-ins",
+    "metric": "Analysis to close days",
+    "baseline": "70 to 120 days",
+    "target": "30 days",
+    "ebitdaValue": "$11M (~30 extra tuck-ins per yr)",
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "Cycle time comes down and deal quality comes down with it",
+        "mitigation": "Underwrite for the downside. If a deal only works on a clean integration, we do not do it",
+        "owner": null
+      },
+      {
+        "risk": "Integration capacity does not scale with deal volume, so purchased EBITDA does not land",
+        "mitigation": "Build the integration bench ahead of the volume, not after",
+        "owner": null
+      },
+      {
+        "risk": "Engineering capacity against an aggressive build timeline",
+        "mitigation": "Dedicated resource, scope held to the pre-LOI module and seller portal",
+        "owner": null
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Engineering resources for the tuck-in tool",
+        "fromWhom": "Mohan Chandolu",
+        "byWhen": "In progress"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "Pre-LOI module live for deal analysis",
+        "owner": "Curt Stark",
+        "due": "30 Oct 2026"
+      },
+      {
+        "title": "First deals run end to end through the new process",
+        "owner": "Curt Stark",
+        "due": "15 Nov 2026"
+      },
+      {
+        "title": "Analysis to close at 30 to 45 days",
+        "owner": "Curt Stark",
+        "due": "31 Dec 2026"
+      },
+      {
+        "title": "VP Tuck-ins in place",
+        "owner": "Curt Stark",
+        "due": "1 Jan 2027"
+      },
+      {
+        "title": "8 tuck-ins closed in the quarter",
+        "owner": "Curt Stark",
+        "due": "31 Mar 2027"
+      },
+      {
+        "title": "10 tuck-ins closed in the quarter",
+        "owner": "Curt Stark",
+        "due": "30 Jun 2027"
+      },
+      {
+        "title": "12 tuck-ins closed in the quarter",
+        "owner": "Curt Stark",
+        "due": "30 Sep 2027"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-002",
+    "page": 16,
+    "name": "M&A org planning & talent",
+    "aopObjective": null,
+    "eltSponsor": "Ryan McKendry",
+    "siLead": "Curt Stark",
+    "status": null,
+    "objective": "Redesign the M&A org and hire into it, so the team is not at capacity on large deals while tuck-in volume scales. M&A org planning & talent are one sequential effort, not two: Backfill / add key roles such as\nVP M&A Sourcing\nVP Integration (Curt takes tuck-in leadership)\nTuck-in Analysts x2",
+    "metric": "# new M&A hires landed",
+    "baseline": "N/A",
+    "target": "4 hired",
+    "ebitdaValue": null,
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "The team is at capacity on large deals, so tuck-in volume has nowhere to go",
+        "mitigation": "Org redesign sequences ahead of the volume ramp",
+        "owner": null
+      },
+      {
+        "risk": "Availability of talent",
+        "mitigation": "Curt holds a dual-hat role until a VP Integration is in place",
+        "owner": null
+      },
+      {
+        "risk": "Transformational deals need senior cover while roles are filled",
+        "mitigation": "Oren steps up, with external consulting support on transformational deals",
+        "owner": null
+      }
+    ],
+    "dependencies": [],
+    "milestones": [
+      {
+        "title": "Job hiring list locked",
+        "owner": "Ryan M",
+        "due": "Oct 20 2026"
+      },
+      {
+        "title": "Searches kicked off",
+        "owner": "Ryan M",
+        "due": "Nov 1 2026"
+      },
+      {
+        "title": "New leaders in-place",
+        "owner": "Ryan M",
+        "due": "March 31 2026"
+      },
+      {
+        "title": "Review tuck-in velocity vs team capacity and set go-forward hiring needs",
+        "owner": "Ryan M",
+        "due": "Jun 30 2027"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-003",
+    "page": 19,
+    "name": "Talent: BDM coaching and enablement leadership",
+    "aopObjective": null,
+    "eltSponsor": "Ryan Olin",
+    "siLead": "David Jensen",
+    "status": null,
+    "objective": "Hire a VP of Enablement who runs part of the country and owns enablement company-wide\nTrain and upskill BD managers as coaches: weekly call-recording coaching of BDEs delivered by BDMs (in addition to Ryan), enabled by call scoring and best-practice battlecards\nEnd-Q2 FY27 checkpoint on BDE call-score improvement, then decide whether any talent changes are needed",
+    "metric": "Call-score improvement of BDEs in the coaching cohort",
+    "baseline": "BDM’s cohort call score, Oct 2026",
+    "target": "TBD",
+    "ebitdaValue": "N/A (enabler)",
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "BDMs stay in admin and coaching never gets the time",
+        "mitigation": "AI and automation target 10 hrs a week back per BDM, tracked weekly",
+        "owner": "Ryann Jester"
+      },
+      {
+        "risk": "Training does not drive behavior change",
+        "mitigation": "Closed loop: score, coach, re-score, and measure the improvement",
+        "owner": "Catrina Millares"
+      },
+      {
+        "risk": "Enablement leader seat is still to fill",
+        "mitigation": "First WHO, then WHAT. VP runs a region and owns enablement on a dual hat",
+        "owner": "Ryan Olin"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Call Scores live so call quality can be graded",
+        "fromWhom": "Nathan Nelson",
+        "byWhen": "12/15/2026"
+      },
+      {
+        "need": "BPs and RVPs cascade priorities and hold brand accountability",
+        "fromWhom": "RVPs",
+        "byWhen": "Ongoing"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "Battle cards built and tailored to each brand",
+        "owner": "Ryann Jester",
+        "due": "15 Oct 2026"
+      },
+      {
+        "title": "Coaching framework and call-quality baseline set",
+        "owner": "Catrina Millares",
+        "due": "15 Oct 2026"
+      },
+      {
+        "title": "Training and AI roleplay live, weekly BDM call-recording coaching of BDEs running",
+        "owner": "Catrina Millares",
+        "due": "15 Nov 2026"
+      },
+      {
+        "title": "Coaching standardized, 10 hrs a week per BDM reclaimed and redeployed",
+        "owner": "Ryann Jester",
+        "due": "15 Dec 2026"
+      },
+      {
+        "title": "VP Sales / Enablement hired",
+        "owner": "Ryan Olin",
+        "due": "31 Mar 2027"
+      },
+      {
+        "title": "BDM call-recording coaching running for every BDE in the cohort; call scores reported monthly",
+        "owner": "Catrina Millares",
+        "due": "31 Mar 2027"
+      },
+      {
+        "title": "End-Q2 checkpoint: cohort call-score improvement vs baseline; decide if talent changes are needed",
+        "owner": "Ryan Olin",
+        "due": "30 Jun 2027"
+      },
+      {
+        "title": "Actions from Q2 checkpoint executed; coaching model scaled across brands",
+        "owner": "Ryan Olin",
+        "due": "30 Sep 2027"
+      }
+    ],
+    "notes": "TO DISCUSS: What end-Q2 call-score lift is enough?"
+  },
+  {
+    "code": "FY27-SI-004",
+    "page": 20,
+    "name": "BD measurement: leading and lagging scorecards",
+    "aopObjective": null,
+    "eltSponsor": "Ryan Olin",
+    "siLead": "David Jensen",
+    "status": null,
+    "objective": "A balanced scorecard of leading and lagging metrics, so BD sees what is working and intervenes early; measurement focuses on whether call-score improvement (leading) drives conversion improvement (lagging)",
+    "metric": "Correlation of call-score improvement with conversion improvement",
+    "baseline": "40% conversion",
+    "target": "42%, 45% stretch",
+    "ebitdaValue": null,
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "Call Scores is the one metric not yet live, so call quality cannot be graded",
+        "mitigation": "Build on the battle card framework: cash, care, communication, objection handling, closing",
+        "owner": "Nathan Nelson"
+      },
+      {
+        "risk": "Brand Presidents support on adoption",
+        "mitigation": "Partnership with Operations",
+        "owner": "David Jensen (RVP collaboration needed)"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Domo dashboard rebuilt and reporting requirements finalized",
+        "fromWhom": "Nathan Nelson / IT",
+        "byWhen": "15 Oct 2026"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "V1 metric definitions finalized, dashboard rebuilt",
+        "owner": "Nathan Nelson",
+        "due": "15 Oct 2026"
+      },
+      {
+        "title": "Scorecard live by rep, by region, by month; weekly stack-rank reporting begins",
+        "owner": "Nathan Nelson",
+        "due": "15 Nov 2026"
+      },
+      {
+        "title": "Leading indicators live on the scorecard alongside lagging metrics",
+        "owner": "Nathan Nelson",
+        "due": "15 Nov 2026"
+      },
+      {
+        "title": "Call score correlated to conversion; YOY views added, used in performance reviews",
+        "owner": "Nathan Nelson",
+        "due": "15 Dec 2026"
+      },
+      {
+        "title": "Q1 review: correlation of call-score improvement with conversion and gross adds; pivot as needed",
+        "owner": null,
+        "due": "31 Mar 2027"
+      },
+      {
+        "title": "Feedback gathered on use of metrics in BDE evaluation and coaching conversations",
+        "owner": null,
+        "due": "31 Mar 2027"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-005",
+    "page": 21,
+    "name": "Brand optimization via growth systems",
+    "aopObjective": null,
+    "eltSponsor": "Ryan Olin",
+    "siLead": "David Jensen",
+    "status": null,
+    "objective": "Standardize four high-ROI lead generation plays across every brand, replicating what the top performers already do, taking best-practice across our business\nThis is a cross-org accountability play supported by the Regional VPs rather than a BD-only project\n• Owner referrals: consistent cadence through newsletters and Zendesk ticket footers, roughly 80% conversion\n• Owner win-backs: proactive data-driven outreach to the roughly 1,500 owners who leave each year\n• For-sale listings: formal process on who is notified, the action required and how it is tracked\n• Employee referrals: bonus for all employees",
+    "metric": "Brand unit growth, unit growth per play, lead growth",
+    "baseline": "618 Units YTD",
+    "target": null,
+    "ebitdaValue": null,
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "Lacking a consistent and good view into properties for sale",
+        "mitigation": "Partnering with BI to improve reporting and communication",
+        "owner": "Nathan Nelson"
+      }
+    ],
+    "dependencies": [],
+    "milestones": [
+      {
+        "title": "Build baseline: which shops are running programs today and how well",
+        "owner": "TBD",
+        "due": "TBD"
+      },
+      {
+        "title": "Prioritize shops for rollout based on opportunity",
+        "owner": "TBD",
+        "due": "TBD"
+      },
+      {
+        "title": "Install programs and train BDEs on them",
+        "owner": "TBD",
+        "due": "TBD"
+      },
+      {
+        "title": "Launch programs, then measure and refine",
+        "owner": "TBD",
+        "due": "TBD"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-006",
+    "page": 24,
+    "name": "Talent upgrades",
+    "aopObjective": null,
+    "eltSponsor": "Dan Yankley / Justin Ridgeway",
+    "siLead": "Kyle Sullivan",
+    "status": null,
+    "objective": "Train up or replace underperforming ORMs to drive churn reductions across the portfolio.\nORM performance is highly varied across the portfolio. ORMs in 9 box outperform low-grade by ~63% (3.65 average performance grade vs 2.24).\nTalent is the single biggest lever on churn - high performers (scores of 3.3+) average 13.8% churn and low performers (scoring 2.7 or less) average 17.3% churn.",
+    "metric": "ORM performance scores",
+    "baseline": "2.82 average performance",
+    "target": "2.97 target, 3.0+ stretch",
+    "ebitdaValue": "$1-2M",
+    "investmentCost": "~$310k",
+    "risks": [
+      {
+        "risk": "Discrepancy between ORM performance and potential remains or widens",
+        "mitigation": "Owner retention machine to train ORMs and execute targeted intervention",
+        "owner": "Caleb Arnold"
+      },
+      {
+        "risk": "At risk ORMs fail to meet performance standards",
+        "mitigation": "Hire and replace underperformers",
+        "owner": "Caleb Arnold / Lisa"
+      },
+      {
+        "risk": "Lack of visibility into ORM % of portfolio revenue & ORM specific churn metrics",
+        "mitigation": "Central team to work with shops and data platforms to improve visibility",
+        "owner": "Caleb Arnold"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Updated 9-box evaluation",
+        "fromWhom": "Caleb Arnold / Adam Hamdan",
+        "byWhen": "June 2026"
+      },
+      {
+        "need": "Plan for next phase of talent triage",
+        "fromWhom": "Caleb Arnold",
+        "byWhen": "June 2027"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "Finish triaging and hiring ORM talent across the company as informed by the 9-box assessment exercise",
+        "owner": "Kyle Sullivan / Caleb Arnold",
+        "due": "Mar 2026"
+      },
+      {
+        "title": "Improve ORM training program and touchpoints with new hires",
+        "owner": "Kyle Sullivan / Caleb Arnold",
+        "due": "Mar 2027"
+      },
+      {
+        "title": "Roll out a revenue training program across the company to upskill current talent team",
+        "owner": "Caleb Arnold / Revenue Team",
+        "due": "Mar 2027"
+      },
+      {
+        "title": "Incentive best practices developed and provided to Brand Presidents for support",
+        "owner": "Caleb Arnold / Hannah Norowitz / Hunter Furgison",
+        "due": "June 2027"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-007",
+    "page": 25,
+    "name": "Scorecard and GBV churn measurement",
+    "aopObjective": null,
+    "eltSponsor": "Dan Yankley / Justin Ridgeway",
+    "siLead": "Kyle Sullivan",
+    "status": null,
+    "objective": "One scorecard distributed monthly that correlates with retention, so every shop can see where it stands and what to do about it - drives internal competition and visibility",
+    "metric": "GBV churn (TTM), churned LTM GBV over average portfolio GBV",
+    "baseline": "8.98% TTM, against 12.7% unit churn Oct 25 to Sept 26",
+    "target": "8.0% target, 7.5% stretch",
+    "ebitdaValue": "Part of a broader $1-2M EBITDA improvement",
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "A scorecard that does not correlate with retention becomes reporting overhead",
+        "mitigation": "Test the correlation before it goes monthly",
+        "owner": "Caleb Arnold / Jazzy Kaur"
+      },
+      {
+        "risk": "Inaccurate or misaligned data",
+        "mitigation": "Partner with BI to lock the GBV churn definition and validate TTM data",
+        "owner": "BI / Caleb Arnold / Hannah Norowitz"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Agreed GBV churn definition and revalidated history",
+        "fromWhom": "Hannah Norowitz / BI",
+        "byWhen": "Dec 2026"
+      },
+      {
+        "need": "GBV offboarding process implemented into Streamline and Guesty",
+        "fromWhom": "Hannah Norowitz / BI",
+        "byWhen": "Dec 2026"
+      },
+      {
+        "need": "ORMs trained and adhering to offboarding process and recording",
+        "fromWhom": "Caleb Arnold / Hannah Norowitz",
+        "byWhen": "Feb 2027"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "One scorecard distributed monthly",
+        "owner": "Caleb Arnold / Jazzy Kaur",
+        "due": "November 2026"
+      },
+      {
+        "title": "All shops ranked on GBV churn vs. Unit churn; Non-Zendesk shops ranked on GBV churn-only weighting",
+        "owner": "Caleb Arnold / Jazzy Kaur",
+        "due": "28 February 2027"
+      },
+      {
+        "title": "Correlation test of GBV churn against FRT, SLA, and CCR on six months of trended data",
+        "owner": "Caleb Arnold / Jazzy Kaur",
+        "due": "30 June 2027"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-008",
+    "page": 26,
+    "name": "Underperforming brand interventions",
+    "aopObjective": null,
+    "eltSponsor": "Dan Yankley / Justin Ridgeway",
+    "siLead": "Kyle Sullivan",
+    "status": null,
+    "objective": "Fix the small number of shops carrying most of the churn with the highest NOI impact where it applies, but a targeted intervention curated to the shop rather than a universal lever.",
+    "metric": "Churn Rate",
+    "baseline": "<11% TTM goal",
+    "target": "15% target, 11% stretch at participating shops",
+    "ebitdaValue": "~$2.8-3.8M",
+    "investmentCost": "N/A",
+    "risks": [
+      {
+        "risk": "Turnarounds may take several months or longer to come to fruition",
+        "mitigation": "Central support and additional resources provided to hasten turnaround",
+        "owner": "Ops Excellence"
+      },
+      {
+        "risk": "Shop leadership unequipped to lead turnaround",
+        "mitigation": "Brand presidents replaced at underperforming shops as needed if unwilling or incapable of leading turnaround",
+        "owner": "RVPs"
+      },
+      {
+        "risk": "Churn improvements come at the expense of NOI margin",
+        "mitigation": "Resource investment for the highest impact initiatives only, ensuring meaningful ROI",
+        "owner": "BP / Ops Excellence"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Proof points of intervention success (what’s working, what isn’t)",
+        "fromWhom": "Hannah, Kyle, RJ, Andrew",
+        "byWhen": "Feb 2027"
+      },
+      {
+        "need": "Intervention how-to guide with focus on culture building",
+        "fromWhom": "Hannah Norowitz / Justin Ridgeway",
+        "byWhen": "Mar 2027"
+      },
+      {
+        "need": "List of additional shops identified for intervention",
+        "fromWhom": "Hannah Norowitz / Caleb Arnold / Kyle Sullivan / Justin Ridgeway",
+        "byWhen": "Mar 2027"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "Structure regular touchpoints to support intervention approach at Avada. Assess what worked and what didn’t and refine intervention process accordingly.",
+        "owner": "Hannah Norowitz / Kyle Sullivan",
+        "due": "Feb 2027"
+      },
+      {
+        "title": "Codify intervention process and create a how-to guide with key analysis, questions, necessary resources, and output plan.",
+        "owner": "Hannah Norowitz / Kyle Sullivan / Caleb Arnold / Justin Ridgeway",
+        "due": "Mar 2027"
+      },
+      {
+        "title": "Assemble cross-functional support team to lead intervention process across the company and deploy team across 5 highest at-risk brands to run intervention and follow-through.",
+        "owner": "Hannah Norowitz / Kyle Sullivan / Caleb Arnold / Justin Ridgeway",
+        "due": "Apr 2027"
+      },
+      {
+        "title": "Conduct post-mortem analysis, focusing on the ‘why’ intervention was necessary in the first place and how it can be prevented going forward.",
+        "owner": "Hannah Norowitz / Kyle Sullivan / Caleb Arnold",
+        "due": "Dec 2027"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-009",
+    "page": 30,
+    "name": "AI Revenue Manager",
+    "aopObjective": "Beat the market on TRevPAR",
+    "eltSponsor": "Danny Bradford",
+    "siLead": "Carter Achilles",
+    "status": "Not started",
+    "objective": "Uplift pricing with automatic rate anomaly detection, gap-night optimization and stricter discount control, by connecting pricing tool to PriceLabs. Will mean each RM manages ~1,000 units instead of ~550. Without it, RM headcount must grow with the portfolio and pricing errors get caught late.",
+    "metric": "Revenue uplift from improved pricing; second order: units per RM",
+    "baseline": "$0 uplift; ~550 units/RM",
+    "target": "+$9M; 700 / 1,000",
+    "ebitdaValue": "$9M revenue uplift from improved pricing & ~$4M/yr OPEX save (at 1,000 units/RM)",
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "PriceLabs delay in providing costs",
+        "mitigation": "In person VRMA meeting",
+        "owner": "Danny Bradford"
+      },
+      {
+        "risk": "RMs don't trust automated changes",
+        "mitigation": "Human-in-the-loop approvals; RM pilot",
+        "owner": "Carter Achilles"
+      },
+      {
+        "risk": "False positives from anomaly detection",
+        "mitigation": "Tune thresholds; QA + rollback process",
+        "owner": "Carter Achilles"
+      },
+      {
+        "risk": "Dev capacity not secured for go-live",
+        "mitigation": "Lock dev allocation in Q1 planning",
+        "owner": "Carter Achilles"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "PriceLabs connectivity + cost negotiation complete",
+        "fromWhom": "PriceLabs",
+        "byWhen": "Nov 27, 2026"
+      },
+      {
+        "need": "Ares tool build and access/internal hosting",
+        "fromWhom": "Ares (Borja)",
+        "byWhen": "Nov 27, 2026"
+      },
+      {
+        "need": "Strong feedback cycle from pilot program",
+        "fromWhom": "Rev Org Leadership",
+        "byWhen": "Q1 2027"
+      },
+      {
+        "need": "Dedicated Dev time when moving towards full rollout",
+        "fromWhom": "IT team",
+        "byWhen": "Q3 2027"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "PriceLabs connectivity agreement signed",
+        "owner": "Carter Achilles",
+        "due": "Nov 27, 2026"
+      },
+      {
+        "title": "Live Ares ↔ PriceLabs connection in a pilot region",
+        "owner": "Carter Achilles",
+        "due": "Nov 27, 2026"
+      },
+      {
+        "title": "Pilot RMs running a larger book (~750 units/RM)",
+        "owner": "Carter Achilles",
+        "due": "Q1 2027"
+      },
+      {
+        "title": "Portfolio-wide rollout toward 1,000 units/RM",
+        "owner": "Carter Achilles",
+        "due": "Q3 2027"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-010",
+    "page": 31,
+    "name": "Listing Optimization",
+    "aopObjective": "Beat the market on TRevPAR",
+    "eltSponsor": "Danny Bradford",
+    "siLead": "Carter Achilles",
+    "status": "Not started",
+    "objective": "Use the performance dashboard (views, conversion) to fix poor hygiene (headlines, photos, descriptions) starting with high-GBV units, and build toward automated quality fixes with minimal human interaction. Without it, listings decay after launch and lose conversion to better-merchandised comps.",
+    "metric": "TBD (e.g., listing conversion rate, views → bookings)",
+    "baseline": "TBD",
+    "target": "TBD",
+    "ebitdaValue": "TBD",
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "Automated edits add errors",
+        "mitigation": "Human approval gate, then more autonomy",
+        "owner": "Carter Achilles"
+      },
+      {
+        "risk": "Ops issues muddy results",
+        "mitigation": "Exclude units with recent ops issues",
+        "owner": "Carter Achilles"
+      },
+      {
+        "risk": "Multi-PMS data differences",
+        "mitigation": "Start with Track; standardize mapping",
+        "owner": "Carter Achilles"
+      },
+      {
+        "risk": "Ops/Rev/Onboarding overrides",
+        "mitigation": "One agreed standard; log all edits",
+        "owner": "Carter Achilles"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Performance dashboard data (views, conversion)",
+        "fromWhom": "BI",
+        "byWhen": "TBD"
+      },
+      {
+        "need": "PMS API write access for listing content",
+        "fromWhom": "Dev / PMS vendors",
+        "byWhen": "TBD"
+      },
+      {
+        "need": "Agreed listing content standard / SOPs",
+        "fromWhom": "Onboarding team",
+        "byWhen": "TBD"
+      },
+      {
+        "need": "Photo re-shoots for priority units",
+        "fromWhom": "Local shop ops",
+        "byWhen": "TBD"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "Metric baseline set and listings ranked by GBV",
+        "owner": "Carter Achilles",
+        "due": "TBD"
+      },
+      {
+        "title": "Pilot manual fixes on top high-GBV listings; measure conversion lift",
+        "owner": "Carter Achilles",
+        "due": "TBD"
+      },
+      {
+        "title": "Automated audit sweep live across Track shops",
+        "owner": "Carter Achilles",
+        "due": "TBD"
+      },
+      {
+        "title": "Automated fixes at scale with minimal human review",
+        "owner": "Carter Achilles",
+        "due": "TBD"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-011",
+    "page": 32,
+    "name": "Channel Unit Economics",
+    "aopObjective": "Beat the market on TRevPAR",
+    "eltSponsor": "Danny Bradford",
+    "siLead": "Carter Achilles",
+    "status": "Not started",
+    "objective": "Build unit-level GBV and EBITDA by channel (Airbnb, Vrbo, Booking.com, Direct) so channel mix decisions are calculated, replacing the “any reservation is good” mindset. Without it, we pay OTA costs we can’t see and can’t steer volume to the most profitable channels.",
+    "metric": "EBITDA margin by channel (unit-level)",
+    "baseline": "TBD",
+    "target": "TBD",
+    "ebitdaValue": "TBD",
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "Cost allocation disputes",
+        "mitigation": "Agree allocation rules with Finance",
+        "owner": "Carter Achilles"
+      },
+      {
+        "risk": "Multi-PMS channel data gaps",
+        "mitigation": "Start with Track; map channel codes",
+        "owner": "Carter Achilles"
+      },
+      {
+        "risk": "Owner / brand pushback",
+        "mitigation": "Pilot in 1–2 markets; share results",
+        "owner": "Carter Achilles"
+      },
+      {
+        "risk": "Channel shifts hurt occupancy",
+        "mitigation": "Test-and-learn; monitor pacing weekly",
+        "owner": "Carter Achilles"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Channel cost data (commissions, fees)",
+        "fromWhom": "Finance",
+        "byWhen": "TBD"
+      },
+      {
+        "need": "Unit-level GBV by channel in BI model",
+        "fromWhom": "BI",
+        "byWhen": "TBD"
+      },
+      {
+        "need": "Direct channel acquisition cost",
+        "fromWhom": "Marketing",
+        "byWhen": "TBD"
+      },
+      {
+        "need": "Channel-control levers in PMS / channel mgr",
+        "fromWhom": "Dev / PMS vendors",
+        "byWhen": "TBD"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "Cost allocation method agreed with Finance",
+        "owner": "Carter Achilles",
+        "due": "TBD"
+      },
+      {
+        "title": "Baseline of unit-level GBV + EBITDA by channel built",
+        "owner": "Carter Achilles",
+        "due": "TBD"
+      },
+      {
+        "title": "Channel playbook: target mix by market and unit type",
+        "owner": "Carter Achilles",
+        "due": "TBD"
+      },
+      {
+        "title": "Channel shifts piloted in 1–2 markets; EBITDA lift measured",
+        "owner": "Carter Achilles",
+        "due": "TBD"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-012",
+    "page": 35,
+    "name": "Awayday-wide PI",
+    "aopObjective": null,
+    "eltSponsor": "Dan Yankley / Justin Ridgeway",
+    "siLead": "Kyle Sullivan",
+    "status": null,
+    "objective": "Awayday-wide PI: ~$7M net to the P&L ($12M+ gross) from BD spend (owner guarantees and accelerator bonuses), cleaning margin, maintenance margin, guest services (Conduit) and procurement\nTop down: center sets targets by shop and cost bucket, BPs choose how; shop PI continues, no double counting\nWhat counts: everything, bucketed by type; deferred costs sit outside the $7M",
+    "metric": "Awayday-wide PI cost-out $M (P&L)",
+    "baseline": "Over $2.5M executed in the FY26 cycle",
+    "target": "$12M+ gross identified; ~$7M net to P&L",
+    "ebitdaValue": "$7M",
+    "investmentCost": "~$600k RR for Conduit + TBD additional investments",
+    "risks": [
+      {
+        "risk": "Savings leak between identified and banked",
+        "mitigation": "Aim for $12M+ gross; FP&A signs off every number, monthly add-back review",
+        "owner": "Kyle Campbell"
+      },
+      {
+        "risk": "Boiling the ocean on all initiatives drives quantity but not quality , limiting success",
+        "mitigation": "Focus on highest impact cost buckets across highest impact brands",
+        "owner": "Working team"
+      },
+      {
+        "risk": "Double counting with standard shop PI",
+        "mitigation": "Map every PI item to the P&L; exclude items already in brand PI plans",
+        "owner": "Kyle Campbell"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Validated margin base and data de-averaged by shop and cost line",
+        "fromWhom": "Hannah Norowitz",
+        "byWhen": "20 Oct 2026"
+      },
+      {
+        "need": "Six Sigma programs to drive execution",
+        "fromWhom": "Shop level (one owner selected)",
+        "byWhen": "Starts 11 Jan 2027"
+      },
+      {
+        "need": "Support and tracking from central team",
+        "fromWhom": "Ops Excellence & FP&A",
+        "byWhen": "Starts 11 Jan 2027"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "Five or more priorities sized",
+        "owner": "Working group",
+        "due": "20 Oct 2026"
+      },
+      {
+        "title": "Corporate and shop-level targets set by lever and communicated to owners / BPs",
+        "owner": "Ops Excellence / FP&A",
+        "due": "31 Dec 2026"
+      },
+      {
+        "title": "Targets cascaded; shop execution begins",
+        "owner": "Ops Excellence / BPs",
+        "due": "28 Feb 2027"
+      },
+      {
+        "title": "Run-rate savings landed in the P&L and validated",
+        "owner": "BPs / FP&A",
+        "due": "30 Jun 2027"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-013",
+    "page": 36,
+    "name": "Bottoms up PI",
+    "aopObjective": null,
+    "eltSponsor": "Dan Yankley / Justin Ridgeway",
+    "siLead": "Kyle Sullivan",
+    "status": null,
+    "objective": "Shop-level PI: ~$4.5M net to the P&L from small scale initiatives at the brand level to promote an everyday cost-conscious mindset\nBottoms up: center sets PI program wide targets for H1 and H2, shops identify and execute all initiatives\nWhat counts: no deferred costs and no overlap with awayday-wide PI program",
+    "metric": "Shop-level PI cost-out $M (P&L)",
+    "baseline": "Over $2.5M executed in the FY26 cycle",
+    "target": "$4.5M target, $5.0M stretch",
+    "ebitdaValue": "$4.5M",
+    "investmentCost": "N/A",
+    "risks": [
+      {
+        "risk": "Savings leak between identified and banked",
+        "mitigation": "Aim for excess to goal; FP&A signs off every number, monthly add-back review",
+        "owner": "Kyle Campbell"
+      },
+      {
+        "risk": "Shops decline to participate",
+        "mitigation": "Publish results across peers; build plans with the worst performers; BPs own the P&L",
+        "owner": "Jazzy Kaur"
+      },
+      {
+        "risk": "All initiatives ‘squeezed out’ in 2026",
+        "mitigation": "Majority of focus on newly acquired shops vs legacy shops",
+        "owner": "Jazzy Kaur"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Bi-annual program wide goals and participating shops",
+        "fromWhom": "Jazzy Kaur",
+        "byWhen": "Bi-annually"
+      },
+      {
+        "need": "Shop level initiatives determined",
+        "fromWhom": "BPs",
+        "byWhen": "Bi-annually"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "Program wide goals determined and leadership signed off on shop specific targets",
+        "owner": "Working group / Jazzy Kaur",
+        "due": "Feb 2027"
+      },
+      {
+        "title": "Meeting cadence and program governance established; 2027 initiative kicked off",
+        "owner": "Jazzy Kaur",
+        "due": "Mar 2027"
+      },
+      {
+        "title": "Shop level initiatives logged with FP&A approval",
+        "owner": "BPs / RVPs / FP&A",
+        "due": "Apr 2027"
+      },
+      {
+        "title": "Savings realized in the P&L and sized against goals",
+        "owner": "BPs / FP&A",
+        "due": "Jun 2027"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-015",
+    "page": 44,
+    "name": "Org design",
+    "aopObjective": null,
+    "eltSponsor": "Dave Galford / Adam Hamdan",
+    "siLead": "Dave Galford / Adam Hamdan",
+    "status": "At risk",
+    "objective": "Design the Awayday-level org op model and capabilities a $300M business needs, and build HR's own org (TA track, HRBPs) to support it\nWithout it we recruit into roles whose jobs to be done are not yet defined",
+    "metric": "Org design complete; HR org staffed (TA team, HRBPs)",
+    "baseline": null,
+    "target": "Org by Q1 '27; TA team and 4 HRBPs by Q4 ‘26",
+    "ebitdaValue": null,
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "Landing leaders in key OOTF roles",
+        "mitigation": "Consolidated search strategy/tracking",
+        "owner": "Adam"
+      },
+      {
+        "risk": "HR: solidified roles and jobs to be done by role not yet defined",
+        "mitigation": "Connecting with Tricia on weekly cadence",
+        "owner": "Dave / Adam"
+      },
+      {
+        "risk": "HR: recruiting into roles (role profiles)",
+        "mitigation": "JTBD identified",
+        "owner": "Ryan Norton"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Compression with functional leaders on profiles, interviewing, and onboarding",
+        "fromWhom": "Department leaders",
+        "byWhen": "Weekly"
+      },
+      {
+        "need": "Onboard CHRO",
+        "fromWhom": "Dave, Adam, Alex, Jakob",
+        "byWhen": "10 Dec 2026"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "HR org: TA team in place",
+        "owner": "Ryan Norton",
+        "due": "31 Dec 2026"
+      },
+      {
+        "title": "HR org: 4 HRBPs in place",
+        "owner": "Dave Galford",
+        "due": "31 Dec 2026"
+      },
+      {
+        "title": "Awayday-level org design complete",
+        "owner": "Adam Hamdan",
+        "due": "31 Mar 2027"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-016",
+    "page": 45,
+    "name": "Internal talent management / talent latticing",
+    "aopObjective": null,
+    "eltSponsor": "Dave Galford / Adam Hamdan (Tricia Berry)",
+    "siLead": "Dave Galford / Adam Hamdan",
+    "status": "On track",
+    "objective": "Create visible, Awayday-wide pathways for talent to develop and grow into well-rounded STR leaders\nToday there are no visible cross-brand pathways, leaders have little incentive to share talent, and talent data is weak",
+    "metric": "Internal fill / promo / mobility rate; named successors; regretted attrition",
+    "baseline": null,
+    "target": null,
+    "ebitdaValue": null,
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "Leaders lack incentives to share talent",
+        "mitigation": "Hired TR Sr Dir to build incentive plan that rewards developing and exporting talent",
+        "owner": "Hunter Ferguson"
+      },
+      {
+        "risk": "Talent data quality",
+        "mitigation": "9-box, common competency, and Talent Management System tool framework",
+        "owner": "Alastair Butler, Adam Hamdan"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Compensation, forecasting, and talent data",
+        "fromWhom": "Finance, HR",
+        "byWhen": "Weekly"
+      },
+      {
+        "need": "Support building and refining tool capability",
+        "fromWhom": "Technology team",
+        "byWhen": "Weekly"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "Career lattice framework built",
+        "owner": "Dave Galford",
+        "due": "10/26/26"
+      },
+      {
+        "title": "BPIT and Grad to BP programs built out",
+        "owner": "Alastair Butler",
+        "due": "12/31/26"
+      },
+      {
+        "title": "Internal development strategy framework set",
+        "owner": "Dave Galford, Alastair Butler",
+        "due": "3/31/27"
+      },
+      {
+        "title": "Quarterly talent reviews running; TMS captures feedback",
+        "owner": "Dave Galford, Adam Hamdan",
+        "due": "2/1/27"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-017",
+    "page": 46,
+    "name": "External pipeline / talent attraction",
+    "aopObjective": null,
+    "eltSponsor": "Dave Galford / Adam Hamdan (Tricia Berry)",
+    "siLead": "Alastair Butler",
+    "status": "At risk",
+    "objective": "Recruit bar-raising talent into critical roles aligned to value drivers, focused on Brand President and Owner Relations\nToday we rely on recruiters, with no in-house TA team, ATS limitations and uncalibrated interviews",
+    "metric": "BPIT and G2P hires; ORM replacement rate; BP R4 offer rate; time to fill",
+    "baseline": null,
+    "target": null,
+    "ebitdaValue": "Recruiter spend reduction",
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "TA team not yet built",
+        "mitigation": "JTBD identified, Ryan to source directly",
+        "owner": "Ryan Norton"
+      },
+      {
+        "risk": "ATS limitations",
+        "mitigation": "Vendor demos, framework for selection built, assessing vendors",
+        "owner": "Ryan Norton"
+      },
+      {
+        "risk": "Interview calibration",
+        "mitigation": "Hiring feedback loops, panel-style interviews to build calibration at key levels (e.g., RVP)",
+        "owner": "Ryan Norton"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Clear JTBD across HR roles in OOTF",
+        "fromWhom": "Dave, Adam, HR leadership team",
+        "byWhen": "10/16/26"
+      },
+      {
+        "need": "Input from procurement on vendor negotiation and CHRO on selection criteria",
+        "fromWhom": "Kevin Davis, Tricia Berry",
+        "byWhen": "12/10/26"
+      },
+      {
+        "need": "Participation in R2 panel interviews and availability to conduct R3",
+        "fromWhom": "Jakob, Dan, Justin",
+        "byWhen": "Ongoing"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "TA team built",
+        "owner": "Ryan Norton",
+        "due": "12/31/26"
+      },
+      {
+        "title": "Partnership and pipeline strategies set",
+        "owner": "Alastair Butler",
+        "due": "12/31/26"
+      },
+      {
+        "title": "ATS plug-in live",
+        "owner": "Ryan Norton",
+        "due": "3/31/27"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-018",
+    "page": 47,
+    "name": "Incentives",
+    "aopObjective": null,
+    "eltSponsor": "Dave Galford / Adam Hamdan",
+    "siLead": "Hunter Ferguson",
+    "status": "At risk",
+    "objective": "Align incentives so they drive the desired behaviors across the business, financially and operationally\nToday there is no common incentive playbook, job architecture or pay bands",
+    "metric": "Playbook completion; incentive program-specific measures",
+    "baseline": null,
+    "target": null,
+    "ebitdaValue": null,
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "Prescriptive vs flexible (local) design",
+        "mitigation": "Build guidance, philosophy, and best practices for role incentives",
+        "owner": "Hunter Ferguson"
+      },
+      {
+        "risk": "Handover and collaboration with Finance",
+        "mitigation": "Onboarding plan, to include Finance socialization and collaboration",
+        "owner": "Dave Galford"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Onboard Total Rewards & Analytics Sr Director",
+        "fromWhom": "Dave Galford, Adam Hamdan",
+        "byWhen": "11/19/26"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "Incentive playbook (Awayday / local) incl. governance",
+        "owner": "Hunter Ferguson",
+        "due": "12/31/26"
+      },
+      {
+        "title": "Job architecture and pay bands set",
+        "owner": "Hunter Ferguson",
+        "due": "6/30/27"
+      },
+      {
+        "title": "Talent development incentives defined",
+        "owner": "Hunter Ferguson",
+        "due": "3/31/27"
+      },
+      {
+        "title": "WTIP set in the new org",
+        "owner": "Hunter Ferguson",
+        "due": "3/31/27"
+      },
+      {
+        "title": "Equity for All",
+        "owner": "Hunter Ferguson",
+        "due": "12/31/26"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-019",
+    "page": 48,
+    "name": "Culture",
+    "aopObjective": null,
+    "eltSponsor": "Dave Galford / Adam Hamdan",
+    "siLead": "Dave Galford / Adam Hamdan",
+    "status": "At risk",
+    "objective": "Track eNPS and tie it to manager performance, reporting and M&A (2026 goal)\nBuild talent density that reflects tenured, high performing talent, that is happy",
+    "metric": "eNPS; attrition",
+    "baseline": "33 eNPS, 40% turnover",
+    "target": "TBD",
+    "ebitdaValue": null,
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "eNPS tech build",
+        "mitigation": "Pilot text-based deployment with SupportCo, tool mvp with tech team",
+        "owner": "Adam Hamdan"
+      },
+      {
+        "risk": "M&A integration alignment",
+        "mitigation": "M&A lead role in regional HR team",
+        "owner": "Dave Galford"
+      },
+      {
+        "risk": "Turnover of tenured talent",
+        "mitigation": "Identify and track regrettable attrition, average employee tenure, metric of tribal knowledge",
+        "owner": "Hunter Ferguson"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Consultation and partnership for data collection, processing, and hosting",
+        "fromWhom": "Tech team",
+        "byWhen": "12/1/26"
+      },
+      {
+        "need": "Understanding of partnership and tactical coordination to deploy tracking",
+        "fromWhom": "M&A team",
+        "byWhen": "Weekly"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "eNPS process, tracking and actions live",
+        "owner": "Adam Hamdan",
+        "due": "3/31/27"
+      },
+      {
+        "title": "Culture best practices rolled out: onboarding, mission, values, performance culture, engagement",
+        "owner": "Dave Galford",
+        "due": "6/30/27"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-020",
+    "page": 51,
+    "name": "Accounting Transformation",
+    "aopObjective": null,
+    "eltSponsor": "David Reed",
+    "siLead": "Brett Hawks",
+    "status": "On track",
+    "objective": "Automate the monthly close and stand up a central Accounting Excellence team that sets the standard processes, tools and training every region runs on. Staff Accountants move from preparing entries to supervising an automated close and owning exceptions and NOI insight, doubling units per accountant. If we do not do it, accounting headcount grows with every acquisition and senior leaders stay pulled into day-to-day close work.",
+    "metric": "# of units per Shop Accountant",
+    "baseline": "536 units / SA",
+    "target": "700 units/SA",
+    "ebitdaValue": "~$4.3M/yr at 1,000 units/SA (LT goal for FY28 at a ~45,000 unit count level)",
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "Automation under-delivers",
+        "mitigation": "Weekly steerco",
+        "owner": "Brett Hawks"
+      },
+      {
+        "risk": "SA attrition during role change",
+        "mitigation": "Higher pay scale; career lattice",
+        "owner": "Brett Hawks / HR"
+      },
+      {
+        "risk": "Rollout/adoption across brands",
+        "mitigation": "Proper design to encourage buy in",
+        "owner": "Accounting Managers"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Close automation tooling/resources",
+        "fromWhom": "Central Accounting / IT",
+        "byWhen": "January 2027"
+      },
+      {
+        "need": "Director, Acctg Excellence hire",
+        "fromWhom": "Brett Hawks",
+        "byWhen": "December 2026"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "Director, Accounting Excellence hired",
+        "owner": "Brett Hawks / David Reed",
+        "due": "December 2026"
+      },
+      {
+        "title": "Phase 1: Time study and discovery completed; Phase 2 action plan created as a deliverable",
+        "owner": "Brett Hawks",
+        "due": "December 2026"
+      },
+      {
+        "title": "Phase 2: Implement Standardized SOPs, inclusive of automation",
+        "owner": "Brett Hawks",
+        "due": "July 2027"
+      },
+      {
+        "title": "700 units per Shop Accountant across the portfolio (~30% efficiency gain). 1,000 unit goal by December 2028",
+        "owner": "Brett Hawks",
+        "due": "December 2027"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-021",
+    "page": 52,
+    "name": "Equity for All (E4A)",
+    "aopObjective": null,
+    "eltSponsor": "David Reed",
+    "siLead": "Kyle Campbell",
+    "status": "On track",
+    "objective": "Give every eligible full-time teammate a cash stake in the growth of their own brand: a one-time award of 50/75/100% of base pay by tenure, paid when the brand doubles its EBITDA and at exit. Ties the people who run the brands to the $300M plan, strengthens retention, and makes Awayday a more compelling place to join and a more compelling buyer in M&A. Without it, only the leaders in this room share in the value the frontline creates.",
+    "metric": "Employee Turnover / Brand EBITDA or NOI Growth by Growth Cohort",
+    "baseline": "~40% Voluntary Turnover",
+    "target": null,
+    "ebitdaValue": null,
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "Rollout",
+        "mitigation": "Enablement Plan",
+        "owner": "Dan Yankley"
+      },
+      {
+        "risk": "Next Buyer Treatment",
+        "mitigation": "Accounting treatment",
+        "owner": "Brett Hawks"
+      },
+      {
+        "risk": "Visibility",
+        "mitigation": "Reporting",
+        "owner": "Kyle Campbell"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Plan Approval",
+        "fromWhom": "Ares / LB",
+        "byWhen": "October 2026"
+      },
+      {
+        "need": "HRIS Data & Process",
+        "fromWhom": "HR",
+        "byWhen": "December 2026"
+      },
+      {
+        "need": "Execution & Enablement Plan",
+        "fromWhom": "Operations",
+        "byWhen": "December 2026"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "Ares/LB Approval & Summit Announcement",
+        "owner": "David Reed / Kyle Campbell",
+        "due": "October 2026"
+      },
+      {
+        "title": "Program Launched",
+        "owner": "Dan Yankley / Kyle Campbell",
+        "due": "January 2026"
+      },
+      {
+        "title": "First Quarterly Measurement",
+        "owner": "Kyle Campbell",
+        "due": "April 2026"
+      },
+      {
+        "title": "Fully Incorporated Into Recruiting & M&A",
+        "owner": "Tricia Berry / Ryan McKendry",
+        "due": "February 2026"
+      },
+      {
+        "title": "Metrics tracking – retention, Employee NPS, # Brands growing in different cohorts (10%+, 20%+, 30%+, etc)",
+        "owner": "Tricia Berry / Kyle",
+        "due": "January 2026"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-022",
+    "page": 53,
+    "name": "Improved Predictability",
+    "aopObjective": null,
+    "eltSponsor": "David Reed",
+    "siLead": "Kyle Campbell",
+    "status": "On track",
+    "objective": "Every brand president updates a forecast each month with their regional finance team, and it rolls up into one company forecast within days of close. Brand presidents see where their business is headed in time to act, support teams plan staffing and investment on a current view instead of a stale budget, and leadership and the sponsors get a reliable forecast. If we don’t do it, decisions keep running off a budget that is out of date by spring, surprises show up at close, and the path to $300M is harder to steer.",
+    "metric": "Forecast Accuracy",
+    "baseline": "N/A",
+    "target": "Base Business EBITDA within 1% of Forecast",
+    "ebitdaValue": null,
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "Brand President Adoption",
+        "mitigation": "Regional FP&A",
+        "owner": "Kyle Campbell"
+      },
+      {
+        "risk": "OTA Predictability",
+        "mitigation": "TBD",
+        "owner": "Kelly Jui"
+      },
+      {
+        "risk": "Scaling with M&A",
+        "mitigation": "Brand President Training",
+        "owner": "Jace Franklin"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Regional FP&A Go Ahead",
+        "fromWhom": "Operations",
+        "byWhen": "November 2026"
+      },
+      {
+        "need": "Support Forecast",
+        "fromWhom": "Central FP&A",
+        "byWhen": "January 2026"
+      },
+      {
+        "need": "Reporting & Automation",
+        "fromWhom": "Central FP&A",
+        "byWhen": "January 2026"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "2027 Budget Complete Using New Template",
+        "owner": "Kelly Jui",
+        "due": "December 2026"
+      },
+      {
+        "title": "First Post-Budget Forecast Cycle – Forecast For Every Shop",
+        "owner": "Kelly Jui",
+        "due": "January 2026"
+      },
+      {
+        "title": "Forecasts Published in NFR",
+        "owner": "Kelly Jui",
+        "due": "February 2026"
+      },
+      {
+        "title": "Enterprise-Level Forecast Reported to Exec Team",
+        "owner": "Kyle Campbell",
+        "due": "February 2026"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-023",
+    "page": 54,
+    "name": "User Experience",
+    "aopObjective": null,
+    "eltSponsor": "David Reed",
+    "siLead": "Kyle Campbell",
+    "status": "Not started",
+    "objective": null,
+    "metric": null,
+    "baseline": null,
+    "target": null,
+    "ebitdaValue": null,
+    "investmentCost": null,
+    "risks": [],
+    "dependencies": [],
+    "milestones": [],
+    "notes": "Kelly working on this SI page"
+  },
+  {
+    "code": "FY27-SI-024",
+    "page": 57,
+    "name": "Talent upgrade",
+    "aopObjective": null,
+    "eltSponsor": "Danny Bradford",
+    "siLead": "Lee Sims",
+    "status": "On track",
+    "objective": "Raise the bar in the marketing team: 9-box the group, set a coach-or-exit path for the reds, and hire externally against clear targets and deadlines.\nBring in bar-raising talent to advance the department, with supporting changes to onboarding and training",
+    "metric": "Each team member moves up one box on the 9-box",
+    "baseline": "3 of 19 at box 4 or below",
+    "target": "All up one box",
+    "ebitdaValue": "Cost: $1.1M, 12 new hires in 2027",
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "Morale dips during coach-or-exit",
+        "mitigation": "Manager-led 1:1s with each team member",
+        "owner": "Managers; Lee oversees"
+      },
+      {
+        "risk": "Capacity gap while exits land before new hires",
+        "mitigation": "TBD",
+        "owner": "Lee + team leads"
+      },
+      {
+        "risk": "New hires ramp slowly",
+        "mitigation": "Role-specific training tracks",
+        "owner": "Lee + team leads"
+      },
+      {
+        "risk": "Core Players stall in box 5",
+        "mitigation": "Development plans plus quarterly 9-box re-scoring",
+        "owner": "Lee + team leads"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Headcount approval for 12 new roles",
+        "fromWhom": "Danny Bradford",
+        "byWhen": "Q4 2026"
+      },
+      {
+        "need": "Budget approval for new hires ($1.1M)",
+        "fromWhom": "Finance",
+        "byWhen": "Q4 2026"
+      },
+      {
+        "need": "Onboarding and training programs (L&D)",
+        "fromWhom": "HR",
+        "byWhen": "Q1 2027"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "9-box evaluation complete",
+        "owner": "Lee Sims & Jocelyn Zimmerman",
+        "due": "Complete"
+      },
+      {
+        "title": "Coach-or-exit path set for the 3 at box 4 or below",
+        "owner": "Lee Sims & team leads",
+        "due": "Q1 2027"
+      },
+      {
+        "title": "External hiring targets and deadlines set",
+        "owner": "Lee Sims",
+        "due": "Throughout 2027"
+      },
+      {
+        "title": "Onboarding and training updated for new hires",
+        "owner": "Lee Sims & team leads",
+        "due": "Throughout 2027"
+      }
+    ],
+    "notes": "QUESTIONS TO SOLVE (Danny / Lee)\n• How do we cover the capacity gap while exits land before new hires?"
+  },
+  {
+    "code": "FY27-SI-025",
+    "page": 58,
+    "name": "SEO optimization via AI integration",
+    "aopObjective": null,
+    "eltSponsor": "Danny Bradford",
+    "siLead": "Lee Sims",
+    "status": null,
+    "objective": "SEO/AEO/GEO drives roughly 50% of direct revenue. The top 15 sites produce most of it; extend their playbook across the remaining brands while focusing harder on the top 15\nAccelerate a proven SEO methodology across the whole portfolio, using an AI agent to run audits so team capacity stops being the constraint as we acquire more brands",
+    "metric": "SEO/AEO/GEO direct revenue growth (YoY)",
+    "baseline": "YTD $163M Organic Revenue",
+    "target": "+50% (~30% lift on total direct)",
+    "ebitdaValue": null,
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "Team capacity as we acquire 15 to 20 more brands",
+        "mitigation": "An AI agent runs the audits so capacity stops being the constraint",
+        "owner": "Jocelyn & Carter"
+      },
+      {
+        "risk": "Limited development capacity to implement fixes",
+        "mitigation": "Optimize existing high-value pages before building net-new content",
+        "owner": "Jocelyn + team"
+      },
+      {
+        "risk": "CMS capability and timelines differ site by site",
+        "mitigation": "Prioritize sites by revenue potential, effort and demand",
+        "owner": "Leee, Jocelyn, Christina"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "CRM upgrade for enriched profiles and cross-channel connectivity, as a supporting tactic",
+        "fromWhom": "Danny Bradford",
+        "byWhen": "Q1 2027"
+      },
+      {
+        "need": "Marketing Ops and web support for CRO and booking-funnel fixes",
+        "fromWhom": "Marketing Ops",
+        "byWhen": "Q1 2027"
+      },
+      {
+        "need": "Shop participation: local expertise and unique content",
+        "fromWhom": "Shops",
+        "byWhen": "Q1 2027"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "Technical audit complete, baselines set, SEO / AEO priorities ranked",
+        "owner": "Jocelyn",
+        "due": "Q4 2026"
+      },
+      {
+        "title": "Listing updates, metadata, site structure and foundational AEO live",
+        "owner": "Jocelyn",
+        "due": "Q1 2027"
+      },
+      {
+        "title": "Successful optimizations scaled across brands and markets",
+        "owner": "Jocelyn",
+        "due": "Q2–Q3 2027"
+      },
+      {
+        "title": "Organic bookings, CVR, GBV and AI-search visibility reported",
+        "owner": "Jocelyn",
+        "due": "Ongoing"
+      }
+    ],
+    "notes": "QUESTIONS TO SOLVE (Danny / Lee)\n• Baseline SEO/AEO/GEO revenue, and its share of spend\n• Milestones and dates: AI audit agent live, first brands on the playbook?\n• Who owns the CRM upgrade dependency, and by when?"
+  },
+  {
+    "code": "FY27-SI-026",
+    "page": 59,
+    "name": "Conversion rate optimization",
+    "aopObjective": null,
+    "eltSponsor": "Danny Bradford",
+    "siLead": "Lee Sims",
+    "status": "On track",
+    "objective": "What: pilot new website tech to lift direct booking conversion from 0.81% (2025 average) to 1.25%+, with 2.0%+ as the stretch\nWhy: 1.25% conversion would mean ~50% more direct revenue from the same traffic, and could deliver our +40% direct GBV goal. Higher risk than SEO, so we test before we scale",
+    "metric": "Direct booking conversion rate (CVR)",
+    "baseline": "0.81% (2025 avg)",
+    "target": "1.25%; 2.0%+ stretch",
+    "ebitdaValue": "TBD, depends on the test read",
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "Wander's 2–5% CVR claim does not hold on our sites",
+        "mitigation": "Test on 3 sites first; if it holds, scale fast",
+        "owner": "MarOps"
+      },
+      {
+        "risk": "Switching site platforms costs time and money",
+        "mitigation": "If the test fails, move to lower-cost transitions and keep searching",
+        "owner": "Lee Sims"
+      },
+      {
+        "risk": "SEO rankings drop on migration",
+        "mitigation": "Redirect map and SEO audit before each cutover",
+        "owner": "MarOps"
+      },
+      {
+        "risk": "Bookings dip during cutover",
+        "mitigation": "Cut over in low-demand weeks, with a rollback plan",
+        "owner": "MarOps"
+      },
+      {
+        "risk": "Seasonality skews the 90-day read",
+        "mitigation": "Compare test sites against same-period control sites",
+        "owner": "MarOps"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Approval to launch Wander beyond the 3 test sites",
+        "fromWhom": "Brand Presidents",
+        "byWhen": "Q2 2027 (after test read)"
+      },
+      {
+        "need": "Wander PMS automations; IMEG pricing",
+        "fromWhom": "Vendors",
+        "byWhen": "Q4 2026"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "3 test sites selected and live on Wander",
+        "owner": "MarOps",
+        "due": "Q4 2026–Q1 2027"
+      },
+      {
+        "title": "Test read after 90 days: does the CVR lift hold?",
+        "owner": "MarOps",
+        "due": "Q2 2027"
+      },
+      {
+        "title": "Scale, or move to lower-cost transitions",
+        "owner": "Lee Sims",
+        "due": "Q2 2027"
+      }
+    ],
+    "notes": "QUESTIONS TO SOLVE (Danny / Lee)\n• Revenue value of the CVR lift for FY27\n• Who provides Wander PMS automations and IMEG pricing, and by when?"
+  },
+  {
+    "code": "FY27-SI-027",
+    "page": 62,
+    "name": "Conduit rollout",
+    "aopObjective": null,
+    "eltSponsor": "Dan Yankley / Justin Ridgeway",
+    "siLead": "Kyle Sullivan",
+    "status": null,
+    "objective": "Roll Conduit out across the company to improve the guest experience and drive efficiency, organization, and greater bandwidth within our guest services teams.\nWhere we are: 17 brands in the rollout (11 live, 6 in progress); RVP request list covers ~60 shops through Apr 2027\nWhy: 24/7 AI replies free teams for escalations; escalation trends fix root causes",
+    "metric": "Zero-issue stay rate",
+    "baseline": "~72%",
+    "target": "75% target, 80%+ stretch",
+    "ebitdaValue": "N/A (enabler for margin expansion SIs)",
+    "investmentCost": "~290k one-time onboarding fee + ~$600k annual subscription",
+    "risks": [
+      {
+        "risk": "Conduit rolls out with inconsistent performance across brands",
+        "mitigation": "Central team provides support as needed, drawing on learnings from shops where it’s working best",
+        "owner": "Kyle Sullivan / Josh Chung"
+      },
+      {
+        "risk": "Conduit does not write SMS or updated contacts back to Track, so the PMS stops being source of truth",
+        "mitigation": "Integration and security assessment before wider rollout",
+        "owner": "Josh Chung"
+      },
+      {
+        "risk": "Shops stall on copilot, skills not wired",
+        "mitigation": "Skill-wiring audit before autopilot; weekly roundtable; Conduit 1-on-1 training",
+        "owner": "Kyle Sullivan"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Shop SOPs converted to Conduit skills and knowledge base",
+        "fromWhom": "BPs & RVPs",
+        "byWhen": "Before each wave"
+      },
+      {
+        "need": "Email, SMS (A2P) and PMS connections set up",
+        "fromWhom": "Josh / Cade (IT)",
+        "byWhen": "Before each wave"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "Wave 2 shops live (12 brands)",
+        "owner": "Kyle Sullivan",
+        "due": "5 Oct 2026"
+      },
+      {
+        "title": "Wave 3 shops live (~5-8 brands)",
+        "owner": "Kyle Sullivan",
+        "due": "Oct/Nov 2026"
+      },
+      {
+        "title": "All shops live on Conduit",
+        "owner": "Kyle Sullivan",
+        "due": "Apr 2027"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-028",
+    "page": 38,
+    "name": "Guest Relations: Conduit roll-out and value capture",
+    "aopObjective": "Frontier tech and AI in every team's hands",
+    "eltSponsor": "Tom Chess",
+    "siLead": "Joshua Chung",
+    "status": "On track",
+    "objective": "Drive to zero-issue stays by analyzing guest messages and maintenance issues and fixing problems before they happen. That requires guest messages from SMS, email, OTA and phone in one place. In the meantime, push add-ons such as gap nights and early check-in or late check-out.",
+    "metric": "Properties per FTE in guest services and reservations",
+    "baseline": "1 : 67 across 259 FTE",
+    "target": "1 : 95",
+    "ebitdaValue": "$4.1M today, $9.7M at $300M scale",
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "Freed capacity never becomes savings because shops don't redesign roles",
+        "mitigation": "Hold teams to properties per FTE monthly, track leavers and joiners tightly",
+        "owner": "Kyle Sullivan"
+      },
+      {
+        "risk": "Top-down sizing averages badly across 62 shops (RealJoy has about 30 guest service agents, Avada has none)",
+        "mitigation": "Size shop by shop. Where a shop has no agents to reduce, count the value as service quality and growth",
+        "owner": "Kyle Sullivan"
+      },
+      {
+        "risk": "We can't tell why some shops do better than others",
+        "mitigation": "IT builds cross-shop metrics that point to root causes",
+        "owner": "Josh Chung"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Change-ready shops with capacity and technology stack, per rollout phase. Shops on platforms Conduit already supports go first; outliers move two phases out while Conduit pre-builds their connectors",
+        "fromWhom": "Justin Ridgeway",
+        "byWhen": "Before each rollout phase"
+      },
+      {
+        "need": "Properties-per-FTE benchmark, and operating reviews that hold brands to it",
+        "fromWhom": "Kyle Sullivan",
+        "byWhen": "[date]"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "VHC: first value reached (Breezeway Assist cancelled)",
+        "owner": "Josh Chung",
+        "due": "Done"
+      },
+      {
+        "title": "Waves 2 and 3 first value: off-hours services reduced, with savings at Stay Montana, Avada, PBP and LBR (possibly Village Realty)",
+        "owner": "Josh Chung",
+        "due": "Nov 2026"
+      },
+      {
+        "title": "ROI reporting agreed with Kyle Sullivan: metrics plus accumulated actuals against the $4.1M",
+        "owner": "Josh Chung",
+        "due": "Nov 2026"
+      },
+      {
+        "title": "Change-ready criteria (strike zone) defined, and Conduit asked to pre-build the next phase's connectors",
+        "owner": "Josh Chung",
+        "due": "Nov 2026"
+      },
+      {
+        "title": "About $1M in savings across roughly 15 shops",
+        "owner": "Kyle Sullivan",
+        "due": "Feb 2027"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-029",
+    "page": 39,
+    "name": "Tuck-In Machine",
+    "aopObjective": "Frontier tech and AI in every team's hands",
+    "eltSponsor": "Tom Chess",
+    "siLead": "Mohan Chandolu",
+    "status": null,
+    "objective": "Run a tuck-in from first seller contact to cutover: portal intake, pre-LOI screen on the target's own data, diligence pack, and unit and owner migration into appropriate PMS system.",
+    "metric": "Days to integrate a tuck-in",
+    "baseline": "45 days",
+    "target": "5 days",
+    "ebitdaValue": "$4-8M a year, plus $44-88M of EV",
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "Deal volume rises faster than the team can absorb it",
+        "mitigation": "Dedicated tuck-in team and org design run alongside the tool",
+        "owner": "Ryan Mckendry"
+      },
+      {
+        "risk": "The tiger team model is unproven and this is the pilot",
+        "mitigation": "Small named group, fixed cadence, clear goals. Learn and improve the model from it",
+        "owner": "Alex Bevington"
+      },
+      {
+        "risk": "Timelines for MVP end of Oct'26 are veryy aggressive",
+        "mitigation": "Discuss in every checkin meeting to undersand how far we are and descope as needed",
+        "owner": "Alex Bevington"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Seller portal intake and target data at pre-LOI",
+        "fromWhom": "Curt Stark",
+        "byWhen": null
+      },
+      {
+        "need": "Dedicated tuck-in team to run it every day",
+        "fromWhom": "Ryan McKendry",
+        "byWhen": null
+      }
+    ],
+    "milestones": [
+      {
+        "title": "Working automation tool for Ryan and team to pilot",
+        "owner": "Mohan Chandolu",
+        "due": "10/30/2026"
+      },
+      {
+        "title": "Pre-LOI screen and seller portal live",
+        "owner": "Mohan Chandolu",
+        "due": "10/30/2026"
+      },
+      {
+        "title": "Diligence pack, then unit and owner migration into Track",
+        "owner": "Mohan Chandolu",
+        "due": "10/30/2026"
+      },
+      {
+        "title": "Release the MVP version for broader use",
+        "owner": "Mohan Chandolu",
+        "due": "10/30/2026"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-030",
+    "page": 40,
+    "name": "Security Program",
+    "aopObjective": null,
+    "eltSponsor": "Tom Chess",
+    "siLead": "Rob Rogers",
+    "status": null,
+    "objective": "The objectives of this security program are to honor the expectations of our employees, owners, and guests to protect the PII data they share with us to do business. This is an unspoken covenant between Awayday and those who share this data with us. This also materially matures the security program as we prepare for exit readiness.",
+    "metric": null,
+    "baseline": null,
+    "target": null,
+    "ebitdaValue": null,
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "Enough IT resources to execute.",
+        "mitigation": "Hire FTE/ augment with third parties.",
+        "owner": "Rob Rogers"
+      },
+      {
+        "risk": "Organizational change fatigue.",
+        "mitigation": "Work with biz leaders to pace.",
+        "owner": "Rob Rogers"
+      },
+      {
+        "risk": "3rd party (PMS systems) capacity.",
+        "mitigation": "Escalate internally when needed.",
+        "owner": "Rob Rogers"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Data classification for DLP.",
+        "fromWhom": "IT Data Team",
+        "byWhen": null
+      },
+      {
+        "need": "Budget for FTE and consultants.",
+        "fromWhom": "Budget Team",
+        "byWhen": null
+      },
+      {
+        "need": "Educate ELT more on the why of security",
+        "fromWhom": "Rob Rogers",
+        "byWhen": null
+      }
+    ],
+    "milestones": [
+      {
+        "title": "Security Awareness Training – New Hires & Continuous For Employees",
+        "owner": "Rob Rogers",
+        "due": "11/9/2026 (First Round)"
+      },
+      {
+        "title": "PMS Security Architecture – Internal & Vendor Audits with Remediation Plans",
+        "owner": "Rob Rogers",
+        "due": "Continuous"
+      },
+      {
+        "title": "Acquisition Security Factory – Process to secure prior to integration. Liquid Life to start.",
+        "owner": "Rob Rogers",
+        "due": "12/1/2026 (pilot LL)"
+      },
+      {
+        "title": "Data Loss Prevention (DLP) - Classify data, monitor, and prevent PII exfiltration.",
+        "owner": "Rob Rogers",
+        "due": "6/25/2027"
+      },
+      {
+        "title": "Conditional Access Policy Enhancements – Policies which determine who and what devices can login from what locations.",
+        "owner": "Rob Rogers",
+        "due": "2/26/2027"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-031",
+    "page": 41,
+    "name": "Owner Relations",
+    "aopObjective": "Frontier tech and AI in every team's hands",
+    "eltSponsor": "Tom Chess",
+    "siLead": "Mohan Chandolu",
+    "status": null,
+    "objective": "Write each owner's monthly revenue explanation before they ask, answer revenue questions in the ticket queue, respond quickly to admin requests, and score churn risk 90 days out with the reason and the intervention. The next moat-building area behind guest relations.",
+    "metric": "Owner unit churn, and properties per FTE in OR",
+    "baseline": "1 : 108 across 161 FTE",
+    "target": "1 : 140, and 1-2 pts churn",
+    "ebitdaValue": "$2-4M churn, $2.7M to $6.2M operating",
+    "investmentCost": null,
+    "risks": [
+      {
+        "risk": "Rolls out before shops are change-ready and the value is not captured",
+        "mitigation": "Only roll out in shops that have already delivered value on Conduit",
+        "owner": null
+      },
+      {
+        "risk": "Ticket mix does not match the churn driver: 35% maintenance, 2% revenue",
+        "mitigation": "Remove the maintenance and admin burden so time goes to revenue",
+        "owner": null
+      },
+      {
+        "risk": "Use cases are not yet scoped",
+        "mitigation": "Scope the specific use cases with Ops before committing",
+        "owner": null
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Business alignment and cross functional champions",
+        "fromWhom": null,
+        "byWhen": null
+      }
+    ],
+    "milestones": [
+      {
+        "title": "Specific use cases scoped with the Product Owner",
+        "owner": "Mohan Chandolu",
+        "due": "11/30/2026"
+      },
+      {
+        "title": "Roll out in change-ready shops that have delivered on Conduit",
+        "owner": null,
+        "due": null
+      },
+      {
+        "title": "Properties per FTE at 1 : 140 where rolled out",
+        "owner": null,
+        "due": null
+      }
+    ],
+    "notes": null
+  },
+  {
+    "code": "FY27-SI-032",
+    "page": 27,
+    "name": "Onboarding experience",
+    "aopObjective": null,
+    "eltSponsor": "Dan Yankley / Justin Ridgeway",
+    "siLead": "Kyle Sullivan",
+    "status": null,
+    "objective": "The new owner onboarding process is highly variable cross brands, leading to ~7% of new units onboarded within the last 12 months to churn within 6 months of joining the program\nThe cost of a bringing on a new unit is high (>$6k / unit), and the potential lifetime value of a unit is high (>$50k EBITDA), so retaining new owners is mission critical to the business",
+    "metric": "6 months churn",
+    "baseline": "3.3% churn within 6 months (Sept ’26 TTM)",
+    "target": "<2% target, <1% stretch",
+    "ebitdaValue": "$250-500K (first year impact -> compounds over 10 years)",
+    "investmentCost": "~$150k",
+    "risks": [
+      {
+        "risk": "Support team owns onboarding process reducing ownership from in field teams",
+        "mitigation": "Supporting team does only back-end administration support and develop automation tools",
+        "owner": "Caleb Arnold"
+      },
+      {
+        "risk": "Onboarding challenges are symptoms of broader disfunction",
+        "mitigation": "Work on identifying root cause issue for brands with high 6-month churn and work with team to improve",
+        "owner": "Caleb Arnold / Kyle Sullivan"
+      },
+      {
+        "risk": "Lack of full data to understand opportunities",
+        "mitigation": "Refine and rollout GBV churn SOP",
+        "owner": "Hannah Norowitz / Justin Ridgeway"
+      }
+    ],
+    "dependencies": [
+      {
+        "need": "Onboarding tracking tool development",
+        "fromWhom": "Caleb Arnold",
+        "byWhen": "Nov 2026"
+      },
+      {
+        "need": "Regional alignment on onboarding approach",
+        "fromWhom": "Caleb Arnold / RVPs",
+        "byWhen": "Jan 2027"
+      }
+    ],
+    "milestones": [
+      {
+        "title": "Finalize the onboarding tracking tool and refine with pilot program",
+        "owner": "Caleb Arnold / Mary Belford",
+        "due": "Nov 2026"
+      },
+      {
+        "title": "Identify core brands with onboarding challenges and assess how to best support",
+        "owner": "Caleb Arnold / Mary Belford",
+        "due": "Nov 2027"
+      },
+      {
+        "title": "Run new onboarding support system with current SupportCo onboarding teams; provide data analytics upwards to BPs and RVPs",
+        "owner": "Caleb Arnold / Mary Belford",
+        "due": "Dec 2027"
+      },
+      {
+        "title": "Develop and rollout regional support model in collaboration with RVPs",
+        "owner": "Caleb Arnold / Mary Belford",
+        "due": "June 2027"
+      }
+    ],
+    "notes": null
+  }
+]

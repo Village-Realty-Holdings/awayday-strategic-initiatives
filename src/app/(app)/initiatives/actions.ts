@@ -11,6 +11,7 @@ import { getActivePlan } from "@/lib/active-plan";
 import { deleteAttachment } from "@/lib/storage";
 import { quadrantFor, valueFromDollars, effortToLift, parseDollars, type Effort } from "@/lib/initiatives";
 import { InitiativeStatus } from "@/generated/prisma/enums";
+import { diffRows, parseDependencyRows, parseMilestoneRows, parseRiskRows, splitByWhen } from "@/lib/charter-rows";
 
 const STATUSES: string[] = Object.values(InitiativeStatus);
 const EFFORTS = ["S", "M", "L"];
@@ -40,7 +41,7 @@ async function validAreaId(areaId: string | null, planId: string | null): Promis
 // Editable fields shared by create + update. Scoring is derived: Value from the
 // Targeted Value ($) band, Lift from the Small/Medium/Large effort picker. The
 // CIM driver is the organizing link (board theme retired). Removed inputs
-// (DMAIC stage, quality impact, out-of-scope, milestones) are intentionally NOT
+// (DMAIC stage, quality impact, out-of-scope, problem) are intentionally NOT
 // written here so legacy column data is preserved untouched.
 function parseFields(fd: FormData) {
   const statusRaw = String(fd.get("status") ?? "");
@@ -85,11 +86,61 @@ function parseFields(fd: FormData) {
     progressActual: valueRealized,
     quantMetric: str(fd, "quantMetric"),
     quantTarget: str(fd, "quantTarget"),
+    baseline: str(fd, "baseline"),
+    ebitdaValue: str(fd, "ebitdaValue"),
+    investmentCost: str(fd, "investmentCost"),
     startDate: date(fd, "startDate"),
     endDate: date(fd, "endDate"),
   };
 }
 
+// The charter's risk, dependency and milestone tables, posted as JSON rows.
+// Posted rows update their stored row by id, new rows are created and stored
+// rows missing from the post are deleted. A table the form didn't post is left
+// alone. Milestone completion and dependency status are kept on update.
+// Dependencies are the DEPENDENCY action items; plain actions aren't touched.
+async function saveCharterRows(initiativeId: string, fd: FormData) {
+  const [risks, deps, milestones] = await Promise.all([
+    prisma.initiativeRisk.findMany({ where: { initiativeId }, select: { id: true } }),
+    prisma.initiativeActionItem.findMany({ where: { initiativeId, kind: "DEPENDENCY" }, select: { id: true } }),
+    prisma.initiativeMilestone.findMany({ where: { initiativeId }, select: { id: true } }),
+  ]);
+  const ops = [];
+
+  if (fd.has("risksJson")) {
+    const posted = parseRiskRows(str(fd, "risksJson"));
+    const { create, update, remove } = diffRows(posted, risks.map((r) => r.id));
+    const data = (r: (typeof posted)[number]) => ({ risk: r.risk, mitigation: r.mitigation || null, owner: r.owner || null, order: posted.indexOf(r) });
+    ops.push(prisma.initiativeRisk.deleteMany({ where: { initiativeId, id: { in: remove } } }));
+    ops.push(...update.map((r) => prisma.initiativeRisk.update({ where: { id: r.id }, data: data(r) })));
+    if (create.length) ops.push(prisma.initiativeRisk.createMany({ data: create.map((r) => ({ initiativeId, ...data(r) })) }));
+  }
+
+  if (fd.has("dependenciesJson")) {
+    const posted = parseDependencyRows(str(fd, "dependenciesJson"));
+    const { create, update, remove } = diffRows(posted, deps.map((r) => r.id));
+    const data = (r: (typeof posted)[number]) => ({ title: r.need, owner: r.fromWhom, ...splitByWhen(r.byWhen), order: posted.indexOf(r) });
+    ops.push(prisma.initiativeActionItem.deleteMany({ where: { initiativeId, kind: "DEPENDENCY", id: { in: remove } } }));
+    ops.push(...update.map((r) => prisma.initiativeActionItem.update({ where: { id: r.id }, data: data(r) })));
+    if (create.length) ops.push(prisma.initiativeActionItem.createMany({ data: create.map((r) => ({ initiativeId, kind: "DEPENDENCY", ...data(r) })) }));
+  }
+
+  if (fd.has("milestonesJson")) {
+    const posted = parseMilestoneRows(str(fd, "milestonesJson"));
+    const { create, update, remove } = diffRows(posted, milestones.map((r) => r.id));
+    const data = (r: (typeof posted)[number]) => ({
+      title: r.title,
+      owner: r.owner || null,
+      dueAt: r.dueAt ? new Date(`${r.dueAt}T00:00:00.000Z`) : null,
+      order: posted.indexOf(r),
+    });
+    ops.push(prisma.initiativeMilestone.deleteMany({ where: { initiativeId, id: { in: remove } } }));
+    ops.push(...update.map((r) => prisma.initiativeMilestone.update({ where: { id: r.id }, data: data(r) })));
+    if (create.length) ops.push(prisma.initiativeMilestone.createMany({ data: create.map((r) => ({ initiativeId, ...data(r) })) }));
+  }
+
+  if (ops.length) await prisma.$transaction(ops);
+}
 
 export async function updateInitiative(formData: FormData) {
   const session = await requireAdmin();
@@ -118,6 +169,7 @@ export async function updateInitiative(formData: FormData) {
     if (areaId && !before.planVersionId && planId) data.planVersionId = planId;
   }
   const after = await prisma.initiative.update({ where: { id }, data });
+  await saveCharterRows(id, formData);
   await audit(session.user.id, "UPDATE", "Initiative", id, { before, after });
 
   revalidatePath("/admin/initiatives");
@@ -145,6 +197,7 @@ export async function createInitiative(formData: FormData) {
   const created = await prisma.initiative.create({
     data: { code, ...fields, planVersionId: activePlan?.id ?? null, strategicAreaId },
   });
+  await saveCharterRows(created.id, formData);
   await audit(session.user.id, "CREATE", "Initiative", created.id, { after: created });
 
   revalidatePath("/admin/initiatives");

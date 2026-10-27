@@ -31,6 +31,8 @@ import {
 } from "@/lib/initiatives";
 import type { InitiativeStatus } from "@/generated/prisma/client";
 import { draftFromName } from "@/app/(app)/ai-actions";
+import { CharterRowsEditor } from "@/components/charter-rows-editor";
+import type { DependencyRow, MilestoneRow, RiskRow } from "@/lib/charter-rows";
 
 const STATUSES: InitiativeStatus[] = ["NOT_STARTED", "PLANNING", "IN_PROGRESS", "AT_RISK", "DONE"];
 
@@ -91,6 +93,8 @@ const CIM_KPIS: Record<string, string[]> = {
   ],
 };
 
+const PEOPLE_LIST = "initiative-people";
+
 const dateValue = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
 
 // Parse a money-ish string ("$2.5M", "400k", "750000") into a number.
@@ -112,6 +116,7 @@ export function InitiativeForm({
   cimItems = [],
   cimKpis = {},
   areas = [],
+  charter,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   initiative?: Initiative;
@@ -122,6 +127,8 @@ export function InitiativeForm({
   cimItems?: { code: string; label: string }[];
   cimKpis?: Record<string, string[]>;
   areas?: { id: string; code: string; name: string; kind: string }[];
+  /** The charter's tables, for editing; omitted for a new initiative. */
+  charter?: { risks: RiskRow[]; dependencies: DependencyRow[]; milestones: MilestoneRow[] };
 }) {
   const i = initiative;
   const isNew = !i;
@@ -209,16 +216,145 @@ export function InitiativeForm({
       <input type="hidden" name="effort" value={effort} />
       <input type="hidden" name="supports" value={serializeTeam(team)} />
       <input type="hidden" name="valueType" value={valueType} />
+      <datalist id={PEOPLE_LIST}>
+        {ownerOptions.map((o) => <option key={o} value={o} />)}
+      </datalist>
 
-      <FormSection title="Identity" description="Where this initiative sits in the strategy, and what it's called.">
+      {/* Laid out like the one-page SI charter: header strip, then sections 1-5. */}
+      <section className="grid gap-4 rounded-md border border-border bg-surface px-4 py-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <Field label="Initiative name / ID" required>
+          <div className="flex gap-2">
+            {isNew ? (
+              <Input
+                name="code"
+                required
+                value={code}
+                onChange={(e) => { setCode(e.target.value); setCodeTouched(true); }}
+                aria-label="Code"
+                className="tabular w-28 shrink-0"
+              />
+            ) : (
+              <>
+                <input type="hidden" name="code" value={i!.code} />
+                <ReadOnlyValue className="tabular shrink-0">{i!.code}</ReadOnlyValue>
+              </>
+            )}
+            <Input name="name" required value={name2} onChange={(e) => setName(e.target.value)} placeholder="Plain-English name" className="min-w-0 flex-1" />
+          </div>
+        </Field>
+        <Field label="ELT sponsor">
+          <PersonSelect name="secondaryLead" value={i?.secondaryLead} options={ownerOptions} empty="— none —" />
+        </Field>
+        <Field label="SI lead">
+          <PersonSelect name="teamLead" value={i?.teamLead} options={ownerOptions} empty="— unassigned —" />
+        </Field>
+        <Field label="Status">
+          <NativeSelect name="status" defaultValue={i?.status ?? "IN_PROGRESS"}>
+            {STATUSES.map((s) => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
+          </NativeSelect>
+        </Field>
+      </section>
+
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <FormSection
+          title="1. Objective"
+          description="What this initiative is, and why it matters: what changes for owners, guests or the P&L, and what happens if we don't do it."
+          action={
+            <Button type="button" variant="accent" size="xs" onClick={draft} disabled={drafting} className="px-2.5">
+              {drafting ? <Loader2 size={12} className="animate-spin" aria-hidden /> : <Sparkles size={12} aria-hidden />}
+              Draft with Claude
+            </Button>
+          }
+        >
+          {draftError && <Alert variant="risk"><TriangleAlert size={15} aria-hidden />{draftError}</Alert>}
+          <Textarea name="valueWhenComplete" rows={7} aria-label="Objective" placeholder="Two or three lines." value={objective} onChange={(e) => setObjective(e.target.value)} />
+        </FormSection>
+
+        <FormSection title="2. Value">
+          <Field label="Metric">
+            {kpiOptions.length > 0 && (
+              <NativeSelect onChange={(e) => onKpiPick(e.target.value)} defaultValue="" className="mb-1.5" aria-label="Pick a KPI">
+                <option value="">— pick a KPI for this driver —</option>
+                {kpiOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+              </NativeSelect>
+            )}
+            <Input name="quantMetric" value={metric} onChange={(e) => setMetric(e.target.value)} placeholder="The one number this moves" />
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Baseline">
+              <Input name="baseline" defaultValue={i?.baseline ?? ""} placeholder="Where it is today" />
+            </Field>
+            <Field label="FY27 target + stretch">
+              <Input name="quantTarget" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="e.g. 30 days; 25 stretch" />
+            </Field>
+          </div>
+          <Field label="EBITDA value ($)" hint="If applicable at SI level.">
+            <Input name="ebitdaValue" defaultValue={i?.ebitdaValue ?? ""} placeholder="e.g. $11M (~30 extra tuck-ins per yr)" />
+          </Field>
+          <Field label="Investment cost ($)" hint="To deliver the SI.">
+            <Input name="investmentCost" defaultValue={i?.investmentCost ?? ""} placeholder="e.g. ~$150K" />
+          </Field>
+        </FormSection>
+      </div>
+
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <FormSection title="3. Risks and mitigations">
+          <CharterRowsEditor
+            name="risksJson"
+            rowLabel="Risk"
+            peopleListId={PEOPLE_LIST}
+            initialRows={charter?.risks ?? []}
+            addLabel="Add risk"
+            emptyText="No risks logged."
+            columns={[
+              { key: "risk", label: "Risk", kind: "long" },
+              { key: "mitigation", label: "Mitigation", kind: "long" },
+              { key: "owner", label: "Owner", kind: "person", width: "8rem" },
+            ]}
+          />
+        </FormSection>
+        <FormSection title="4. Dependencies">
+          <CharterRowsEditor
+            name="dependenciesJson"
+            rowLabel="Dependency"
+            peopleListId={PEOPLE_LIST}
+            initialRows={charter?.dependencies ?? []}
+            addLabel="Add dependency"
+            emptyText="No dependencies."
+            columns={[
+              { key: "need", label: "What we need", kind: "long" },
+              { key: "fromWhom", label: "From whom", kind: "person", width: "8rem" },
+              { key: "byWhen", label: "By when", placeholder: "Date, Q1 2027, TBD", width: "7.5rem" },
+            ]}
+          />
+        </FormSection>
+      </div>
+
+      <FormSection title="5. Milestones to first value">
+        <CharterRowsEditor
+          name="milestonesJson"
+          rowLabel="Milestone"
+          peopleListId={PEOPLE_LIST}
+          initialRows={charter?.milestones ?? []}
+          addLabel="Add milestone"
+          emptyText="No milestones yet."
+          columns={[
+            { key: "title", label: "Milestone", kind: "long" },
+            { key: "owner", label: "Owner", kind: "person", width: "12rem" },
+            { key: "dueAt", label: "Due date", kind: "date", width: "11rem" },
+          ]}
+        />
+      </FormSection>
+
+      <FormSection title="Other details" description="Not on the charter page: where the SI sits, who else works on it, deliverables, scoring and dates.">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="CIM driver / theme" required={isNew} hint="Broad strategic driver. Used for grouping and the code prefix.">
+          <Field label="CIM driver / theme" required={isNew} hint={isNew ? "Broad strategic driver. Sets the suggested code prefix." : "Broad strategic driver, used for grouping."}>
             <NativeSelect value={cim} onChange={(e) => onCimChange(e.target.value)} name="cimDriver">
               {!CIM_DRIVERS.includes(cim) && <option value={cim}>{cim}</option>}
               {CIM_DRIVERS.map((c) => <option key={c} value={c}>{c}</option>)}
             </NativeSelect>
           </Field>
-          <Field label="CIM item" hint="The CIM register item this ties back to. Sets the KPI options below.">
+          <Field label="CIM item" hint="The CIM register item this ties back to. Sets the KPI options.">
             <NativeSelect value={cimItem} onChange={(e) => setCimItem(e.target.value)} name="cimItemCode">
               <option value="">— none —</option>
               {cimItem && !cimItems.some((c) => c.code === cimItem) && <option value={cimItem}>{cimItem}</option>}
@@ -233,66 +369,32 @@ export function InitiativeForm({
               </NativeSelect>
             </Field>
           )}
-          <Field label="Code" required={isNew} hint={isNew ? "Suggested from the driver. Must be unique." : "Codes can't change after creation."}>
-            {isNew ? (
-              <Input
-                name="code"
-                required
-                value={code}
-                onChange={(e) => { setCode(e.target.value); setCodeTouched(true); }}
-                className="tabular"
-              />
-            ) : (
-              <>
-                <input type="hidden" name="code" value={i!.code} />
-                <ReadOnlyValue className="tabular">{i!.code}</ReadOnlyValue>
-              </>
-            )}
+          <Field label="Start date" asDiv>
+            <DatePicker name="startDate" label="Start date" defaultValue={dateValue(i?.startDate ?? null)} clearable />
           </Field>
-          <div className="sm:col-span-2">
-            <Field label="Initiative name" required>
-              <Input name="name" required value={name2} onChange={(e) => setName(e.target.value)} placeholder="Plain-English name" />
-            </Field>
-          </div>
-        </div>
-      </FormSection>
-
-      <FormSection title="People" description="Who leads it and who helps. Names come from the People directory.">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Lead">
-            <NativeSelect name="teamLead" defaultValue={i?.teamLead ?? ""}>
-              <option value="">— unassigned —</option>
-              {i?.teamLead && !ownerOptions.includes(i.teamLead) && <option value={i.teamLead}>{i.teamLead}</option>}
-              {ownerOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-            </NativeSelect>
-          </Field>
-          <Field label="Secondary lead">
-            <NativeSelect name="secondaryLead" defaultValue={i?.secondaryLead ?? ""}>
-              <option value="">— none —</option>
-              {i?.secondaryLead && !ownerOptions.includes(i.secondaryLead) && <option value={i.secondaryLead}>{i.secondaryLead}</option>}
-              {ownerOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-            </NativeSelect>
+          <Field label="Target date" asDiv>
+            <DatePicker name="endDate" label="Target date" defaultValue={dateValue(i?.endDate ?? null)} clearable align="end" />
           </Field>
         </div>
-        {/* Working team: pick supporting people from the directory (Jakob). */}
-        <Field label="Working team" hint="Supporting contributors beyond the lead and secondary lead." asDiv>
+        <Field label="Working team" hint="Supporting contributors beyond the SI lead and ELT sponsor." asDiv>
           {teamChips.length === 0 ? (
             <p className="text-note text-ink-faint">No people in the directory yet.</p>
           ) : (
             <TeamPicker options={teamChips} value={team} onChange={setTeam} />
           )}
         </Field>
-      </FormSection>
-
-      <FormSection
-        title="Type, value & priority"
-        description={
-          isValue
-            ? "Creates measurable dollar value. Scored on the Lift × Value map."
-            : "Enabler or milestone (e.g. a key hire). No dollar value; tracked by status, not on the Lift × Value map."
-        }
-        action={<ValueTypeSwitch value={valueType} onChange={setValueType} />}
-      >
+        <Field label="Deliverables">
+          <Textarea name="workRequired" rows={3} placeholder="Concrete outputs: a doc, tool, dashboard, recommendation." value={deliverables} onChange={(e) => setDeliverables(e.target.value)} />
+        </Field>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
+          <div>
+            <h3 className="text-xs font-medium text-ink-muted">Type and priority</h3>
+            <p className="text-micro text-ink-faint">
+              {isValue ? "Creates measurable dollar value. Scored on the Lift × Value map." : "Enabler or milestone: tracked by status, not on the Lift × Value map."}
+            </p>
+          </div>
+          <ValueTypeSwitch value={valueType} onChange={setValueType} />
+        </div>
         {isValue && (
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Targeted value ($/yr)" hint="Annualized value created when complete. Sets the Value score.">
@@ -327,76 +429,12 @@ export function InitiativeForm({
                 </Badge>
                 <span className="text-note text-ink-faint">
                   Value {value} · {targeted != null ? formatMoney(targeted) : "set $"}
+                  {pctCalc != null && ` · ${Math.round(pctCalc * 100)}% complete`}
                 </span>
               </ReadOnlyValue>
             </Field>
           </div>
         )}
-      </FormSection>
-
-      <FormSection title="Schedule & status" description="Dates drive pace and the Reporting timeline.">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Status">
-            <NativeSelect name="status" defaultValue={i?.status ?? "IN_PROGRESS"}>
-              {STATUSES.map((s) => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
-            </NativeSelect>
-          </Field>
-          {isValue ? (
-            <Field label="% complete (calculated)" hint="Value realized ÷ targeted value." asDiv>
-              <ReadOnlyValue className="tabular">{pctCalc != null ? `${Math.round(pctCalc * 100)}%` : "Not yet calculable"}</ReadOnlyValue>
-            </Field>
-          ) : (
-            <Field label="Completion" hint="Tracked by status (Done = complete)." asDiv>
-              <ReadOnlyValue>By status</ReadOnlyValue>
-            </Field>
-          )}
-          <Field label="Start date" asDiv>
-            <DatePicker name="startDate" label="Start date" defaultValue={dateValue(i?.startDate ?? null)} clearable />
-          </Field>
-          <Field label="Target date" asDiv>
-            <DatePicker
-              name="endDate"
-              label="Target date"
-              defaultValue={dateValue(i?.endDate ?? null)}
-              clearable
-              align="end"
-            />
-          </Field>
-        </div>
-      </FormSection>
-
-      <FormSection title="KPI" description={cimItem ? `KPI options are scoped to ${cimItem}.` : `Pick a CIM item to scope the KPI options, or choose from ${cim}.`}>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Primary KPI">
-            <NativeSelect onChange={(e) => onKpiPick(e.target.value)} defaultValue="" className="mb-1.5">
-              <option value="">— pick a KPI for this driver —</option>
-              {kpiOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-            </NativeSelect>
-            <Input name="quantMetric" value={metric} onChange={(e) => setMetric(e.target.value)} placeholder="The one number this moves" />
-          </Field>
-          <Field label="KPI target">
-            <Input name="quantTarget" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="e.g. ≥4.65" />
-          </Field>
-        </div>
-      </FormSection>
-
-      <FormSection
-        title="Charter"
-        description="The measurable objective and what gets delivered. The objective shows on the Strategy Review charter."
-        action={
-          <Button type="button" variant="accent" size="xs" onClick={draft} disabled={drafting} className="px-2.5">
-            {drafting ? <Loader2 size={12} className="animate-spin" aria-hidden /> : <Sparkles size={12} aria-hidden />}
-            Draft from name + CIM with Claude
-          </Button>
-        }
-      >
-        {draftError && <Alert variant="risk"><TriangleAlert size={15} aria-hidden />{draftError}</Alert>}
-        <Field label="Objective">
-          <Textarea name="valueWhenComplete" rows={3} placeholder="One measurable sentence: clearly done or not done at closeout." value={objective} onChange={(e) => setObjective(e.target.value)} />
-        </Field>
-        <Field label="Deliverables">
-          <Textarea name="workRequired" rows={3} placeholder="Concrete outputs: a doc, tool, dashboard, recommendation." value={deliverables} onChange={(e) => setDeliverables(e.target.value)} />
-        </Field>
       </FormSection>
 
       {/* Sticky save bar: stays in reach at the bottom of the scrolling inset. */}
@@ -412,6 +450,17 @@ export function InitiativeForm({
         )}
       </div>
     </form>
+  );
+}
+
+/** People picker that keeps a stored name missing from the directory. */
+function PersonSelect({ name, value, options, empty }: { name: string; value?: string | null; options: string[]; empty: string }) {
+  return (
+    <NativeSelect name={name} defaultValue={value ?? ""}>
+      <option value="">{empty}</option>
+      {value && !options.includes(value) && <option value={value}>{value}</option>}
+      {options.map((o) => <option key={o} value={o}>{o}</option>)}
+    </NativeSelect>
   );
 }
 

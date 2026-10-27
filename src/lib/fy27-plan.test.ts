@@ -19,11 +19,20 @@ describe("FY27 plan manifest", () => {
     expect(
       FY27_PLAN.initiatives.some(
         (initiative) =>
-          initiative.valueMetric?.includes("TBD") ||
-          initiative.valueTarget?.includes("TBD") ||
-          initiative.milestones?.some((item) => item.dueAt === "TBD"),
+          initiative.metric?.includes("TBD") ||
+          initiative.target?.includes("TBD") ||
+          initiative.milestones.some((item) => item.due === "TBD"),
       ),
     ).toBe(true);
     expect(FY27_PLAN.areas.some((area) => !area.kpiName && !area.kpiTarget)).toBe(true);
+  });
+
+  it("has a transcribed charter, with a name, sponsor and lead, for every SI", () => {
+    expect(FY27_PLAN.initiatives).toHaveLength(31);
+    for (const initiative of FY27_PLAN.initiatives) {
+      expect(initiative.name).toBeTruthy();
+      expect(initiative.eltSponsor).toBeTruthy();
+      expect(initiative.siLead).toBeTruthy();
+    }
   });
 });
