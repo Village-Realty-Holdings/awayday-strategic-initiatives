@@ -153,6 +153,12 @@ export function previousMonth(now: Date = new Date()): string {
   return d.toISOString().slice(0, 7);
 }
 
+/** The month after a YYYY-MM period: "2026-12" → "2027-01". */
+export function monthAfter(period: string): string {
+  const [y, m] = period.split("-").map(Number);
+  return new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 7);
+}
+
 /**
  * Review periods, newest first: every YYYY-MM period that has KPI data, SI
  * updates or a stored ReviewPeriod row. With none, last month, so the page

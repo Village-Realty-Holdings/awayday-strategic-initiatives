@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireAdmin } from "@/lib/session";
 import { allSis, getReviewPeriod, getReviewPlan, resolvePeriod } from "@/lib/review-data";
-import { PERIOD_PATTERN } from "@/lib/review-model";
+import { PERIOD_PATTERN, monthAfter } from "@/lib/review-model";
 
 export const dynamic = "force-dynamic";
 
@@ -32,8 +32,12 @@ export default async function ReviewEditPage({ params }: { params: Promise<{ per
         actions={
           <>
             <PeriodSwitcher periods={months} current={id} home={home} suffix="/edit" />
-            <form action={createReviewPeriod} className="flex items-center gap-2">
-              <Input name="period" type="month" required aria-label="Month to start" className="w-40" />
+            {/* Starts the next month's review as a draft; defaults to the month after the newest one. */}
+            <form action={createReviewPeriod} className="flex items-end gap-2">
+              <label className="flex flex-col gap-1 text-note font-medium text-ink-muted">
+                New review month
+                <Input name="period" type="month" required defaultValue={monthAfter(months[0])} className="w-44" />
+              </label>
               <SubmitButton size="sm" variant="secondary">
                 Start month
               </SubmitButton>

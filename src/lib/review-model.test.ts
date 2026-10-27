@@ -8,6 +8,7 @@ import {
   parseSoWhats,
   periodLabel,
   previousMonth,
+  monthAfter,
   ragFor,
   reviewPeriods,
   shortCode,
@@ -58,6 +59,8 @@ describe("reviewPeriods", () => {
     const now = new Date("2026-10-27T12:00:00Z");
     expect(reviewPeriods([], now)).toEqual(["2026-09"]);
     expect(previousMonth(new Date("2027-01-05T00:00:00Z"))).toBe("2026-12");
+    expect(monthAfter("2026-09")).toBe("2026-10");
+    expect(monthAfter("2026-12")).toBe("2027-01");
   });
 
   it("labels periods", () => {
