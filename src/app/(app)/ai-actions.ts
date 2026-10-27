@@ -28,8 +28,6 @@ async function aiThrottle(userId: string): Promise<AiResult | null> {
 }
 
 const CHARTER_TASKS: Record<string, string> = {
-  problem:
-    "Refine the PROBLEM STATEMENT into 1-2 sharp sentences: what is broken, for whom, and what it costs Awayday. Return only the rewritten statement.",
   objective:
     "Sharpen the OBJECTIVE into one measurable sentence that is clearly done or not done at closeout. Return only the sentence.",
   deliverables:
@@ -38,8 +36,6 @@ const CHARTER_TASKS: Record<string, string> = {
     "List the top SCOPE-CREEP RISKS for this initiative: adjacent work that should be explicitly kept out of scope. Return a short bulleted list.",
   plan:
     "Draft a HIGH-LEVEL PLAN of 3-5 milestones with the partners or functions each needs. Return a short numbered list.",
-  example:
-    "Describe one concrete EXAMPLE END PRODUCT for this initiative so the team knows what 'done' looks like. Return 2-3 sentences.",
 };
 
 export async function assistCharter(initiativeId: string, kind: string): Promise<AiResult> {
@@ -94,8 +90,8 @@ export async function draftFromName(name: string, cim: string): Promise<AiResult
         `Draft a starter charter for a new strategic initiative named "${name}"` +
         (cim ? ` under the CIM driver "${cim}".` : ".") +
         ` Respond with STRICT JSON only, no prose, in this exact shape:\n` +
-        `{"problem":"...","objective":"...","deliverables":"...","kpi":"..."}\n` +
-        `problem = 1-2 sentences. objective = one measurable sentence. ` +
+        `{"objective":"...","deliverables":"...","kpi":"..."}\n` +
+        `objective = one measurable sentence. ` +
         `deliverables = a short comma or newline separated list. kpi = "Metric -> target".`,
       maxTokens: 600,
       context: { module: "INITIATIVES", feature: "draft-from-name", userId: session.user.id },

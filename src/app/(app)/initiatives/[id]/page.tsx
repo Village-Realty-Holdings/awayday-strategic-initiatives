@@ -16,18 +16,7 @@ import {
 import { requireSession } from "@/lib/session";
 import { DeleteInitiativeButton } from "@/components/delete-initiative-button";
 import {
-  addAttachment,
-  addFileAttachment,
-  removeAttachment,
-  addSubInitiative,
-  updateSubInitiative,
-  removeSubInitiative,
-  addComment,
   addInitiativeUpdate,
-  removeComment,
-  addInitiativeRisk,
-  updateInitiativeRisk,
-  removeInitiativeRisk,
   addInitiativeMilestone,
   toggleInitiativeMilestone,
   removeInitiativeMilestone,
@@ -41,7 +30,6 @@ import {
 import { CharterAssistButton } from "@/components/charter-assist";
 import { CompletionToggle } from "@/components/completion-toggle";
 import { DatePicker } from "@/components/date-picker";
-import { FileDrop } from "@/components/file-drop";
 import { StatusBadge, QuadrantBadge } from "@/components/badges";
 import { DetailList, DetailSection, RemoveButton } from "@/components/initiative-section";
 import { Badge } from "@/components/ui/badge";
@@ -52,13 +40,6 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Pencil,
-  Paperclip,
-  ExternalLink,
-  FileText,
-  Upload,
-  ListTree,
-  MessageSquare,
-  AlertTriangle,
   CalendarCheck,
   UserCheck,
   HandCoins,
@@ -68,26 +49,16 @@ import {
 import { BreadcrumbTitle } from "@/components/shell/breadcrumbs";
 import { PAGE_FRAME, PageHeader } from "@/components/shell/page-header";
 
-const ATTACH_ERRORS: Record<string, string> = {
-  "1": "Enter a valid http(s) URL.",
-  file: "Choose a file to upload.",
-  size: "File is too large (max 3 MB).",
-  type: "That file type isn't allowed. Use PDF, an image, or an Office/CSV/text doc.",
-};
-
 const STATUSES = Object.values(InitiativeStatus);
 
 export const dynamic = "force-dynamic";
 
 export default async function InitiativeDetail({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ attachError?: string; subError?: string }>;
 }) {
   const { id } = await params;
-  const { attachError } = await searchParams;
   const session = await requireSession();
   // Everyone can read a charter; only admins manage it.
   const isAdmin = session.user.role === "admin";
@@ -96,10 +67,6 @@ export default async function InitiativeDetail({
     where: { id },
     include: {
       risks: { include: { cimRisk: true } },
-      attachments: { orderBy: { createdAt: "asc" } },
-      subInitiatives: { orderBy: { order: "asc" } },
-      comments: { orderBy: { createdAt: "asc" } },
-      riskLog: { orderBy: { order: "asc" } },
       milestones: { orderBy: [{ dueAt: "asc" }, { order: "asc" }] },
       actionItems: { orderBy: { order: "asc" } },
       eltRequests: { orderBy: { order: "asc" } },
@@ -228,90 +195,29 @@ export default async function InitiativeDetail({
               </RailGroup>
             )}
 
-            <RailGroup title="Links & files" icon={Paperclip}>
-              {i.attachments.length === 0 ? (
-                <p className="text-xs text-ink-faint">None yet</p>
-              ) : (
-                <ul className="grid gap-1.5">
-                  {i.attachments.map((a) => (
-                    <li key={a.id}>
-                      <AttachmentLink attachment={a} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </RailGroup>
           </div>
         </aside>
 
         {/* Main column: the charter, then the working lists. */}
         <div className="grid min-w-0 gap-4 lg:order-1">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Block
-              title="Problem statement"
-              body={i.problem}
-              assist={editable && <CharterAssistButton initiativeId={i.id} kind="problem" label="Refine with Claude" />}
-            />
-            <Block
-              title="Objective"
-              body={i.valueWhenComplete}
-              footer={
-                objectiveLine ? (
-                  <p className="mt-3 border-t border-dashed border-border pt-3 text-sm">
-                    <span className="font-semibold text-ink">{objectiveLine}</span>
-                    {i.endDate && <span className="text-ink-muted"> · by {formatDateDay(i.endDate)}</span>}
-                  </p>
-                ) : null
-              }
-              assist={editable && <CharterAssistButton initiativeId={i.id} kind="objective" label="Sharpen with Claude" />}
-            />
-          </div>
+          <Block
+            title="Objective"
+            body={i.valueWhenComplete}
+            footer={
+              objectiveLine ? (
+                <p className="mt-3 border-t border-dashed border-border pt-3 text-sm">
+                  <span className="font-semibold text-ink">{objectiveLine}</span>
+                  {i.endDate && <span className="text-ink-muted"> · by {formatDateDay(i.endDate)}</span>}
+                </p>
+              ) : null
+            }
+            assist={editable && <CharterAssistButton initiativeId={i.id} kind="objective" label="Sharpen with Claude" />}
+          />
           <Block
             title="Deliverables"
             body={i.workRequired}
             assist={editable && <CharterAssistButton initiativeId={i.id} kind="deliverables" label="Suggest outputs" />}
           />
-
-          <DetailSection
-            icon={Paperclip}
-            title="Links & files"
-            count={i.attachments.length > 0 && String(i.attachments.length)}
-            isEmpty={i.attachments.length === 0 && !attachError}
-            emptyText="No examples of the end product yet."
-            action={editable && <CharterAssistButton initiativeId={i.id} kind="example" label="Ask Claude for an example" />}
-            addLabel={editable ? "Add a link or file" : undefined}
-            addForm={
-              editable && (
-                <div className="grid gap-3">
-                  <form action={addAttachment} className="flex flex-wrap items-end gap-2">
-                    <input type="hidden" name="initiativeId" value={i.id} />
-                    <Input size="sm" name="label" placeholder="Label" className="w-40" />
-                    <Input size="sm" name="url" type="url" required placeholder="https://…" className="min-w-48 flex-1" />
-                    <SubmitButton variant="secondary" size="sm">Add link</SubmitButton>
-                  </form>
-                  <form action={addFileAttachment} className="flex flex-wrap items-center gap-2">
-                    <input type="hidden" name="initiativeId" value={i.id} />
-                    <FileDrop name="file" required compact label="Drop a file or browse (max 3 MB)" className="min-w-48 flex-1" />
-                    <SubmitButton variant="secondary" size="sm">
-                      <Upload size={13} aria-hidden /> Upload file
-                    </SubmitButton>
-                  </form>
-                </div>
-              )
-            }
-          >
-            {attachError && <p className="mb-2 text-xs text-risk" role="alert">{ATTACH_ERRORS[attachError] ?? "Could not add that attachment."}</p>}
-            <DetailList>
-              {i.attachments.map((a) => (
-                <li key={a.id} className="flex items-center gap-3 py-2.5">
-                  <AttachmentLink attachment={a} />
-                  {editable && (
-                    <RemoveButton action={removeAttachment} id={a.id} title="Remove attachment?" description={`Remove attachment “${a.label}”? This can't be undone.`} />
-                  )}
-                </li>
-              ))}
-            </DetailList>
-          </DetailSection>
 
           {isValue && (
             <DetailSection
@@ -372,114 +278,6 @@ export default async function InitiativeDetail({
                   </li>
                 );
               })}
-            </DetailList>
-          </DetailSection>
-
-          <DetailSection
-            icon={ListTree}
-            title="Sub-initiatives"
-            count={i.subInitiatives.length > 0 && String(i.subInitiatives.length)}
-            isEmpty={i.subInitiatives.length === 0}
-            emptyText="No sub-initiatives."
-            addLabel={editable ? "Add sub-initiative" : undefined}
-            addForm={
-              editable && (
-                <form action={addSubInitiative} className="flex flex-wrap items-end gap-2">
-                  <input type="hidden" name="initiativeId" value={i.id} />
-                  <Input size="sm" name="title" required placeholder="Sub-initiative title" className="min-w-48 flex-1" />
-                  <Input size="sm" name="owner" list="people-list" placeholder="Owner" className="w-40" />
-                  <SubmitButton variant="secondary" size="sm">Add sub-initiative</SubmitButton>
-                </form>
-              )
-            }
-          >
-            <DetailList>
-              {i.subInitiatives.map((s) => (
-                <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-ink">{s.title}</p>
-                    {s.owner && <p className="text-note text-ink-faint">{s.owner}</p>}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {editable ? (
-                      <form action={updateSubInitiative} className="flex items-center gap-1.5">
-                        <input type="hidden" name="id" value={s.id} />
-                        <NativeSelect size="xs" name="status" defaultValue={s.status} aria-label={`Status of ${s.title}`}>
-                          {STATUSES.map((st) => (
-                            <option key={st} value={st}>{STATUS_META[st].label}</option>
-                          ))}
-                        </NativeSelect>
-                        <Input size="xs" type="number" name="pctComplete" min={0} max={100} defaultValue={Math.round(s.pctComplete * 100)} className="w-16" aria-label={`Percent complete of ${s.title}`} />
-                        <SubmitButton variant="outline" size="xs">Save</SubmitButton>
-                      </form>
-                    ) : (
-                      <span className={`inline-flex items-center gap-1.5 text-xs ${STATUS_META[s.status].fg}`}>
-                        <span aria-hidden>{STATUS_META[s.status].glyph}</span>
-                        {STATUS_META[s.status].label} · {Math.round(s.pctComplete * 100)}%
-                      </span>
-                    )}
-                    {editable && (
-                      <RemoveButton action={removeSubInitiative} id={s.id} title="Remove sub-initiative?" description={`Remove sub-initiative “${s.title}”? This can't be undone.`} />
-                    )}
-                  </div>
-                </li>
-              ))}
-            </DetailList>
-          </DetailSection>
-
-          <DetailSection
-            icon={AlertTriangle}
-            title="Risks & mitigations"
-            count={i.riskLog.length > 0 && `${i.riskLog.filter((r) => r.status === "OPEN").length} open`}
-            isEmpty={i.riskLog.length === 0}
-            emptyText="No risks logged."
-            addLabel={editable ? "Add risk" : undefined}
-            addForm={
-              editable && (
-                <form action={addInitiativeRisk} className="flex flex-wrap items-end gap-2">
-                  <input type="hidden" name="initiativeId" value={i.id} />
-                  <Input size="sm" name="risk" required placeholder="Risk" className="min-w-48 flex-1" />
-                  <Input size="sm" name="mitigation" placeholder="Mitigating action" className="min-w-48 flex-1" />
-                  <Input size="sm" name="owner" list="people-list" placeholder="Owner" className="w-36" />
-                  <SubmitButton variant="secondary" size="sm">Add risk</SubmitButton>
-                </form>
-              )
-            }
-          >
-            <DetailList>
-              {i.riskLog.map((r) => (
-                <li key={r.id} className="flex flex-wrap items-start justify-between gap-2 py-2.5">
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-sm ${r.status === "OPEN" ? "text-ink" : "text-ink-muted"}`}>{r.risk}</p>
-                    {r.mitigation && (
-                      <p className="mt-1 text-xs text-ink-muted">
-                        <span className="font-semibold text-ink-faint">Mitigation:</span> {r.mitigation}
-                      </p>
-                    )}
-                    {r.owner && <p className="mt-0.5 text-note text-ink-faint">{r.owner}</p>}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {editable ? (
-                      <form action={updateInitiativeRisk} className="flex items-center gap-1.5">
-                        <input type="hidden" name="id" value={r.id} />
-                        <NativeSelect size="xs" name="status" defaultValue={r.status} aria-label="Risk status">
-                          <option value="OPEN">Open</option>
-                          <option value="MITIGATED">Mitigated</option>
-                          <option value="ACCEPTED">Accepted</option>
-                        </NativeSelect>
-                        <SubmitButton variant="outline" size="xs">Save</SubmitButton>
-                      </form>
-                    ) : (
-                      <Badge variant={r.status === "OPEN" ? "risk" : "secondary"} shape="pill">
-                        {r.status === "OPEN" ? "Open" : r.status === "MITIGATED" ? "Mitigated" : "Accepted"}
-                      </Badge>
-                    )}
-                    {editable && (
-                      <RemoveButton action={removeInitiativeRisk} id={r.id} title="Remove risk?" description={`Remove risk “${r.risk}”? This can't be undone.`} />
-                    )}
-                  </div>
-                </li>
-              ))}
             </DetailList>
           </DetailSection>
 
@@ -636,41 +434,6 @@ export default async function InitiativeDetail({
               ))}
             </DetailList>
           </DetailSection>
-
-          <DetailSection
-            icon={MessageSquare}
-            title="Comments"
-            count={i.comments.length > 0 && String(i.comments.length)}
-            isEmpty={i.comments.length === 0}
-            emptyText="No comments yet."
-            addLabel={editable ? "Add comment" : undefined}
-            addForm={
-              editable && (
-                <form action={addComment} className="grid gap-2">
-                  <input type="hidden" name="initiativeId" value={i.id} />
-                  <Textarea name="body" required rows={2} placeholder="Add a comment…" />
-                  <SubmitButton size="sm" className="justify-self-start">Post comment</SubmitButton>
-                </form>
-              )
-            }
-          >
-            <DetailList>
-              {i.comments.map((c) => (
-                <li key={c.id} className="py-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-medium text-ink">{c.authorName}</p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-note text-ink-faint">{formatDateDay(c.createdAt)}</span>
-                      {editable && (c.authorUserId === session.user.id || isAdmin) && (
-                        <RemoveButton action={removeComment} id={c.id} title="Delete comment?" description={`Delete this comment by ${c.authorName}? This can't be undone.`} confirmLabel="Delete" label="Delete comment" />
-                      )}
-                    </div>
-                  </div>
-                  <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-ink-muted">{c.body}</p>
-                </li>
-              ))}
-            </DetailList>
-          </DetailSection>
         </div>
       </div>
 
@@ -683,7 +446,7 @@ export default async function InitiativeDetail({
   );
 }
 
-function RailGroup({ title, icon: Icon, children }: { title: string; icon?: typeof Paperclip; children: React.ReactNode }) {
+function RailGroup({ title, icon: Icon, children }: { title: string; icon?: typeof TrendingUp; children: React.ReactNode }) {
   return (
     <section className="border-b border-border px-4 py-4 last:border-b-0">
       <h2 className="mb-2.5 flex items-center gap-1.5 text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">
@@ -726,22 +489,5 @@ function Block({
       {footer}
       {assist && <div className="mt-auto pt-3">{assist}</div>}
     </section>
-  );
-}
-
-type Attachment = { id: string; url: string; label: string; kind: string };
-
-function AttachmentLink({ attachment: a }: { attachment: Attachment }) {
-  return (
-    <a
-      href={a.url}
-      target={a.kind === "FILE" ? undefined : "_blank"}
-      download={a.kind === "FILE" ? a.label : undefined}
-      rel="noopener noreferrer"
-      className="inline-flex min-w-0 flex-1 items-center gap-1.5 text-xs text-navy-deep hover:underline"
-    >
-      {a.kind === "FILE" ? <FileText size={12} className="shrink-0" aria-hidden /> : <ExternalLink size={12} className="shrink-0" aria-hidden />}
-      <span className="truncate">{a.label}</span>
-    </a>
   );
 }

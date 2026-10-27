@@ -39,10 +39,9 @@ function initiative(over: Record<string, unknown>) {
     teamLead: "Curt Stark",
     secondaryLead: "Ryan McKendry",
     ownerUserId: null,
-    problem: "Cut analysis to close.",
     quantMetric: "Analysis-to-close days",
     quantTarget: "30 days",
-    valueWhenComplete: null,
+    valueWhenComplete: "Close tuck-ins faster.",
     updates: [],
     milestones: [],
     actionItems: [],
@@ -87,6 +86,8 @@ describe("getReviewPlan", () => {
       latestProgress: "Pre-LOI module in test",
       whatNext: "Run first deals",
       updatedThisPeriod: true,
+      objective: "Close tuck-ins faster.",
+      kpi: "Analysis-to-close days: 30 days",
       goingFor: "Analysis-to-close days: 30 days",
     });
     expect(si.milestones[0]).toMatchObject({ date: "2026-10-30", done: false, areaCode: "M&A" });

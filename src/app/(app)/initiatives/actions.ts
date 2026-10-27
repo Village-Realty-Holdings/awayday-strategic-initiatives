@@ -3,12 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { str, clampInt, date, pick } from "@/lib/form";
+import { str, date, pick } from "@/lib/form";
 import { flash } from "@/lib/flash";
 import { requireAdmin } from "@/lib/session";
 import { audit } from "@/lib/audit";
 import { getActivePlan } from "@/lib/active-plan";
-import { attachmentKey, deleteAttachment, putAttachment } from "@/lib/storage";
+import { deleteAttachment } from "@/lib/storage";
 import { quadrantFor, valueFromDollars, effortToLift, parseDollars, type Effort } from "@/lib/initiatives";
 import { InitiativeStatus } from "@/generated/prisma/enums";
 
@@ -74,7 +74,6 @@ function parseFields(fd: FormData) {
     teamLead: str(fd, "teamLead"),
     secondaryLead: str(fd, "secondaryLead"),
     supports: str(fd, "supports"),
-    problem: str(fd, "problem"),
     valueWhenComplete: str(fd, "valueWhenComplete"),
     workRequired: str(fd, "workRequired"),
     value,
@@ -104,8 +103,6 @@ export async function updateInitiative(formData: FormData) {
   if (before.updatedAt.toISOString() !== expectedUpdatedAt) {
     redirect(`/admin/initiatives/${id}/edit?conflict=1`);
   }
-
-  if (!str(formData, "problem")) redirect(`/admin/initiatives/${id}/edit?error=problem`);
 
   const data: ReturnType<typeof parseFields> & { strategicAreaId?: string | null; planVersionId?: string } = parseFields(formData);
   data.cimItemCode = await validCimItemCode(data.cimItemCode);
@@ -137,7 +134,6 @@ export async function createInitiative(formData: FormData) {
   if (!code) redirect("/admin/initiatives/new?error=code");
   const exists = await prisma.initiative.findUnique({ where: { code } });
   if (exists) redirect("/admin/initiatives/new?error=duplicate");
-  if (!str(formData, "problem")) redirect("/admin/initiatives/new?error=problem");
 
   const fields = parseFields(formData);
   fields.cimItemCode = await validCimItemCode(fields.cimItemCode);
@@ -189,222 +185,6 @@ export async function updateProgress(formData: FormData) {
   redirect(`/initiatives/${id}`);
 }
 
-function isValidUrl(u: string): boolean {
-  try {
-    const x = new URL(u);
-    return x.protocol === "http:" || x.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-export async function addAttachment(formData: FormData) {
-  const session = await requireAdmin();
-  const initiativeId = String(formData.get("initiativeId"));
-  const label = str(formData, "label") ?? "Link";
-  const url = str(formData, "url") ?? "";
-  if (!isValidUrl(url)) redirect(`/initiatives/${initiativeId}?attachError=1`);
-
-  const created = await prisma.attachment.create({
-    data: { initiativeId, kind: "LINK", label, url },
-  });
-  await audit(session.user.id, "CREATE", "Attachment", created.id, { after: created });
-  revalidatePath(`/initiatives/${initiativeId}`);
-  await flash("Link added");
-  redirect(`/initiatives/${initiativeId}`);
-}
-
-// Charter file uploads go to R2 (src/lib/storage.ts) and are served by
-// /api/attachments/<id>, which checks the session. The cap keeps uploads within
-// the server-action body limit (next.config.ts).
-const MAX_FILE_BYTES = 3 * 1024 * 1024;
-// Allowlist of safe attachment types. Crucially EXCLUDES text/html and
-// image/svg+xml, which would execute as script when opened inline (stored XSS).
-const ALLOWED_FILE_MIME = new Set([
-  "application/pdf",
-  "image/png", "image/jpeg", "image/gif", "image/webp",
-  "text/plain", "text/csv",
-  "application/msword", "application/vnd.ms-excel", "application/vnd.ms-powerpoint",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-]);
-
-export async function addFileAttachment(formData: FormData) {
-  const session = await requireAdmin();
-  const initiativeId = String(formData.get("initiativeId"));
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    redirect(`/initiatives/${initiativeId}?attachError=file`);
-  }
-  if (file.size > MAX_FILE_BYTES) {
-    redirect(`/initiatives/${initiativeId}?attachError=size`);
-  }
-  const mime = file.type || "";
-  if (!ALLOWED_FILE_MIME.has(mime)) {
-    redirect(`/initiatives/${initiativeId}?attachError=type`);
-  }
-  if (!(await prisma.initiative.findUnique({ where: { id: initiativeId }, select: { id: true } }))) {
-    redirect("/admin/initiatives");
-  }
-
-  // Object first, then the row: a failed upload leaves nothing behind, and a
-  // failed insert removes the object it just wrote.
-  const id = crypto.randomUUID();
-  const storageKey = attachmentKey(initiativeId, id);
-  await putAttachment(storageKey, file);
-  let created;
-  try {
-    created = await prisma.attachment.create({
-      data: {
-        id,
-        initiativeId,
-        kind: "FILE",
-        label: file.name || "file",
-        url: `/api/attachments/${id}`,
-        storageKey,
-        contentType: mime,
-        size: file.size,
-      },
-    });
-  } catch (e) {
-    await deleteAttachment(storageKey);
-    throw e;
-  }
-  await audit(session.user.id, "CREATE", "Attachment", created.id, { after: created });
-  revalidatePath(`/initiatives/${initiativeId}`);
-  await flash("File uploaded");
-  redirect(`/initiatives/${initiativeId}`);
-}
-
-export async function removeAttachment(formData: FormData) {
-  const session = await requireAdmin();
-  const id = String(formData.get("id"));
-  const before = await prisma.attachment.findUnique({ where: { id } });
-  if (!before) redirect("/admin/initiatives");
-
-  await prisma.attachment.delete({ where: { id } });
-  if (before.storageKey) await deleteAttachment(before.storageKey);
-  await audit(session.user.id, "DELETE", "Attachment", id, { before });
-  revalidatePath(`/initiatives/${before.initiativeId}`);
-  await flash("Attachment removed");
-  redirect(`/initiatives/${before.initiativeId}`);
-}
-
-// ───────────────────────── Sub-initiatives ─────────────────────────
-// Lightweight sub-tasks. When sub-tasks exist they are authoritative for the
-// parent's % complete (average of their progress). When the last one is
-// removed, fall back to the dollar-derived progress (realized/targeted) rather
-// than leaving a stale rolled-up value. The parent change is audit-logged so a
-// rolled-up overwrite of a previously-set % is never silent.
-async function rollUpParent(initiativeId: string, userId: string) {
-  const parent = await prisma.initiative.findUnique({
-    where: { id: initiativeId },
-    select: { pctComplete: true, progressActual: true, progressTarget: true },
-  });
-  if (!parent) return;
-  const subs = await prisma.subInitiative.findMany({ where: { initiativeId } });
-
-  let pct: number;
-  if (subs.length > 0) {
-    pct = subs.reduce((a, s) => a + (s.status === "DONE" ? 1 : s.pctComplete), 0) / subs.length;
-  } else if (parent.progressTarget && parent.progressTarget > 0 && parent.progressActual != null) {
-    pct = parent.progressActual / parent.progressTarget;
-  } else {
-    return; // no sub-tasks and no dollar basis: leave the parent's % as set
-  }
-  pct = Math.min(1, Math.max(0, pct));
-  if (Math.abs(pct - parent.pctComplete) < 1e-9) return; // unchanged
-
-  await prisma.initiative.update({ where: { id: initiativeId }, data: { pctComplete: pct } });
-  await audit(userId, "UPDATE", "Initiative", initiativeId, { before: { pctComplete: parent.pctComplete }, after: { pctComplete: pct } });
-}
-
-export async function addSubInitiative(formData: FormData) {
-  const session = await requireAdmin();
-  const initiativeId = String(formData.get("initiativeId"));
-  const title = str(formData, "title");
-  if (!title) redirect(`/initiatives/${initiativeId}?subError=1`);
-  const count = await prisma.subInitiative.count({ where: { initiativeId } });
-  const created = await prisma.subInitiative.create({
-    data: { initiativeId, title, owner: str(formData, "owner"), order: count },
-  });
-  await audit(session.user.id, "CREATE", "SubInitiative", created.id, { after: { initiativeId, title } });
-  await rollUpParent(initiativeId, session.user.id);
-  revalidatePath(`/initiatives/${initiativeId}`);
-  await flash("Sub-initiative added");
-  redirect(`/initiatives/${initiativeId}`);
-}
-
-export async function updateSubInitiative(formData: FormData) {
-  const session = await requireAdmin();
-  const id = String(formData.get("id"));
-  const before = await prisma.subInitiative.findUnique({ where: { id } });
-  if (!before) redirect("/admin/initiatives");
-  const statusRaw = String(formData.get("status") ?? "");
-  const status = (STATUSES.includes(statusRaw) ? statusRaw : before.status) as InitiativeStatus;
-  const pct = clampInt(formData, "pctComplete", 0, 100, Math.round(before.pctComplete * 100)) / 100;
-  const updated = await prisma.subInitiative.update({
-    where: { id },
-    data: { status, pctComplete: status === "DONE" ? 1 : pct },
-  });
-  await audit(session.user.id, "UPDATE", "SubInitiative", id, { after: { status: updated.status, pctComplete: updated.pctComplete } });
-  await rollUpParent(before.initiativeId, session.user.id);
-  revalidatePath(`/initiatives/${before.initiativeId}`);
-  await flash("Sub-initiative updated");
-  redirect(`/initiatives/${before.initiativeId}`);
-}
-
-export async function removeSubInitiative(formData: FormData) {
-  const session = await requireAdmin();
-  const id = String(formData.get("id"));
-  const before = await prisma.subInitiative.findUnique({ where: { id } });
-  if (!before) redirect("/admin/initiatives");
-  await prisma.subInitiative.delete({ where: { id } });
-  await audit(session.user.id, "DELETE", "SubInitiative", id, { before: { title: before.title } });
-  await rollUpParent(before.initiativeId, session.user.id);
-  revalidatePath(`/initiatives/${before.initiativeId}`);
-  await flash("Sub-initiative removed");
-  redirect(`/initiatives/${before.initiativeId}`);
-}
-
-// ───────────────────────── Comments ─────────────────────────
-
-export async function addComment(formData: FormData) {
-  const session = await requireAdmin();
-  const initiativeId = String(formData.get("initiativeId"));
-  const body = str(formData, "body");
-  if (!body) redirect(`/initiatives/${initiativeId}`);
-  const created = await prisma.initiativeComment.create({
-    data: {
-      initiativeId,
-      authorUserId: session.user.id,
-      authorName: session.user.name || session.user.email || "Unknown",
-      body: body.slice(0, 5000),
-    },
-  });
-  await audit(session.user.id, "CREATE", "InitiativeComment", created.id, { after: { initiativeId, authorName: created.authorName } });
-  revalidatePath(`/initiatives/${initiativeId}`);
-  await flash("Comment posted");
-  redirect(`/initiatives/${initiativeId}`);
-}
-
-export async function removeComment(formData: FormData) {
-  const session = await requireAdmin();
-  const id = String(formData.get("id"));
-  const before = await prisma.initiativeComment.findUnique({ where: { id } });
-  if (!before) redirect("/admin/initiatives");
-  // Authors can remove their own; admins can remove any.
-  if (before.authorUserId !== session.user.id && session.user.role !== "admin") {
-    redirect(`/initiatives/${before.initiativeId}`);
-  }
-  await prisma.initiativeComment.delete({ where: { id } });
-  await audit(session.user.id, "DELETE", "InitiativeComment", id, { before: { authorName: before.authorName, body: before.body.slice(0, 120) } });
-  revalidatePath(`/initiatives/${before.initiativeId}`);
-  await flash("Comment deleted");
-  redirect(`/initiatives/${before.initiativeId}`);
-}
-
 export async function deleteInitiative(formData: FormData) {
   const session = await requireAdmin();
   const id = String(formData.get("id"));
@@ -431,7 +211,6 @@ export async function deleteInitiative(formData: FormData) {
 // Alex's SI punch list (8/31): risk log, dated milestones, dependencies and
 // actions with owners, ELT support/investment requests. All per-initiative.
 
-const RISK_STATUSES = ["OPEN", "MITIGATED", "ACCEPTED"];
 const ACTION_KINDS = ["DEPENDENCY", "ACTION"];
 const ELT_KINDS = ["SUPPORT", "INVESTMENT"];
 const ELT_STATUSES = ["REQUESTED", "APPROVED", "DECLINED"];
@@ -468,47 +247,6 @@ export async function addInitiativeUpdate(formData: FormData) {
   revalidatePath("/admin/initiatives");
   await flash("Status update saved");
   redirect(`/initiatives/${initiativeId}`);
-}
-
-export async function addInitiativeRisk(formData: FormData) {
-  const session = await requireAdmin();
-  const initiativeId = String(formData.get("initiativeId"));
-  const risk = str(formData, "risk");
-  if (!risk) redirect(`/initiatives/${initiativeId}`);
-  const count = await prisma.initiativeRisk.count({ where: { initiativeId } });
-  const created = await prisma.initiativeRisk.create({
-    data: { initiativeId, risk, mitigation: str(formData, "mitigation"), owner: str(formData, "owner"), order: count },
-  });
-  await audit(session.user.id, "CREATE", "InitiativeRisk", created.id, { after: { initiativeId, risk } });
-  revalidatePath(`/initiatives/${initiativeId}`);
-  await flash("Risk added");
-  redirect(`/initiatives/${initiativeId}`);
-}
-
-export async function updateInitiativeRisk(formData: FormData) {
-  const session = await requireAdmin();
-  const id = String(formData.get("id"));
-  const existing = await prisma.initiativeRisk.findUnique({ where: { id } });
-  if (!existing) redirect("/admin/initiatives");
-  const status = pick(formData, "status", RISK_STATUSES, existing.status);
-  const mitigation = formData.has("mitigation") ? str(formData, "mitigation") : existing.mitigation;
-  await prisma.initiativeRisk.update({ where: { id }, data: { status, mitigation } });
-  await audit(session.user.id, "UPDATE", "InitiativeRisk", id, { before: { status: existing.status }, after: { status } });
-  revalidatePath(`/initiatives/${existing.initiativeId}`);
-  await flash("Risk updated");
-  redirect(`/initiatives/${existing.initiativeId}`);
-}
-
-export async function removeInitiativeRisk(formData: FormData) {
-  const session = await requireAdmin();
-  const id = String(formData.get("id"));
-  const existing = await prisma.initiativeRisk.findUnique({ where: { id } });
-  if (!existing) redirect("/admin/initiatives");
-  await prisma.initiativeRisk.delete({ where: { id } });
-  await audit(session.user.id, "DELETE", "InitiativeRisk", id, { before: { risk: existing.risk } });
-  revalidatePath(`/initiatives/${existing.initiativeId}`);
-  await flash("Risk removed");
-  redirect(`/initiatives/${existing.initiativeId}`);
 }
 
 export async function addInitiativeMilestone(formData: FormData) {

@@ -64,8 +64,8 @@ export function SiCard({ si }: { si: ReviewSi }) {
           <DialogClose asChild><Button type="button" variant="ghost" size="icon" className="absolute right-3 top-3 h-8 w-8" aria-label="Close charter"><X size={17} aria-hidden /></Button></DialogClose>
           <div className="grid gap-5 overflow-y-auto px-6 py-5 text-sm">
             <div className="grid gap-4 sm:grid-cols-2">
-              <div><p className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">What it is</p><p className="mt-1 leading-6 text-ink">{si.what ?? "Not on the charter yet."}</p></div>
-              <div className="rounded-md bg-surface-2 p-3"><p className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">What it is going for</p><p className="mt-1 leading-6 text-ink">{si.goingFor ?? "Not on the charter yet."}</p></div>
+              <div><p className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">Objective</p><p className="mt-1 leading-6 text-ink">{si.objective ?? "Not on the charter yet."}</p></div>
+              <div className="rounded-md bg-surface-2 p-3"><p className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">KPI target</p><p className="mt-1 leading-6 text-ink">{si.kpi ?? "Not set yet."}</p></div>
             </div>
             <div className="grid gap-1.5">
               <p className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">Latest update</p>

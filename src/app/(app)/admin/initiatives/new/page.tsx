@@ -29,7 +29,6 @@ async function loadFormData() {
 const ERRORS: Record<string, string> = {
   code: "A code is required (e.g. MRG-05).",
   duplicate: "That code is already in use. Pick a unique one.",
-  problem: "A problem statement is required before saving.",
   area: "That area isn't part of the active plan. Pick one from the list.",
 };
 
@@ -47,14 +46,14 @@ export default async function NewInitiativePage({
       <PageHeader sticky back={{ href: "/admin/initiatives", label: "Initiatives" }} eyebrow="Initiatives" title="New initiative" description="Priority is derived from the targeted value and effort. Only the driver, code, name and problem statement are required." />
       <div className={FORM_COLUMN}>
 
-        {error && ERRORS[error] && error !== "problem" && (
+        {error && ERRORS[error] && (
           <Alert variant="risk" className="mb-4">
             <TriangleAlert size={16} aria-hidden />
             {ERRORS[error]}
           </Alert>
         )}
 
-        <InitiativeForm action={createInitiative} submitLabel="Create initiative" cancelHref="/admin/initiatives" owners={owners} usedCodes={usedCodes} cimItems={cimItems} cimKpis={cimKpis} areas={areas} problemError={error === "problem"} />
+        <InitiativeForm action={createInitiative} submitLabel="Create initiative" cancelHref="/admin/initiatives" owners={owners} usedCodes={usedCodes} cimItems={cimItems} cimKpis={cimKpis} areas={areas} />
       </div>
     </div>
   );

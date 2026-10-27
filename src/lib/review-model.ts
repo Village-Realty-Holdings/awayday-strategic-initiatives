@@ -56,7 +56,11 @@ export type ReviewSi = {
   lead: string | null;
   sponsor: string | null;
   ownerUserId: string | null;
-  what: string | null;
+  /** The charter objective (valueWhenComplete). */
+  objective: string | null;
+  /** "Metric: target" from the charter KPI, or null. */
+  kpi: string | null;
+  /** One-line aim for cards: the KPI, else the objective. */
   goingFor: string | null;
   /** Review status from this period's update; null renders "Status TBD". */
   status: SiReviewStatus | null;

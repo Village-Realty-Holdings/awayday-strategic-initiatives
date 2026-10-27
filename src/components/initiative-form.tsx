@@ -109,7 +109,6 @@ export function InitiativeForm({
   cancelHref,
   owners = [],
   usedCodes = [],
-  problemError = false,
   cimItems = [],
   cimKpis = {},
   areas = [],
@@ -120,7 +119,6 @@ export function InitiativeForm({
   cancelHref: string;
   owners?: string[];
   usedCodes?: string[];
-  problemError?: boolean;
   cimItems?: { code: string; label: string }[];
   cimKpis?: Record<string, string[]>;
   areas?: { id: string; code: string; name: string; kind: string }[];
@@ -161,7 +159,6 @@ export function InitiativeForm({
 
   // Charter fields (controlled so the Claude draft can fill them)
   const [name2, setName] = useState(i?.name ?? "");
-  const [problem, setProblem] = useState(i?.problem ?? "");
   const [objective, setObjective] = useState(i?.valueWhenComplete ?? "");
   const [deliverables, setDeliverables] = useState(i?.workRequired ?? "");
   const [drafting, setDrafting] = useState(false);
@@ -175,7 +172,6 @@ export function InitiativeForm({
     if (!r.ok) { setDraftError(r.error); return; }
     try {
       const json = JSON.parse(r.text.replace(/^```(?:json)?|```$/g, "").trim());
-      if (json.problem) setProblem(String(json.problem));
       if (json.objective) setObjective(String(json.objective));
       if (json.deliverables) setDeliverables(String(json.deliverables));
       if (json.kpi) {
@@ -386,7 +382,7 @@ export function InitiativeForm({
 
       <FormSection
         title="Charter"
-        description="The problem, the measurable objective and what gets delivered."
+        description="The measurable objective and what gets delivered. The objective shows on the Strategy Review charter."
         action={
           <Button type="button" variant="accent" size="xs" onClick={draft} disabled={drafting} className="px-2.5">
             {drafting ? <Loader2 size={12} className="animate-spin" aria-hidden /> : <Sparkles size={12} aria-hidden />}
@@ -395,10 +391,6 @@ export function InitiativeForm({
         }
       >
         {draftError && <Alert variant="risk"><TriangleAlert size={15} aria-hidden />{draftError}</Alert>}
-        {problemError && <Alert variant="risk"><TriangleAlert size={15} aria-hidden />A problem statement is required before saving.</Alert>}
-        <Field label="Problem statement" required hint="What is broken, for whom, and what it costs us.">
-          <Textarea name="problem" required rows={3} placeholder="What is broken, for whom, and what does it cost us?" value={problem} onChange={(e) => setProblem(e.target.value)} />
-        </Field>
         <Field label="Objective">
           <Textarea name="valueWhenComplete" rows={3} placeholder="One measurable sentence: clearly done or not done at closeout." value={objective} onChange={(e) => setObjective(e.target.value)} />
         </Field>

@@ -74,7 +74,6 @@ export default async function EditInitiativePage({
           cimItems={cimItems}
           cimKpis={cimKpis}
           areas={areas}
-          problemError={error === "problem"}
         />
       </div>
     </div>
