@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/session";
 import { InitiativeForm } from "@/components/initiative-form";
 import { updateInitiative } from "@/app/(app)/initiatives/actions";
-import { cimKpiMap } from "@/lib/sources";
+import { getCimKpiMap } from "@/lib/strategy-reference-data";
 import { getActivePlan, getPlanAreas } from "@/lib/active-plan";
 import { BreadcrumbTitle } from "@/components/shell/breadcrumbs";
 
@@ -38,15 +38,15 @@ export default async function EditInitiativePage({
 
   // Areas of the initiative's own plan (or the active plan for a legacy one).
   const areaPlanId = initiative.planVersionId ?? (await getActivePlan())?.id;
-  const [roster, risks, areas] = await Promise.all([
+  const [roster, risks, areas, cimKpis] = await Promise.all([
     prisma.rosterMember.findMany({ select: { name: true } }),
     prisma.cimRisk.findMany({ orderBy: { code: "asc" }, select: { code: true, risk: true } }),
     getPlanAreas(areaPlanId),
+    getCimKpiMap(),
   ]);
   // Owners are people from the People directory.
   const owners = [...new Set(roster.map((r) => r.name).filter(Boolean))].sort() as string[];
   const cimItems = risks.map((r) => ({ code: r.code, label: `${r.code} — ${r.risk}` }));
-  const cimKpis = cimKpiMap();
   const charter = {
     risks: initiative.riskLog.map((r) => ({ id: r.id, risk: r.risk, mitigation: r.mitigation ?? "", owner: r.owner ?? "" })),
     dependencies: initiative.actionItems.map((a) => ({ id: a.id, need: a.title, fromWhom: a.owner, byWhen: a.byWhen ?? formatByWhen(a.dueAt) })),

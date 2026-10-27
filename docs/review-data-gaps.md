@@ -30,7 +30,7 @@ been published by the ingestion yet.
 | --- | --- |
 | Values for the 8 area measures (`FY27:<AREA>`: acquired EBITDA, gross unit adds, churn, TRevPAR growth, shop NOI margin, guest satisfaction, direct GBV growth, properties per FTE) | Pillar values and pillar status (shown as "No data yet"). The ingested metrics use different keys (`total_revenue`, `adjusted_ebitda`, …) and aren't linked to an area. |
 | P&L lines (cost of sales, shop opex, shop NOI, SupportCo, BD, interest income), take rate, GBV, average units, unit adds, churn, CAC, TRevPAR ex-OTA | Most rows of the MVP's P&L and KPI tables. Today the financial table shows total revenue, adjusted EBITDA, ADR, occupancy, RevPAR and TRevPAR for 2026-09. |
-| LTM lender EBITDA series | The LTM chart and bridge, and so the bridge's so-whats (the review has no bridge section to hang them on). The admin scoreboard that held a hand-typed figure was removed. |
+| LTM lender EBITDA series | The LTM chart and bridge, and so the bridge's so-whats (the review has no bridge section to hang them on). The EBITDA build the AI board update quotes is typed in by an admin on **Admin → Strategy reference**, not ingested. |
 | Region and shop figures (`entityScope` REGION / SHOP) | Regions behind / ahead and shops under NOI budget. |
 | TRevPAR monthly series, brand-level churn, unit adds and market comparisons | The MVP's brand lists and TRevPAR monthly chart. |
 | Guest review score | The Guest Experience measure. |

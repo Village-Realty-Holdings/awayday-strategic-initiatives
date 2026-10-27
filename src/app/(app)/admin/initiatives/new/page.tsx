@@ -5,24 +5,24 @@ import { requireAdmin } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { InitiativeForm } from "@/components/initiative-form";
 import { createInitiative } from "@/app/(app)/initiatives/actions";
-import { cimKpiMap } from "@/lib/sources";
+import { getCimKpiMap } from "@/lib/strategy-reference-data";
 import { getActivePlan, getPlanAreas } from "@/lib/active-plan";
 
 export const dynamic = "force-dynamic";
 
 async function loadFormData() {
   const activePlan = await getActivePlan();
-  const [initiatives, roster, risks, areas] = await Promise.all([
+  const [initiatives, roster, risks, areas, cimKpis] = await Promise.all([
     prisma.initiative.findMany({ select: { code: true, teamLead: true } }),
     prisma.rosterMember.findMany({ select: { name: true, position: true } }),
     prisma.cimRisk.findMany({ orderBy: { code: "asc" }, select: { code: true, risk: true } }),
     getPlanAreas(activePlan?.id),
+    getCimKpiMap(),
   ]);
   const usedCodes = initiatives.map((x) => x.code);
   // Owners are people from the People directory.
   const owners = [...new Set(roster.map((r) => r.name).filter(Boolean))].sort() as string[];
   const cimItems = risks.map((r) => ({ code: r.code, label: `${r.code} — ${r.risk}` }));
-  const cimKpis = cimKpiMap();
   return { usedCodes, owners, cimItems, cimKpis, areas };
 }
 

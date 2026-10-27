@@ -5,11 +5,22 @@ import { requireSession } from "@/lib/session";
 import { activePlanInitiativeWhere } from "@/lib/active-plan";
 import { complete, HOUSE_STYLE, aiConfigured } from "@/lib/ai";
 import { siHealth, HEALTH_META } from "@/lib/initiatives";
-import { EBITDA_BUILD } from "@/lib/sources";
-import { getEbitdaBuild, getScorecardGoals, getPillars } from "@/lib/overview-data";
+import { getEbitdaBuild, getScorecardGoals, getPillars } from "@/lib/strategy-reference-data";
+import type { EbitdaBuild } from "@/lib/strategy-reference";
 import { rateLimit } from "@/lib/rate-limit";
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
+const usd = (n: number | null) => (n === null ? "n/a" : `$${n}M`);
+
+// One-line EBITDA summary for the Ask panel; empty until an admin enters the build.
+function ebitdaSummary(e: EbitdaBuild | null): string {
+  if (!e) return "";
+  const growth = e.ytdGrowth === null ? "" : `; +$${e.ytdGrowth}M YTD`;
+  return `EBITDA: lender-defined ${usd(e.lender)}, valuation-basis ${usd(e.valuation)}; 2026 target ${usd(e.target2026)}, 2027 exit target ${usd(e.target2027)}${growth}.`;
+}
+
+// Gap from lender EBITDA to a target, or null when either side is missing.
+const gap = (e: EbitdaBuild, target: number | null) => (target === null || e.lender === null ? null : r1(target - e.lender));
 
 export type AiResult = { ok: true; text: string } | { ok: false; error: string };
 
@@ -111,9 +122,10 @@ export async function askBoard(question: string): Promise<AiResult> {
     if (!question.trim()) return { ok: false, error: "Ask a question first." };
 
     const where = await activePlanInitiativeWhere();
-    const [initiatives, risks] = await Promise.all([
+    const [initiatives, risks, ebitda] = await Promise.all([
       prisma.initiative.findMany({ where }),
       prisma.cimRisk.findMany({ include: { initiatives: true } }),
+      getEbitdaBuild(),
     ]);
     const now = new Date();
     const counts = { total: initiatives.length, done: 0, behind: 0, atRisk: 0 };
@@ -127,7 +139,7 @@ export async function askBoard(question: string): Promise<AiResult> {
     const criticalRisks = risks.filter((r) => r.critical).map((r) => `${r.code} ${r.risk}`);
 
     const context = [
-      `EBITDA: lender-defined $${EBITDA_BUILD.lender}M, valuation-basis $${EBITDA_BUILD.valuation}M; 2026 target $${EBITDA_BUILD.target2026}M, 2027 exit target $${EBITDA_BUILD.target2027}M; +$${EBITDA_BUILD.ytdGrowth}M YTD.`,
+      ebitdaSummary(ebitda),
       `Initiatives: ${counts.total} total, ${counts.done} complete, ${counts.behind} behind pace, ${counts.atRisk} at risk.`,
       behindList.length ? `At-risk initiatives: ${behindList.slice(0, 12).join("; ")}.` : "",
       criticalRisks.length ? `Critical CIM risks: ${criticalRisks.join("; ")}.` : "",
@@ -171,9 +183,6 @@ export async function generateBoardNarrative(): Promise<AiResult> {
       getPillars(),
     ]);
     const now = new Date();
-
-    const gap2026 = r1(ebitda.target2026 - ebitda.lender);
-    const gap2027 = r1(ebitda.target2027 - ebitda.lender);
 
     // code -> progress (DONE counts as 1) for pillar/SI rollups. Pillar items
     // reference initiative codes that may sit outside the active plan, so look
@@ -224,12 +233,19 @@ export async function generateBoardNarrative(): Promise<AiResult> {
 
     const redGoals = goals.filter((g) => g.color === "red").map((g) => `${g.name}: target ${g.goal || "n/a"}, latest ${g.ltm || "n/a"} (${g.status || "off plan"})`);
 
+    const exitGoal = ebitda?.target2027 != null ? `the $${ebitda.target2027}M EBITDA exit by 12/31/2027` : "the EBITDA exit target";
+    const ebitdaLines = ebitda
+      ? [
+          `As of: ${ebitda.asOf || "n/a"}.${ebitda.target2027 === null ? "" : ` Hard goal: $${ebitda.target2027}M lender EBITDA by 12/31/2027.`}`,
+          `EBITDA: lender ${usd(ebitda.lender)}, valuation ${usd(ebitda.valuation)}${ebitda.ytdGrowth === null ? "" : `, +$${ebitda.ytdGrowth}M YTD`}. Gap to 2026 target (${usd(ebitda.target2026)}): ${usd(gap(ebitda, ebitda.target2026))}. Gap to 2027 exit (${usd(ebitda.target2027)}): ${usd(gap(ebitda, ebitda.target2027))}.`,
+        ]
+      : ["EBITDA build: not entered yet."];
+
     const snapshot = [
-      `As of: ${ebitda.asOf}. Hard goal: $${ebitda.target2027}M lender EBITDA by 12/31/2027.`,
-      `EBITDA: lender $${ebitda.lender}M, valuation $${ebitda.valuation}M, +$${ebitda.ytdGrowth}M YTD. Gap to 2026 target ($${ebitda.target2026}M): $${gap2026}M. Gap to 2027 exit ($${ebitda.target2027}M): $${gap2027}M.`,
+      ...ebitdaLines,
       `Initiatives: ${counts.total} total, ${counts.done} complete, ${counts.behind} behind pace, ${counts.atRisk} at risk.`,
       behindList.length ? `Behind/at-risk value initiatives: ${behindList.slice(0, 12).join("; ")}.` : "",
-      `2026 goal pillars: ${pillarLines.join("; ")}.`,
+      pillarLines.length ? `2026 goal pillars: ${pillarLines.join("; ")}.` : "",
       redGoals.length ? `RED financial/operating KPIs: ${redGoals.join("; ")}.` : "",
       `CIM risk exposure: ~$${totalExposed}M total exposed (prize x uncovered share). Top: ${topRisks.join("; ")}.`,
     ]
@@ -240,7 +256,7 @@ export async function generateBoardNarrative(): Promise<AiResult> {
       system: HOUSE_STYLE + " You are drafting a board update for a PE-backed operator's leadership team and its sponsor (Ares). Precise, sober, concrete.",
       user:
         `Write a board update from this live portfolio snapshot. Use ONLY these figures. Never invent numbers, names, or facts; cite the real numbers given. Output GitHub-flavored markdown with these "## " sections, in order:\n` +
-        `## Executive summary — where Awayday stands against the $150M EBITDA exit by 12/31/2027 (lead with lender EBITDA, the gap, YTD growth, and overall portfolio health). One tight paragraph.\n` +
+        `## Executive summary — where Awayday stands against ${exitGoal} (lead with lender EBITDA, the gap, YTD growth, and overall portfolio health). One tight paragraph.\n` +
         `## 2026 goals — one short paragraph per pillar with its progress and the standout driver or blocker.\n` +
         `## Risk posture — the most under-covered and critical CIM risks, led by the largest dollars exposed.\n` +
         `## Decisions and asks — 2 to 4 specific decisions to put in front of the board, drawn from the behind-pace high-value work and the under-covered risks.\n\n` +
