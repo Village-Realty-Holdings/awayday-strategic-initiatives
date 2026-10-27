@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function SummaryPage() {
   // Warm the per-request active-plan lookup alongside the auth check.
-  const [, { id, periods }] = await Promise.all([requireApp("initiatives"), resolvePeriod(), getActivePlan()]);
+  const [session, { id, periods, home }] = await Promise.all([requireApp("initiatives"), resolvePeriod(), getActivePlan()]);
   const [plan, period, finance] = await Promise.all([getReviewPlan(id), getReviewPeriod(id), getFinanceTable(id)]);
-  return <ReviewView plan={plan} period={period} periods={periods} finance={finance} today={todayIso()} />;
+  return <ReviewView plan={plan} period={period} periods={periods} home={home} finance={finance} today={todayIso()} canAuthor={session.user.role === "admin"} />;
 }

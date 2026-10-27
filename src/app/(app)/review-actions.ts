@@ -4,8 +4,21 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { audit } from "@/lib/audit";
-import { requireSession, canEdit } from "@/lib/session";
-import { BELOW_LINE_STATUSES, initiativeOwnerMatches, PERIOD_PATTERN, SI_REVIEW_STATUSES, type SiReviewStatus } from "@/lib/review-model";
+import { flash } from "@/lib/flash";
+import { getReviewPlan } from "@/lib/review-data";
+import { requireAdmin, requireSession, canEdit } from "@/lib/session";
+import {
+  BELOW_LINE_STATUSES,
+  initiativeOwnerMatches,
+  isoDay,
+  parseIsoDay,
+  parseSoWhats,
+  PERIOD_PATTERN,
+  periodLabel,
+  SI_REVIEW_STATUSES,
+  SUMMARY_SCOPE,
+  type SiReviewStatus,
+} from "@/lib/review-model";
 
 function text(formData: FormData, key: string): string | null {
   const value = formData.get(key);
@@ -29,16 +42,22 @@ function revalidateReview() {
 export async function saveInitiativeUpdate(formData: FormData) {
   const session = await requireSession();
   const initiativeId = String(formData.get("initiativeId") ?? "");
-  const initiative = await prisma.initiative.findUnique({
-    where: { id: initiativeId },
-    select: { id: true, status: true, ownerUserId: true, teamLead: true },
-  });
+  const rawPeriod = text(formData, "reportingPeriod");
+  const period = rawPeriod && PERIOD_PATTERN.test(rawPeriod) ? rawPeriod : null;
+  const [initiative, review] = await Promise.all([
+    prisma.initiative.findUnique({
+      where: { id: initiativeId },
+      select: { id: true, status: true, ownerUserId: true, teamLead: true },
+    }),
+    period ? prisma.reviewPeriod.findUnique({ where: { id: period }, select: { status: true } }) : null,
+  ]);
   if (!initiative) redirect("/my");
   if (!canEdit(session.user.role) && !initiativeOwnerMatches(initiative, session.user)) redirect("/my");
+  // A published review is final: its month takes no more updates, for anyone.
+  if (review?.status === "PUBLISHED") redirect(`/my?period=${period}`);
 
   const rawStatus = text(formData, "reviewStatus");
   const reviewStatus = SI_REVIEW_STATUSES.includes(rawStatus as SiReviewStatus) ? (rawStatus as SiReviewStatus) : null;
-  const period = text(formData, "reportingPeriod");
   const created = await prisma.initiativeUpdate.create({
     data: {
       initiativeId,
@@ -49,13 +68,13 @@ export async function saveInitiativeUpdate(formData: FormData) {
       pathForward: text(formData, "pathForward"),
       nextMilestone: text(formData, "nextMilestone"),
       milestoneDueAt: parsedDate(formData, "milestoneDueAt"),
-      reportingPeriod: period && PERIOD_PATTERN.test(period) ? period : null,
+      reportingPeriod: period,
       updatedBy: session.user.name,
     },
   });
   await audit(session.user.id, "CREATE", "InitiativeUpdate", created.id, { after: { initiativeId, reviewStatus, reportingPeriod: created.reportingPeriod } });
   revalidateReview();
-  redirect(`/my${period ? `?period=${encodeURIComponent(period)}` : ""}#si-${initiativeId}`);
+  redirect(`/my${period ? `?period=${period}` : ""}#si-${initiativeId}`);
 }
 
 export async function toggleActionItem(formData: FormData) {
@@ -119,4 +138,93 @@ export async function createBelowLineProject(formData: FormData) {
   await audit(session.user.id, "CREATE", "BelowLineProject", created.id, { after: { strategicAreaId, name, initiativeId } });
   revalidatePath("/below-the-line");
   redirect("/below-the-line");
+}
+
+// ---------------------------------------------------------------------------
+// Review authoring (Strategy, admins only): the period and its so-whats
+// ---------------------------------------------------------------------------
+
+function periodId(formData: FormData, key = "periodId"): string | null {
+  const id = text(formData, key);
+  return id && PERIOD_PATTERN.test(id) ? id : null;
+}
+
+/** Start a review month as a draft (or open it when it already exists). */
+export async function createReviewPeriod(formData: FormData) {
+  const session = await requireAdmin();
+  const id = periodId(formData, "period");
+  if (!id) redirect("/");
+  const existing = await prisma.reviewPeriod.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) {
+    await prisma.reviewPeriod.create({ data: { id, preparedBy: session.user.name } });
+    await audit(session.user.id, "CREATE", "ReviewPeriod", id, { after: { status: "DRAFT", preparedBy: session.user.name } });
+    revalidateReview();
+    await flash(`${periodLabel(id)} review started`);
+  }
+  redirect(`/review/${id}/edit`);
+}
+
+/**
+ * Save the month's header fields and so-whats; with intent=publish, publish it
+ * too. A published month is read-only until it is unpublished. So-whats are
+ * replaced as a set for the scopes the active plan has (the summary and each
+ * area), so rows for areas of another plan are left alone.
+ */
+export async function saveReview(formData: FormData) {
+  const session = await requireAdmin();
+  const id = periodId(formData);
+  if (!id) redirect("/");
+  const editPath = `/review/${id}/edit`;
+  const existing = await prisma.reviewPeriod.findUnique({
+    where: { id },
+    include: { soWhats: { orderBy: [{ scope: "asc" }, { order: "asc" }], select: { scope: true, headline: true } } },
+  });
+  if (existing?.status === "PUBLISHED") redirect(editPath);
+
+  const plan = await getReviewPlan(id);
+  const scopes = [SUMMARY_SCOPE, ...plan.areas.map((a) => a.code)];
+  const soWhats = parseSoWhats(text(formData, "soWhats"), scopes);
+  const publish = formData.get("intent") === "publish";
+  const fields = {
+    preparedBy: text(formData, "preparedBy"),
+    meetingDate: parseIsoDay(text(formData, "meetingDate")),
+    updatesDueDate: parseIsoDay(text(formData, "updatesDueDate")),
+    dataAsOf: parseIsoDay(text(formData, "dataAsOf")),
+    ...(publish ? { status: "PUBLISHED" as const, publishedAt: new Date(), publishedBy: session.user.name } : {}),
+  };
+
+  await prisma.$transaction([
+    prisma.reviewPeriod.upsert({ where: { id }, create: { id, ...fields }, update: fields }),
+    prisma.reviewSoWhat.deleteMany({ where: { periodId: id, scope: { in: scopes } } }),
+    prisma.reviewSoWhat.createMany({ data: soWhats.map((s) => ({ periodId: id, ...s })) }),
+  ]);
+  const summary = (p: { status: string; preparedBy: string | null; meetingDate: Date | null; updatesDueDate: Date | null; dataAsOf: Date | null }) => ({
+    status: p.status,
+    preparedBy: p.preparedBy,
+    meetingDate: isoDay(p.meetingDate),
+    updatesDueDate: isoDay(p.updatesDueDate),
+    dataAsOf: isoDay(p.dataAsOf),
+  });
+  await audit(session.user.id, existing ? "UPDATE" : "CREATE", "ReviewPeriod", id, {
+    before: existing ? { ...summary(existing), soWhats: existing.soWhats } : undefined,
+    after: { ...summary({ status: existing?.status ?? "DRAFT", ...fields }), soWhats: soWhats.map(({ scope, headline }) => ({ scope, headline })) },
+  });
+  revalidateReview();
+  await flash(publish ? `${periodLabel(id)} review published` : "Review saved");
+  redirect(publish ? `/review/${id}` : editPath);
+}
+
+/** Return a published month to draft, reopening it for edits and SI updates. */
+export async function unpublishReview(formData: FormData) {
+  const session = await requireAdmin();
+  const id = periodId(formData);
+  if (!id) redirect("/");
+  const editPath = `/review/${id}/edit`;
+  const existing = await prisma.reviewPeriod.findUnique({ where: { id }, select: { status: true, publishedAt: true, publishedBy: true } });
+  if (existing?.status !== "PUBLISHED") redirect(editPath);
+  await prisma.reviewPeriod.update({ where: { id }, data: { status: "DRAFT", publishedAt: null, publishedBy: null } });
+  await audit(session.user.id, "UPDATE", "ReviewPeriod", id, { before: existing, after: { status: "DRAFT" } });
+  revalidateReview();
+  await flash(`${periodLabel(id)} review unpublished`);
+  redirect(editPath);
 }

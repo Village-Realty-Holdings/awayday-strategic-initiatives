@@ -4,7 +4,9 @@ import { getActivePlan } from "@/lib/active-plan";
 import { PUBLICATION_APPROVED } from "@/lib/kpi";
 import { buildFinanceTable, currentKpiValue, type FinanceTable, type KpiRow } from "@/lib/review-kpi";
 import {
+  homeReviewPeriod,
   isoDay,
+  openUpdatePeriod,
   periodLabel,
   periodMonthName,
   ragFor,
@@ -12,9 +14,12 @@ import {
   shortCode,
   splitNames,
   synthesiseAreas,
+  SUMMARY_SCOPE,
   type ReviewArea,
+  type ReviewPeriodStatus,
   type ReviewSi,
   type SiReviewStatus,
+  type SoWhat,
 } from "@/lib/review-model";
 
 export type ReviewPlan = {
@@ -31,9 +36,24 @@ export type ReviewPeriod = {
   id: string;
   label: string;
   monthName: string;
-  /** Newest observedAt among the period's KPI values, as an ISO day. */
+  /** True when Strategy has saved this month (a ReviewPeriod row exists). */
+  stored: boolean;
+  /** DRAFT until Strategy publishes; a month with no row is a draft. */
+  status: ReviewPeriodStatus;
+  preparedBy: string | null;
+  meetingDate: string | null;
+  updatesDueDate: string | null;
+  /** The stored override, else the newest observedAt among the period's KPI values (ISO days). */
   dataAsOf: string | null;
+  /** Newest observedAt among the period's KPI values, ignoring the override. */
+  observedAsOf: string | null;
+  /** The data-as-of Strategy typed in, if any. */
+  dataAsOfOverride: string | null;
   sources: string[];
+  /** The summary so-whats, in order. */
+  summary: SoWhat[];
+  /** So-whats per StrategicArea code, in order. */
+  areaSoWhats: Record<string, SoWhat[]>;
 };
 
 const OBSERVATION_SELECT = {
@@ -59,24 +79,56 @@ const currentObservationWhere = {
   quality: { notIn: ["INVALID", "UNAVAILABLE"] },
 };
 
-/** Every period that has KPI data or SI updates, newest first. */
-export const getReviewPeriodIds = cache(async (): Promise<string[]> => {
-  const [kpi, updates] = await Promise.all([
+/** Every review period, newest first, and which of them are published. */
+export const getReviewPeriodIndex = cache(async (): Promise<{ periods: string[]; published: string[] }> => {
+  const [kpi, updates, stored] = await Promise.all([
     prisma.kpiObservation.findMany({ where: currentObservationWhere, select: { reportingPeriod: true }, distinct: ["reportingPeriod"] }),
     prisma.initiativeUpdate.findMany({ where: { reportingPeriod: { not: null } }, select: { reportingPeriod: true }, distinct: ["reportingPeriod"] }),
+    prisma.reviewPeriod.findMany({ select: { id: true, status: true } }),
   ]);
-  return reviewPeriods([...kpi.map((k) => k.reportingPeriod), ...updates.map((u) => u.reportingPeriod)]);
+  const periods = reviewPeriods([...kpi.map((k) => k.reportingPeriod), ...updates.map((u) => u.reportingPeriod), ...stored.map((p) => p.id)]);
+  return { periods, published: stored.filter((p) => p.status === "PUBLISHED").map((p) => p.id) };
 });
 
-/** Period header: label, data-as-of and the source documents behind its figures. */
+/** Every period that has KPI data, SI updates or a stored review, newest first. */
+export const getReviewPeriodIds = cache(async (): Promise<string[]> => (await getReviewPeriodIndex()).periods);
+
+/** Period header (label, status, prepared by, dates, sources) and its so-whats. */
 export const getReviewPeriod = cache(async (id: string): Promise<ReviewPeriod> => {
-  const rows = await prisma.kpiObservation.findMany({
-    where: { ...currentObservationWhere, reportingPeriod: id },
-    select: { observedAt: true, sourceDocumentName: true },
-  });
+  const [rows, stored] = await Promise.all([
+    prisma.kpiObservation.findMany({
+      where: { ...currentObservationWhere, reportingPeriod: id },
+      select: { observedAt: true, sourceDocumentName: true },
+    }),
+    prisma.reviewPeriod.findUnique({
+      where: { id },
+      include: { soWhats: { orderBy: [{ scope: "asc" }, { order: "asc" }], select: { id: true, scope: true, headline: true, body: true } } },
+    }),
+  ]);
   const latest = rows.reduce<Date | null>((max, r) => (!max || r.observedAt > max ? r.observedAt : max), null);
   const sources = [...new Set(rows.map((r) => r.sourceDocumentName).filter((s): s is string => Boolean(s)))].sort();
-  return { id, label: periodLabel(id), monthName: periodMonthName(id), dataAsOf: isoDay(latest), sources };
+  const summary: SoWhat[] = [];
+  const areaSoWhats: Record<string, SoWhat[]> = {};
+  for (const { scope, ...soWhat } of stored?.soWhats ?? []) {
+    if (scope === SUMMARY_SCOPE) summary.push(soWhat);
+    else (areaSoWhats[scope] ??= []).push(soWhat);
+  }
+  return {
+    id,
+    label: periodLabel(id),
+    monthName: periodMonthName(id),
+    stored: Boolean(stored),
+    status: stored?.status ?? "DRAFT",
+    preparedBy: stored?.preparedBy ?? null,
+    meetingDate: isoDay(stored?.meetingDate),
+    updatesDueDate: isoDay(stored?.updatesDueDate),
+    dataAsOf: isoDay(stored?.dataAsOf) ?? isoDay(latest),
+    observedAsOf: isoDay(latest),
+    dataAsOfOverride: isoDay(stored?.dataAsOf),
+    sources,
+    summary,
+    areaSoWhats,
+  };
 });
 
 /**
@@ -208,8 +260,17 @@ export function allSis(plan: ReviewPlan): ReviewSi[] {
   return plan.areas.flatMap((a) => a.sis);
 }
 
-/** The requested period when it exists, otherwise the newest one. */
-export async function resolvePeriod(requested?: string | null): Promise<{ id: string; periods: string[] }> {
-  const periods = await getReviewPeriodIds();
-  return { id: requested && periods.includes(requested) ? requested : periods[0], periods };
+/**
+ * The requested period when it exists, otherwise the default: for the review
+ * (`/` and the pages beside it) the newest published month, for SI updates
+ * (My SIs) the newest month still open. `home` is that default, which the
+ * period switchers link to without a period.
+ */
+export async function resolvePeriod(
+  requested?: string | null,
+  fallback: "review" | "updates" = "review",
+): Promise<{ id: string; periods: string[]; home: string; published: string[] }> {
+  const { periods, published } = await getReviewPeriodIndex();
+  const home = fallback === "updates" ? openUpdatePeriod(periods, published) : homeReviewPeriod(periods, published);
+  return { id: requested && periods.includes(requested) ? requested : home, periods, home, published };
 }

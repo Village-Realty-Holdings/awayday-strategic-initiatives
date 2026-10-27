@@ -1,17 +1,19 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
+import { Pencil } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { planHeader } from "@/lib/plan-headers";
 import type { ReviewPeriod, ReviewPlan } from "@/lib/review-data";
 import type { FinanceTable } from "@/lib/review-kpi";
-import { addDaysIso, fmtLong, ragLabel, ragTone, type ReviewArea, type ReviewMilestone } from "@/lib/review-model";
+import { addDaysIso, fmtLong, ragLabel, ragTone, type ReviewArea, type ReviewMilestone, type SoWhat } from "@/lib/review-model";
 import { AsksByLeaderToggle } from "./asks-by-leader";
 import { DataTable } from "./data-table";
 import { PeriodSwitcher } from "./period-switcher";
 import { NoDataNote, ReviewHeader, SectionTitle } from "./preview";
 import { SiCard } from "./si-charter-dialog";
-import { PillarLabelBadge } from "./status";
+import { SoWhatList } from "./so-whats";
+import { PeriodStatusBadge, PillarLabelBadge } from "./status";
 import { SummaryGantt } from "./summary-gantt";
 
 function anchor(area: ReviewArea): string {
@@ -23,7 +25,7 @@ function MeasureStatus({ area, className }: { area: ReviewArea; className?: stri
   return tone ? <PillarLabelBadge label={ragLabel(area.measure!.rag)} tone={tone} className={className} /> : <span className={`text-[11px] text-ink-faint ${className ?? ""}`}>No data yet</span>;
 }
 
-function AreaSection({ area }: { area: ReviewArea }) {
+function AreaSection({ area, soWhats }: { area: ReviewArea; soWhats: SoWhat[] }) {
   const isPillar = area.kind === "VALUE_DRIVER";
   return (
     <Card id={anchor(area)} className="scroll-mt-20 gap-0 p-5">
@@ -60,6 +62,13 @@ function AreaSection({ area }: { area: ReviewArea }) {
         </div>
       )}
 
+      {soWhats.length > 0 && (
+        <div className="mt-4">
+          <p className="mb-2 text-xs font-semibold text-ink">So what</p>
+          <SoWhatList items={soWhats} />
+        </div>
+      )}
+
       <div className="mt-5">
         <p className="mb-2 text-xs font-semibold text-ink">Strategic initiatives · click a card to open its charter</p>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -77,14 +86,20 @@ export function ReviewView({
   plan,
   period,
   periods,
+  home,
   finance,
   today,
+  canAuthor = false,
 }: {
   plan: ReviewPlan;
   period: ReviewPeriod;
   periods: string[];
+  /** The month `/` shows; the switcher links it to `/`. */
+  home: string;
   finance: FinanceTable;
   today: string;
+  /** Admins (Strategy) get the Edit review link. */
+  canAuthor?: boolean;
 }) {
   const header = planHeader(plan.code);
   const pillars = plan.areas.filter((a) => a.kind === "VALUE_DRIVER");
@@ -114,11 +129,25 @@ export function ReviewView({
         eyebrow="Awayday · Monthly Strategy Review"
         title={`${period.label} Strategy Review`}
         description="Where each pillar stands, the SIs behind it, and what the ELT needs to decide next."
-        actions={<PeriodSwitcher periods={periods} current={period.id} />}
+        actions={
+          <>
+            <PeriodStatusBadge status={period.status} />
+            <PeriodSwitcher periods={periods} current={period.id} home={home} />
+            {canAuthor && (
+              <Button asChild variant="secondary" size="sm">
+                <Link href={`/review/${period.id}/edit`}>
+                  <Pencil size={12} aria-hidden /> Edit review
+                </Link>
+              </Button>
+            )}
+          </>
+        }
       />
 
       <p className="-mt-4 text-xs text-ink-muted">
         {plan.title ?? "No active plan"}
+        {period.preparedBy ? ` · Prepared by ${period.preparedBy}` : ""}
+        {period.meetingDate ? ` · ELT meeting ${fmtLong(period.meetingDate)}` : ""}
         {period.dataAsOf ? ` · Data as of ${fmtLong(period.dataAsOf)}` : " · No figures loaded for this month"}
         {period.sources.length > 0 ? ` · Finance figures: ${period.sources.join(", ")}` : ""}
         {" · Highly confidential"}
@@ -175,6 +204,16 @@ export function ReviewView({
 
       <section id="summary" className="scroll-mt-20">
         <SectionTitle>Where the pillars stand · {period.monthName}</SectionTitle>
+        {period.summary.length > 0 ? (
+          <Card className="mb-4 gap-0 p-5">
+            <p className="mb-3 text-xs font-semibold text-ink">So what</p>
+            <SoWhatList items={period.summary} />
+          </Card>
+        ) : (
+          <div className="mb-4">
+            <NoDataNote>Strategy hasn&apos;t written the so-whats for {period.label} yet.</NoDataNote>
+          </div>
+        )}
         {withMeasure.length > 0 ? (
           <Card className="gap-0 p-5">
             <DataTable
@@ -223,7 +262,7 @@ export function ReviewView({
       <section id="pillars" className="flex scroll-mt-20 flex-col gap-4">
         <SectionTitle>Value creation pillars</SectionTitle>
         {pillars.map((a) => (
-          <AreaSection key={a.code} area={a} />
+          <AreaSection key={a.code} area={a} soWhats={period.areaSoWhats[a.code] ?? []} />
         ))}
         {pillars.length === 0 && <NoDataNote>The active plan has no value drivers.</NoDataNote>}
       </section>
@@ -232,7 +271,7 @@ export function ReviewView({
         <section id="enablers" className="flex scroll-mt-20 flex-col gap-4">
           <SectionTitle>Enablers</SectionTitle>
           {enablers.map((a) => (
-            <AreaSection key={a.code} area={a} />
+            <AreaSection key={a.code} area={a} soWhats={period.areaSoWhats[a.code] ?? []} />
           ))}
         </section>
       )}
@@ -266,7 +305,7 @@ export function ReviewView({
           ))}
           {!plan.sourceFileName && period.sources.length === 0 && <li>No source documents recorded.</li>}
         </ul>
-        <p className="mt-4 border-t border-border/70 pt-3 text-[11px] text-ink-faint">Prepared by Strategy for ELT discussion. Highly confidential.</p>
+        <p className="mt-4 border-t border-border/70 pt-3 text-[11px] text-ink-faint">Prepared by {period.preparedBy ? `Strategy (${period.preparedBy})` : "Strategy"} for ELT discussion. Highly confidential.</p>
       </Card>
     </div>
   );

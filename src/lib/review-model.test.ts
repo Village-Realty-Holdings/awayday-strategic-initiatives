@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { buildFinanceTable, formatKpiValue, type KpiRow } from "./review-kpi";
 import {
+  homeReviewPeriod,
   initiativeOwnerMatches,
+  openUpdatePeriod,
+  parseIsoDay,
+  parseSoWhats,
   periodLabel,
   previousMonth,
   ragFor,
@@ -135,5 +139,63 @@ describe("shortCode", () => {
   it("drops the plan prefix", () => {
     expect(shortCode("FY27-SI-001")).toBe("SI-001");
     expect(shortCode("M&A-01")).toBe("M&A-01");
+  });
+});
+
+describe("homeReviewPeriod / openUpdatePeriod", () => {
+  const periods = ["2026-10", "2026-09", "2026-08"];
+
+  it("opens the review on the newest published month, or the newest when none is", () => {
+    expect(homeReviewPeriod(periods, ["2026-09", "2026-08"])).toBe("2026-09");
+    expect(homeReviewPeriod(periods, [])).toBe("2026-10");
+  });
+
+  it("opens My SIs on the newest month still taking updates, or the newest when all are published", () => {
+    expect(openUpdatePeriod(periods, ["2026-10"])).toBe("2026-09");
+    expect(openUpdatePeriod(periods, periods)).toBe("2026-10");
+  });
+});
+
+describe("parseSoWhats", () => {
+  const scopes = ["SUMMARY", "M&A"];
+
+  it("keeps known scopes, trims, drops blanks and numbers each scope from 0", () => {
+    const json = JSON.stringify([
+      { scope: "M&A", headline: " Four closes ", body: " 942 units " },
+      { scope: "SUMMARY", headline: "Shops beat", body: "" },
+      { scope: "GHOST", headline: "Unknown area", body: "" },
+      { scope: "SUMMARY", headline: " ", body: " " },
+      { scope: "SUMMARY", headline: "", body: "CAC is the number nobody has explained." },
+      { scope: "M&A", headline: "Pipeline is full", body: null },
+    ]);
+    expect(parseSoWhats(json, scopes)).toEqual([
+      { scope: "M&A", order: 0, headline: "Four closes", body: "942 units" },
+      { scope: "SUMMARY", order: 0, headline: "Shops beat", body: null },
+      { scope: "SUMMARY", order: 1, headline: "CAC is the number nobody has explained.", body: null },
+      { scope: "M&A", order: 1, headline: "Pipeline is full", body: null },
+    ]);
+  });
+
+  it("caps text length and the number per scope", () => {
+    const many = Array.from({ length: 20 }, (_, i) => ({ scope: "SUMMARY", headline: `${i}`.padEnd(500, "x"), body: "y".repeat(5000) }));
+    const out = parseSoWhats(JSON.stringify(many), scopes);
+    expect(out).toHaveLength(12);
+    expect(out[0].headline).toHaveLength(200);
+    expect(out[0].body).toHaveLength(2000);
+  });
+
+  it("yields nothing for invalid or non-array JSON", () => {
+    expect(parseSoWhats("not json", scopes)).toEqual([]);
+    expect(parseSoWhats('{"scope":"SUMMARY"}', scopes)).toEqual([]);
+    expect(parseSoWhats(null, scopes)).toEqual([]);
+  });
+});
+
+describe("parseIsoDay", () => {
+  it("reads a calendar day at UTC midnight and rejects anything else", () => {
+    expect(parseIsoDay("2026-10-15")?.toISOString()).toBe("2026-10-15T00:00:00.000Z");
+    expect(parseIsoDay("2026-02-30")).toBeNull();
+    expect(parseIsoDay("15/10/2026")).toBeNull();
+    expect(parseIsoDay("")).toBeNull();
   });
 });

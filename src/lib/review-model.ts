@@ -150,13 +150,83 @@ export function previousMonth(now: Date = new Date()): string {
 }
 
 /**
- * Review periods, newest first: every YYYY-MM period that has KPI data or SI
- * updates. With neither, last month, so the page always has a period.
+ * Review periods, newest first: every YYYY-MM period that has KPI data, SI
+ * updates or a stored ReviewPeriod row. With none, last month, so the page
+ * always has a period.
  */
 export function reviewPeriods(candidates: readonly (string | null | undefined)[], now: Date = new Date()): string[] {
   const set = new Set(candidates.filter((p): p is string => typeof p === "string" && PERIOD_PATTERN.test(p)));
   if (set.size === 0) set.add(previousMonth(now));
   return [...set].sort((a, b) => b.localeCompare(a));
+}
+
+/**
+ * The month `/` opens on: the newest published review, or the newest period
+ * when nothing is published yet (so a fresh draft month doesn't replace a
+ * published review for everyone).
+ */
+export function homeReviewPeriod(periods: readonly string[], published: readonly string[]): string {
+  return periods.find((p) => published.includes(p)) ?? periods[0];
+}
+
+/** The month My SIs opens on: the newest month still open for updates. */
+export function openUpdatePeriod(periods: readonly string[], published: readonly string[]): string {
+  return periods.find((p) => !published.includes(p)) ?? periods[0];
+}
+
+// ---------------------------------------------------------------------------
+// Review periods and so-whats
+// ---------------------------------------------------------------------------
+
+export const REVIEW_PERIOD_STATUSES = ["DRAFT", "PUBLISHED"] as const;
+export type ReviewPeriodStatus = (typeof REVIEW_PERIOD_STATUSES)[number];
+
+/** So-what scope for the review summary; any other scope is a StrategicArea code. */
+export const SUMMARY_SCOPE = "SUMMARY";
+
+export type SoWhat = { id: string; headline: string; body: string | null };
+
+export type SoWhatInput = { scope: string; order: number; headline: string; body: string | null };
+
+export const SO_WHAT_LIMITS = { perScope: 12, headline: 200, body: 2000 } as const;
+
+/**
+ * The editor's so-whats (JSON `[{ scope, headline, body }]`) as rows to store:
+ * unknown scopes and blank rows dropped, text trimmed and capped, and `order`
+ * numbered per scope in the order given. Invalid JSON yields no rows.
+ */
+export function parseSoWhats(json: string | null, scopes: readonly string[]): SoWhatInput[] {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(json ?? "[]");
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(raw)) return [];
+  const allowed = new Set(scopes);
+  const count = new Map<string, number>();
+  const out: SoWhatInput[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const { scope, headline, body } = item as Record<string, unknown>;
+    if (typeof scope !== "string" || !allowed.has(scope)) continue;
+    const h = typeof headline === "string" ? headline.trim().slice(0, SO_WHAT_LIMITS.headline) : "";
+    const b = typeof body === "string" ? body.trim().slice(0, SO_WHAT_LIMITS.body) : "";
+    if (!h && !b) continue;
+    const order = count.get(scope) ?? 0;
+    if (order >= SO_WHAT_LIMITS.perScope) continue;
+    count.set(scope, order + 1);
+    // A body with no headline leads with its first sentence as the headline.
+    out.push({ scope, order, headline: h || b.slice(0, SO_WHAT_LIMITS.headline), body: h ? b || null : null });
+  }
+  return out;
+}
+
+/** "2026-11-05" → a Date at UTC midnight; anything else → null. */
+export function parseIsoDay(value: string | null | undefined): Date | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) || isoDay(date) !== value ? null : date;
 }
 
 export function shortCode(code: string): string {

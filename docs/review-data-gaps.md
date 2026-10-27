@@ -5,14 +5,16 @@ the line and Metric definitions) reads only from the database. Where a figure or
 note has nowhere to live yet, the section shows an empty state or is left out.
 This is the list of what's missing and what each gap leaves empty.
 
-Checked against the schema after migration `20261027064522_si_review_status`.
+Checked against the schema after migration `20261027120000_review_period_so_whats`.
+Review periods (draft/published, prepared by, meeting and updates-due dates,
+data-as-of override) and the summary and per-area so-whats are now stored, and
+Strategy (admins) writes them on `/review/[period]/edit`.
 
 ## Missing tables and columns
 
 | Missing | Leaves empty or hidden |
 | --- | --- |
-| **Review period** (month, status draft/published, prepared by, meeting date, updates-due date, data-as-of) | Periods are derived from the months that have KPI values or SI updates. There's no "prepared by", publish state, meeting date or "updates due in N days", and no period editor. |
-| **So-whats and commentary** (per period, for the summary and each pillar or enabler) | The summary so-whats, pillar commentary and bridge so-whats from the MVP. `KpiCommentary` is per KPI and meant for AI-extracted text, so it isn't a fit. |
+| **So-what tone** (up / down / flag on `ReviewSoWhat`) | The MVP colours each so-what by direction; stored so-whats render in one neutral style. |
 | **Update state** (draft / submitted) on `InitiativeUpdate` | Every saved update counts as final; there's no "x of 31 submitted" tracking. The status scale itself (`reviewStatus`: Ahead / On track / At risk / Behind) now exists. |
 | **Non-SI milestones** (`InitiativeMilestone.initiativeId` is required) | SI-process steps and company events (Summit, Vrbo change, board update) in Next 60 days and the timeline. |
 | **ELT ask details** ("raised by" and due date on `InitiativeEltRequest`) | Who raised an ask and when it's due, on Inbox and Asks by leader. |
@@ -28,7 +30,7 @@ been published by the ingestion yet.
 | --- | --- |
 | Values for the 8 area measures (`FY27:<AREA>`: acquired EBITDA, gross unit adds, churn, TRevPAR growth, shop NOI margin, guest satisfaction, direct GBV growth, properties per FTE) | Pillar values and pillar status (shown as "No data yet"). The ingested metrics use different keys (`total_revenue`, `adjusted_ebitda`, …) and aren't linked to an area. |
 | P&L lines (cost of sales, shop opex, shop NOI, SupportCo, BD, interest income), take rate, GBV, average units, unit adds, churn, CAC, TRevPAR ex-OTA | Most rows of the MVP's P&L and KPI tables. Today the financial table shows total revenue, adjusted EBITDA, ADR, occupancy, RevPAR and TRevPAR for 2026-09. |
-| LTM lender EBITDA series | The LTM chart and bridge. The admin scoreboard that held a hand-typed figure was removed. |
+| LTM lender EBITDA series | The LTM chart and bridge, and so the bridge's so-whats (the review has no bridge section to hang them on). The admin scoreboard that held a hand-typed figure was removed. |
 | Region and shop figures (`entityScope` REGION / SHOP) | Regions behind / ahead and shops under NOI budget. |
 | TRevPAR monthly series, brand-level churn, unit adds and market comparisons | The MVP's brand lists and TRevPAR monthly chart. |
 | Guest review score | The Guest Experience measure. |

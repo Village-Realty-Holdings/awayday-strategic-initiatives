@@ -485,6 +485,45 @@ model InitiativeUpdate {
   @@index([initiativeId, createdAt])
 }
 
+// ---- Monthly Strategy Review --------------------------------------------
+// One row per review month, written by Strategy (admins) on
+// /review/[period]/edit. Publishing locks that month's SI updates on My SIs.
+enum ReviewPeriodStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model ReviewPeriod {
+  id             String             @id // YYYY-MM
+  status         ReviewPeriodStatus @default(DRAFT)
+  preparedBy     String?
+  meetingDate    DateTime?          @db.Date
+  updatesDueDate DateTime?          @db.Date
+  // Overrides the data-as-of derived from the month's KPI observations.
+  dataAsOf       DateTime?          @db.Date
+  publishedAt    DateTime?
+  publishedBy    String?
+  soWhats        ReviewSoWhat[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+}
+
+// A so-what on the review: scope is SUMMARY or a StrategicArea code of the
+// active plan (a pillar or enabler section).
+model ReviewSoWhat {
+  id        String       @id @default(cuid())
+  periodId  String
+  period    ReviewPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  scope     String
+  order     Int          @default(0)
+  headline  String
+  body      String?      @db.Text
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([periodId, scope, order])
+}
+
 model KpiDefinition {
   id              String          @id @default(cuid())
   metricKey       String          @unique

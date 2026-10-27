@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { saveInitiativeUpdate, toggleActionItem, toggleMilestone } from "@/app/(app)/review-actions";
-import type { SiReviewStatus } from "@/lib/review-model";
+import { periodLabel as periodLabelFor, type SiReviewStatus } from "@/lib/review-model";
 import { SiStatusPicker, UpdatedBadge } from "./status";
 
 export type MyItem = { id: string; kind: "milestone" | "action"; text: string; dueLabel: string; done: boolean; pastDue: boolean };
@@ -58,7 +58,7 @@ export function ItemChecklist({ title, items }: { title: string; items: MyItem[]
   );
 }
 
-function SiUpdateCard({ row, period }: { row: MySiRow; period: string }) {
+function SiUpdateCard({ row, period, locked }: { row: MySiRow; period: string; locked: boolean }) {
   const [status, setStatus] = useState<SiReviewStatus | null>(row.status);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,9 +92,9 @@ function SiUpdateCard({ row, period }: { row: MySiRow; period: string }) {
           <input type="hidden" name="initiativeId" value={row.id} />
           <input type="hidden" name="reportingPeriod" value={period} />
           <input type="hidden" name="reviewStatus" value={status ?? ""} />
-          <fieldset className="flex flex-col gap-3">
+          <fieldset className="flex flex-col gap-3" disabled={locked}>
             <legend className="mb-1 text-xs font-medium text-ink-muted">Status</legend>
-            <SiStatusPicker label={`Status for ${row.name}`} value={status} onChange={setStatus} />
+            <SiStatusPicker label={`Status for ${row.name}`} value={status} onChange={setStatus} disabled={locked} />
             <Label className="flex flex-col gap-1.5">
               Latest progress
               <Textarea name="update" rows={3} defaultValue={row.latestProgress} placeholder="What moved since last month?" />
@@ -106,7 +106,11 @@ function SiUpdateCard({ row, period }: { row: MySiRow; period: string }) {
           </fieldset>
           {error && <p role="alert" className="text-xs text-risk">{error}</p>}
           <div className="flex flex-wrap items-center gap-2">
-            <Button type="submit" size="sm">{row.updated ? "Save a new update" : "Save update"}</Button>
+            {locked ? (
+              <p className="text-xs text-ink-faint">The {periodLabelFor(period)} review is published, so its updates are final.</p>
+            ) : (
+              <Button type="submit" size="sm">{row.updated ? "Save a new update" : "Save update"}</Button>
+            )}
           </div>
         </form>
         <div className="flex flex-col gap-4 lg:border-l lg:border-border/70 lg:pl-5">
@@ -119,16 +123,37 @@ function SiUpdateCard({ row, period }: { row: MySiRow; period: string }) {
   );
 }
 
-export function MyUpdates({ rows, period, periodLabel }: { rows: MySiRow[]; period: string; periodLabel: string }) {
+export function MyUpdates({
+  rows,
+  period,
+  periodLabel,
+  locked = false,
+  dueLabel = null,
+}: {
+  rows: MySiRow[];
+  period: string;
+  periodLabel: string;
+  /** The month's review is published: updates are read-only. */
+  locked?: boolean;
+  /** "Updates due" date Strategy set for the month. */
+  dueLabel?: string | null;
+}) {
   const notDone = rows.filter((r) => !r.updated).length;
   return (
     <div className="flex flex-col gap-5">
       <p className="rounded-xl border border-border bg-surface px-4 py-3 text-sm text-ink-muted">
         <span className="font-semibold text-ink">{periodLabel} updates.</span>{" "}
-        {notDone === 0 ? "Every SI has an update." : `${notDone} of ${rows.length} still need an update.`} Saved updates appear on the review straight away.
+        {locked ? (
+          <>The {periodLabel} review is published, so these updates are locked.</>
+        ) : (
+          <>
+            {notDone === 0 ? "Every SI has an update." : `${notDone} of ${rows.length} still need an update.`}
+            {dueLabel ? ` Due ${dueLabel}.` : ""} Saved updates appear on the review straight away.
+          </>
+        )}
       </p>
       {rows.map((r) => (
-        <SiUpdateCard key={r.id} row={r} period={period} />
+        <SiUpdateCard key={r.id} row={r} period={period} locked={locked} />
       ))}
     </div>
   );

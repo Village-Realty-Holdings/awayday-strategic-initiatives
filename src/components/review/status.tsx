@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import type { PillarTone, SiReviewStatus } from "@/lib/review-model";
+import type { PillarTone, ReviewPeriodStatus, SiReviewStatus } from "@/lib/review-model";
 
 type SiStatus = SiReviewStatus;
 
@@ -82,4 +82,9 @@ export function SiStatusPicker({
       ))}
     </RadioGroup>
   );
+}
+
+/** Whether Strategy has published the month's review. */
+export function PeriodStatusBadge({ status }: { status: ReviewPeriodStatus }) {
+  return status === "PUBLISHED" ? <Badge variant="ok">Published</Badge> : <Badge variant="outline">Draft</Badge>;
 }
