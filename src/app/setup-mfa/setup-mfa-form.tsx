@@ -40,9 +40,11 @@ export function SetupMfaForm({ needsPassword }: { needsPassword: boolean }) {
   async function start(pw?: string) {
     setError("");
     setLoading(true);
-    const { data, error } = await authClient.twoFactor.enable(pw ? { password: pw } : {});
+    const { data, error } = await authClient.twoFactor.enable(
+      pw ? { password: pw, method: "totp" } : { method: "totp" },
+    );
     setLoading(false);
-    if (error || !data) {
+    if (error || !data || data.method !== "totp") {
       setError(
         error?.message ??
           (pw ? "Could not start MFA setup. Check your password." : "Could not start MFA setup."),
