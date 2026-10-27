@@ -123,7 +123,6 @@ export async function updateInitiative(formData: FormData) {
   revalidatePath("/admin/initiatives");
   revalidatePath(`/initiatives/${id}`);
   revalidatePath("/");
-  revalidatePath("/admin/archive");
   await flash("Initiative saved");
   redirect(`/initiatives/${id}`);
 }
@@ -150,7 +149,6 @@ export async function createInitiative(formData: FormData) {
 
   revalidatePath("/admin/initiatives");
   revalidatePath("/");
-  revalidatePath("/admin/archive");
   await flash("Initiative created");
   redirect(`/initiatives/${created.id}`);
 }
@@ -180,7 +178,6 @@ export async function updateProgress(formData: FormData) {
   revalidatePath(`/initiatives/${id}`);
   revalidatePath("/admin/initiatives");
   revalidatePath("/");
-  revalidatePath("/admin/archive");
   await flash("Progress updated");
   redirect(`/initiatives/${id}`);
 }
@@ -202,7 +199,6 @@ export async function deleteInitiative(formData: FormData) {
 
   revalidatePath("/admin/initiatives");
   revalidatePath("/");
-  revalidatePath("/admin/archive");
   await flash("Initiative deleted");
   redirect("/admin/initiatives");
 }
@@ -243,7 +239,6 @@ export async function addInitiativeUpdate(formData: FormData) {
   await audit(session.user.id, "CREATE", "InitiativeUpdate", created.id, { after: { initiativeId, status, reportingPeriod } });
   revalidatePath(`/initiatives/${initiativeId}`);
   revalidatePath("/");
-  revalidatePath("/admin/archive");
   revalidatePath("/admin/initiatives");
   await flash("Status update saved");
   redirect(`/initiatives/${initiativeId}`);

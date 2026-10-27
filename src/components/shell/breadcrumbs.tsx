@@ -33,7 +33,6 @@ const LABELS: Record<string, string> = {
   "data-sources": "Data sources",
   "ai-telemetry": "AI telemetry",
   plans: "Plan versions",
-  archive: "Archive",
   asks: "Asks by leader",
   "below-the-line": "Below the line",
   definitions: "Definitions",

@@ -55,7 +55,6 @@ export async function createCimRisk(formData: FormData) {
   await audit(session.user.id, "CREATE", "CimRisk", created.id, { after: created });
   revalidatePath("/risks");
   revalidatePath("/");
-  revalidatePath("/admin/archive");
   await flash("Risk created");
   redirect("/risks");
 }
@@ -82,7 +81,6 @@ export async function updateCimRisk(formData: FormData) {
   await audit(session.user.id, "UPDATE", "CimRisk", id, { before, after });
   revalidatePath("/risks");
   revalidatePath("/");
-  revalidatePath("/admin/archive");
   await flash("Risk saved");
   redirect("/risks");
 }
@@ -96,7 +94,6 @@ export async function deleteCimRisk(formData: FormData) {
   await audit(session.user.id, "DELETE", "CimRisk", id, { before });
   revalidatePath("/risks");
   revalidatePath("/");
-  revalidatePath("/admin/archive");
   await flash("Risk deleted");
   redirect("/risks");
 }
