@@ -58,7 +58,7 @@ Only after approving the target database and the changes, run `npm run db:migrat
 
 ## Login migration from awayday-platform
 
-The standalone app includes the original password login, TOTP enrollment and verification, Microsoft Entra SSO, email sign-in links with a scanner-safe confirmation page, password changes, sign-out, and role/app-access guards. Successful sign-in links (and Microsoft sign-in) default to `/`, this app's Initiatives overview (users without the grant are bounced to the `/apps` launcher), never the original Talent module. Magic links are restricted to existing users; Talent employee and reviewer provisioning is not part of this app.
+The standalone app includes the original password login, TOTP enrollment and verification, Microsoft Entra SSO, email sign-in links with a scanner-safe confirmation page, password changes, sign-out, and role/app-access guards. Successful sign-in links (and Microsoft sign-in) default to `/`, this app's Initiatives overview (users without the grant see a no-access page with sign-out), never the original Talent module. Magic links are restricted to existing users; Talent employee and reviewer provisioning is not part of this app.
 
 Fill the placeholders in `.env` for local development. `.env.example` documents the same variables without secrets. If `.env.local` exists, its values take precedence. Restart the dev server after changing them.
 

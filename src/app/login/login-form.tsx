@@ -72,7 +72,7 @@ export function LoginForm({ ssoEnabled = false, initialError = "" }: { ssoEnable
       setStage("twofa");
       return;
     }
-    router.push("/apps"); // no MFA yet → app layout routes to MFA setup, then the launcher
+    router.push("/"); // no MFA yet → requireSession routes to MFA setup first
     router.refresh();
   }
 
@@ -86,7 +86,7 @@ export function LoginForm({ ssoEnabled = false, initialError = "" }: { ssoEnable
       setError("Invalid code. Try again.");
       return;
     }
-    router.push("/apps");
+    router.push("/");
     router.refresh();
   }
 

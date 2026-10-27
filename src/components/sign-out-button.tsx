@@ -14,8 +14,16 @@ export function useSignOut() {
   };
 }
 
-export function SignOutButton() {
+// Icon-only by default (header use); pass `label` for a full button.
+export function SignOutButton({ label }: { label?: string } = {}) {
   const signOut = useSignOut();
+  if (label) {
+    return (
+      <Button type="button" className="gap-1.5" onClick={signOut}>
+        <LogOut size={15} aria-hidden /> {label}
+      </Button>
+    );
+  }
   return (
     <Button
       type="button"

@@ -8,7 +8,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { user } = session;
   const dbUser = await getSessionUserRow(user.id);
   // App-entitlement gate for everything under the shell. Users without the
-  // grant land on /apps, which explains they have no access.
-  if (!hasApp(user.role, dbUser?.appAccess, "initiatives")) redirect("/apps");
+  // grant land on /no-access, which says so and offers sign-out.
+  if (!hasApp(user.role, dbUser?.appAccess, "initiatives")) redirect("/no-access");
   return <AppShell user={user}>{children}</AppShell>;
 }

@@ -105,11 +105,11 @@ export async function requireAdmin() {
 /**
  * Gate an application by per-user entitlement. Call at the top of each app's
  * entry surfaces. Admins always pass; otherwise the user must be granted the
- * app (User.appAccess). Not entitled → bounce to the launcher.
+ * app (User.appAccess). Not entitled → /no-access.
  */
 export async function requireApp(app: AppKey) {
   const session = await requireSession();
   const u = await getSessionUserRow(session.user.id);
-  if (!hasApp(u?.role ?? session.user.role, u?.appAccess, app)) redirect("/apps");
+  if (!hasApp(u?.role ?? session.user.role, u?.appAccess, app)) redirect("/no-access");
   return session;
 }

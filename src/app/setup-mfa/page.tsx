@@ -25,7 +25,7 @@ export default async function SetupMfaPage() {
   if (!session) redirect("/login");
   // Already enrolled: nothing to set up, and leaving the page reachable would
   // let someone re-roll a working authenticator by accident.
-  if (session.user.twoFactorEnabled) redirect("/apps");
+  if (session.user.twoFactorEnabled) redirect("/");
 
   const accounts = await prisma.account.findMany({
     where: { userId: session.user.id },

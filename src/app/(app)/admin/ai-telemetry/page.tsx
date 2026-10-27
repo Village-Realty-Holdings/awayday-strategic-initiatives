@@ -12,7 +12,7 @@ import { buildAiTelemetryReport, coerceReportDays, REPORT_DAYS } from "@/lib/ai-
 import { AiBudgetForm, AiBudgetRecipientsForm } from "@/components/admin/ai-budget-forms";
 import { TelemetryTable } from "@/components/admin/telemetry-table";
 
-// Dark-launched admin surface (direct URL only, no nav or launcher link):
+// Dark-launched admin surface (direct URL only, no nav link):
 // the monthly AI spend guardrail and the ai_invocation telemetry report
 // (docs/ai-telemetry-schema.md, rollout step 4). Styling mirrors
 // /admin/org-health.

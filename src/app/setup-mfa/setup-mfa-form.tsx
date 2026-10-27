@@ -79,7 +79,7 @@ export function SetupMfaForm({ needsPassword }: { needsPassword: boolean }) {
       setError("Invalid code. Try again.");
       return;
     }
-    router.push("/apps");
+    router.push("/");
     router.refresh();
   }
 

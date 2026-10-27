@@ -16,7 +16,7 @@ describe("login page: ?error= from a failed OAuth round trip", () => {
   });
   it("returns sign-in links to the standalone app rather than Talent", () => {
     // No ?redirect= → this app's own home ("/", the Initiatives overview, which
-    // bounces users without the grant to the /apps launcher). Never Talent.
+    // sends users without the grant to /no-access). Never Talent.
     expect(DEFAULT_SIGN_IN_CALLBACK).toBe("/");
     expect(signInCallbackURL(null)).toBe("/");
     expect(signInCallbackURL("")).toBe("/");

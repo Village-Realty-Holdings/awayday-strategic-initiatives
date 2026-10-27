@@ -118,7 +118,7 @@ export async function adminCreateUser(fd: FormData): Promise<AdminResult> {
   const password = typedPassword || generatedPassword();
   // App access chosen at grant time. Least-privilege: grant ONLY what was
   // selected (no fallback to all apps). A user created with none simply has no
-  // app access until an admin grants it; the launcher handles that state.
+  // app access (and lands on /no-access) until an admin grants it.
   const appAccess = fd.getAll("apps").map(String).filter((a) => (APP_KEYS as readonly string[]).includes(a));
 
   if (!email || !email.includes("@")) return { ok: false, error: "Enter a valid email." };
@@ -166,7 +166,7 @@ export async function adminCreateUser(fd: FormData): Promise<AdminResult> {
 // hidden module is reached.
 const APP_KEYS = APPS.map((a) => a.key);
 
-// Grant/revoke which applications a user can open from the launcher. Admins are
+// Grant/revoke which applications a user can open. Admins are
 // never restricted (they always have all apps), so this targets non-admin users.
 export async function adminSetAppAccess(fd: FormData): Promise<AdminResult> {
   const session = await requireSession({ role: "admin" });
