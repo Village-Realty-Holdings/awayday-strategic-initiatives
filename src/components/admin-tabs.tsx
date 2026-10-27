@@ -1,6 +1,6 @@
 "use client";
 
-import { Database, Layers, LineChart, Target, Users, CalendarCheck } from "@/components/icons";
+import { Database, Layers, LineChart, Target, Users, CalendarCheck, Compass } from "@/components/icons";
 import { LinkTabs, type LinkTab } from "@/components/shell/link-tabs";
 
 const TABS: LinkTab[] = [
@@ -9,6 +9,7 @@ const TABS: LinkTab[] = [
   { label: "Data sources", href: "/admin/data-sources", icon: Database },
   { label: "Initiatives", href: "/admin/initiatives", icon: Target },
   { label: "Plan versions", href: "/admin/plans", icon: CalendarCheck },
+  { label: "Strategy reference", href: "/admin/reference", icon: Compass },
   { label: "AI telemetry", href: "/admin/ai-telemetry", icon: LineChart },
 ];
 
