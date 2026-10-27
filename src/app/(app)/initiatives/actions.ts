@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { str, date, pick } from "@/lib/form";
 import { flash } from "@/lib/flash";
-import { requireAdmin } from "@/lib/session";
+import { requireAdmin, requireEditor } from "@/lib/session";
 import { audit } from "@/lib/audit";
 import { getActivePlan } from "@/lib/active-plan";
 import { deleteAttachment } from "@/lib/storage";
@@ -143,7 +143,7 @@ async function saveCharterRows(initiativeId: string, fd: FormData) {
 }
 
 export async function updateInitiative(formData: FormData) {
-  const session = await requireAdmin();
+  const session = await requireEditor();
   const id = String(formData.get("id"));
   const expectedUpdatedAt = String(formData.get("updatedAt"));
 
@@ -209,7 +209,7 @@ export async function createInitiative(formData: FormData) {
 // Inline charter progress update. Percent is purely value created ÷ value to
 // create (may exceed 100%); there is no manual percent entry.
 export async function updateProgress(formData: FormData) {
-  const session = await requireAdmin();
+  const session = await requireEditor();
   const id = String(formData.get("initiativeId"));
   const before = await prisma.initiative.findUnique({ where: { id } });
   if (!before) redirect("/admin/initiatives");
@@ -266,7 +266,7 @@ const ELT_STATUSES = ["REQUESTED", "APPROVED", "DECLINED"];
 
 
 export async function addInitiativeUpdate(formData: FormData) {
-  const session = await requireAdmin();
+  const session = await requireEditor();
   const initiativeId = String(formData.get("initiativeId"));
   const existing = await prisma.initiative.findUnique({ where: { id: initiativeId }, select: { id: true, status: true } });
   if (!existing) redirect("/admin/initiatives");
@@ -298,7 +298,7 @@ export async function addInitiativeUpdate(formData: FormData) {
 }
 
 export async function addInitiativeMilestone(formData: FormData) {
-  const session = await requireAdmin();
+  const session = await requireEditor();
   const initiativeId = String(formData.get("initiativeId"));
   const title = str(formData, "title");
   if (!title) redirect(`/initiatives/${initiativeId}`);
@@ -313,7 +313,7 @@ export async function addInitiativeMilestone(formData: FormData) {
 }
 
 export async function toggleInitiativeMilestone(formData: FormData) {
-  const session = await requireAdmin();
+  const session = await requireEditor();
   const id = String(formData.get("id"));
   const existing = await prisma.initiativeMilestone.findUnique({ where: { id } });
   if (!existing) redirect("/admin/initiatives");
@@ -328,7 +328,7 @@ export async function toggleInitiativeMilestone(formData: FormData) {
 }
 
 export async function removeInitiativeMilestone(formData: FormData) {
-  const session = await requireAdmin();
+  const session = await requireEditor();
   const id = String(formData.get("id"));
   const existing = await prisma.initiativeMilestone.findUnique({ where: { id } });
   if (!existing) redirect("/admin/initiatives");
@@ -340,7 +340,7 @@ export async function removeInitiativeMilestone(formData: FormData) {
 }
 
 export async function addInitiativeActionItem(formData: FormData) {
-  const session = await requireAdmin();
+  const session = await requireEditor();
   const initiativeId = String(formData.get("initiativeId"));
   const title = str(formData, "title");
   const owner = str(formData, "owner");
@@ -357,7 +357,7 @@ export async function addInitiativeActionItem(formData: FormData) {
 }
 
 export async function toggleInitiativeActionItem(formData: FormData) {
-  const session = await requireAdmin();
+  const session = await requireEditor();
   const id = String(formData.get("id"));
   const existing = await prisma.initiativeActionItem.findUnique({ where: { id } });
   if (!existing) redirect("/admin/initiatives");
@@ -369,7 +369,7 @@ export async function toggleInitiativeActionItem(formData: FormData) {
 }
 
 export async function removeInitiativeActionItem(formData: FormData) {
-  const session = await requireAdmin();
+  const session = await requireEditor();
   const id = String(formData.get("id"));
   const existing = await prisma.initiativeActionItem.findUnique({ where: { id } });
   if (!existing) redirect("/admin/initiatives");
@@ -381,7 +381,7 @@ export async function removeInitiativeActionItem(formData: FormData) {
 }
 
 export async function addInitiativeEltRequest(formData: FormData) {
-  const session = await requireAdmin();
+  const session = await requireEditor();
   const initiativeId = String(formData.get("initiativeId"));
   const request = str(formData, "request");
   if (!request) redirect(`/initiatives/${initiativeId}`);
@@ -397,7 +397,7 @@ export async function addInitiativeEltRequest(formData: FormData) {
 }
 
 export async function updateInitiativeEltRequest(formData: FormData) {
-  const session = await requireAdmin();
+  const session = await requireEditor();
   const id = String(formData.get("id"));
   const existing = await prisma.initiativeEltRequest.findUnique({ where: { id } });
   if (!existing) redirect("/admin/initiatives");
@@ -410,7 +410,7 @@ export async function updateInitiativeEltRequest(formData: FormData) {
 }
 
 export async function removeInitiativeEltRequest(formData: FormData) {
-  const session = await requireAdmin();
+  const session = await requireEditor();
   const id = String(formData.get("id"));
   const existing = await prisma.initiativeEltRequest.findUnique({ where: { id } });
   if (!existing) redirect("/admin/initiatives");
