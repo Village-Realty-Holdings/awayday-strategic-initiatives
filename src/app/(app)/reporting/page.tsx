@@ -17,7 +17,7 @@ export default async function ReportingPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className={PAGE_FRAME}>
-      <PageHeader
+      <PageHeader sticky
         className="no-print"
         title="Reporting"
         description="Board-ready outputs drawn from the live portfolio: a written update for the board, and the initiative timeline."
@@ -37,14 +37,14 @@ export default async function ReportingPage({ searchParams }: { searchParams: Pr
               <BoardNarrative />
             </div>
             <aside className="no-print grid gap-3 rounded-md border border-border bg-surface px-4 py-4 text-xs leading-5 text-ink-muted lg:sticky lg:top-20">
-              <h3 className="text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-faint">What the draft covers</h3>
+              <h3 className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">What the draft covers</h3>
               <ul className="grid gap-1.5">
                 <li><b className="font-semibold text-ink">Position vs the objective.</b> The live EBITDA build against the plan target.</li>
                 <li><b className="font-semibold text-ink">Progress by goal.</b> Initiative pace, what&apos;s ahead and what&apos;s behind.</li>
                 <li><b className="font-semibold text-ink">Risk exposure.</b> CIM risks with the dollars at stake.</li>
                 <li><b className="font-semibold text-ink">Decisions.</b> What the board is asked to weigh in on.</li>
               </ul>
-              <p className="border-t border-border pt-3 text-[11px] text-ink-faint">
+              <p className="border-t border-border pt-3 text-note text-ink-faint">
                 Claude drafts from the current numbers and never invents figures. Review and edit before it ships; drafts
                 aren&apos;t saved, so save a PDF or copy the text.
               </p>

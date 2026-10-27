@@ -43,7 +43,7 @@ export default async function AiTelemetryPage({ searchParams }: { searchParams: 
   const effectivePlaceholder = envBudget ? `${envBudget} (environment)` : `${DEFAULT_AI_MONTHLY_BUDGET_USD} (default)`;
 
   return (
-    <div className="max-w-[1100px]">
+    <div className="max-w-review">
       <header className="mb-6">
         <h1 className="text-xl font-semibold tracking-tight text-ink">AI telemetry</h1>
         <p className="mt-1 text-sm text-ink-muted">
@@ -173,7 +173,7 @@ function Tile({ label, value, sub }: { label: string; value: string; sub?: strin
     <div className="rounded-xl border border-border bg-surface p-3">
       <p className="text-xs text-ink-muted">{label}</p>
       <p className="mt-1 text-lg font-semibold tabular-nums text-ink">{value}</p>
-      {sub && <p className="text-[11px] text-ink-faint">{sub}</p>}
+      {sub && <p className="text-note text-ink-faint">{sub}</p>}
     </div>
   );
 }

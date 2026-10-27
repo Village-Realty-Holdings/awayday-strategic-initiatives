@@ -71,13 +71,13 @@ export function InitiativeChecklist({
             className="w-full pl-7"
           />
         </div>
-        <span className="tabular text-[11px] text-ink-muted" aria-live="polite">
+        <span className="tabular text-note text-ink-muted" aria-live="polite">
           {selected.size} of {initiatives.length} selected
         </span>
-        <button type="button" onClick={() => setVisible(true)} className="text-[11px] text-navy underline-offset-2 hover:underline">
+        <button type="button" onClick={() => setVisible(true)} className="text-note text-navy underline-offset-2 hover:underline">
           Select {needle ? "shown" : "all"}
         </button>
-        <button type="button" onClick={() => setVisible(false)} className="text-[11px] text-ink-muted underline-offset-2 hover:text-ink hover:underline">
+        <button type="button" onClick={() => setVisible(false)} className="text-note text-ink-muted underline-offset-2 hover:text-ink hover:underline">
           Clear
         </button>
       </div>

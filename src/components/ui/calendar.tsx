@@ -44,7 +44,7 @@ function Calendar({
         dropdown: "absolute inset-0 cursor-pointer opacity-0",
         month_grid: "border-collapse",
         weekdays: "flex",
-        weekday: "w-9 pb-1 text-center text-[11px] font-medium text-ink-faint",
+        weekday: "w-9 pb-1 text-center text-note font-medium text-ink-faint",
         week: "flex",
         day: "group/day size-9 p-0 text-center text-sm",
         day_button:

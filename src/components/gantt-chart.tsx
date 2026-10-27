@@ -5,7 +5,7 @@ import Link from "next/link";
 import { STATUS_META, QUADRANT_META, HEALTH_META, HEALTH_ORDER, type Health } from "@/lib/initiatives";
 import type { InitiativeStatus, Quadrant } from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";
-import { NativeSelect } from "@/components/ui/native-select";
+import { FilterSelect } from "@/components/filter-select";
 
 export type GanttRow = {
   id: string;
@@ -67,10 +67,10 @@ export function GanttChart({
   return (
     <>
       <div className="no-print mb-3 flex flex-wrap items-center gap-2">
-        <Sel value={owner} onChange={setOwner} label="Owner" options={owners} />
-        <Sel value={cim} onChange={setCim} label="CIM driver" options={cims} />
-        <Sel value={status} onChange={setStatus} label="Status" options={STATUSES} render={(s) => STATUS_META[s as InitiativeStatus].label} />
-        <Sel value={quadrant} onChange={setQuadrant} label="Priority" options={QUADRANTS} render={(q) => QUADRANT_META[q as Quadrant].label} />
+        <FilterSelect value={owner} onChange={setOwner} label="Owner" options={owners} />
+        <FilterSelect value={cim} onChange={setCim} label="CIM driver" options={cims} />
+        <FilterSelect value={status} onChange={setStatus} label="Status" options={STATUSES} render={(s) => STATUS_META[s as InitiativeStatus].label} />
+        <FilterSelect value={quadrant} onChange={setQuadrant} label="Priority" options={QUADRANTS} render={(q) => QUADRANT_META[q as Quadrant].label} />
         {active && (
           <Button variant="outline" size="sm" onClick={reset} className="px-2.5">
             Reset
@@ -80,7 +80,7 @@ export function GanttChart({
       </div>
 
       {/* Legend — bar color = delivery health */}
-      <div className="mb-3 flex flex-wrap items-center gap-4 text-[11px] text-ink-muted">
+      <div className="mb-3 flex flex-wrap items-center gap-4 text-note text-ink-muted">
         {HEALTH_ORDER.map((h) => (
           <span key={h} className="inline-flex items-center gap-1.5">
             <span className={`h-2 w-3 rounded-sm ${HEALTH_META[h].bar}`} aria-hidden /> {HEALTH_META[h].label}
@@ -101,16 +101,16 @@ export function GanttChart({
       <div className="overflow-x-auto rounded-lg border border-border bg-surface">
         <div className="min-w-[900px]">
         <div className="grid grid-cols-[240px_1fr] items-center border-b border-border bg-surface-2/40 py-1.5 pr-4">
-          <span className="pl-4 text-[11px] font-medium text-ink-faint">Initiative</span>
+          <span className="pl-4 text-note font-medium text-ink-faint">Initiative</span>
           <div className="relative h-5">
             {quarters.map((q) => (
-              <span key={q.label} className="absolute top-0 text-[10px] text-ink-faint" style={{ left: `${q.left}%` }}>
+              <span key={q.label} className="absolute top-0 text-micro text-ink-faint" style={{ left: `${q.left}%` }}>
                 {q.label}
               </span>
             ))}
             {todayPct !== null && (
               <span
-                className="absolute -top-0.5 z-20 -translate-x-1/2 rounded-sm bg-risk px-1 py-0.5 text-[9px] font-semibold leading-none text-white"
+                className="absolute -top-0.5 z-20 -translate-x-1/2 rounded-sm bg-risk px-1 py-0.5 text-nano font-semibold leading-none text-white"
                 style={{ left: `${todayPct}%` }}
               >
                 Today
@@ -128,10 +128,10 @@ export function GanttChart({
             >
               <div className="min-w-0 pl-4">
                 <span className="flex items-baseline gap-1.5">
-                  <span className="tabular shrink-0 text-[10px] text-ink-faint">{i.code}</span>
+                  <span className="tabular shrink-0 text-micro text-ink-faint">{i.code}</span>
                   <span className="truncate text-xs text-ink">{i.name}</span>
                 </span>
-                {i.teamLead && <span className="truncate text-[10px] text-ink-faint">{i.teamLead}</span>}
+                {i.teamLead && <span className="truncate text-micro text-ink-faint">{i.teamLead}</span>}
               </div>
               <div className="relative h-6">
                 {quarters.map((q) => (
@@ -176,7 +176,7 @@ export function GanttChart({
             {unscheduled.map((u) => (
               <li key={u.id} className="flex items-center justify-between gap-3 px-4 py-2.5 sm:border-b sm:border-border/60">
                 <Link href={`/initiatives/${u.id}`} className="min-w-0 text-xs hover:text-navy-deep">
-                  <span className="tabular mr-1.5 text-[10px] text-ink-faint">{u.code}</span>
+                  <span className="tabular mr-1.5 text-micro text-ink-faint">{u.code}</span>
                   <span className="text-ink">{u.name}</span>
                   {u.teamLead && <span className="text-ink-faint"> · {u.teamLead}</span>}
                 </Link>
@@ -189,28 +189,5 @@ export function GanttChart({
         </section>
       )}
     </>
-  );
-}
-
-function Sel({
-  value,
-  onChange,
-  label,
-  options,
-  render,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  label: string;
-  options: string[];
-  render?: (v: string) => string;
-}) {
-  return (
-    <NativeSelect size="sm" value={value} onChange={(e) => onChange(e.target.value)} className="px-2.5">
-      <option value="">{label}: all</option>
-      {options.map((o) => (
-        <option key={o} value={o}>{render ? render(o) : o}</option>
-      ))}
-    </NativeSelect>
   );
 }

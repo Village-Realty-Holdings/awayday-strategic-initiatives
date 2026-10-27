@@ -42,11 +42,11 @@ export function CharterAssistButton({
         {loading ? <Loader2 size={12} className="animate-spin" aria-hidden /> : <Sparkles size={12} aria-hidden />}
         {label}
       </Button>
-      {error && <p className="mt-1.5 text-[11px] text-risk">{error}</p>}
+      {error && <p className="mt-1.5 text-note text-risk">{error}</p>}
       {result && (
         <div className="mt-2 rounded-md border-l-2 border-gold bg-surface-2/50 px-3 py-2 text-xs leading-relaxed text-ink-muted">
           <p className="whitespace-pre-line">{result}</p>
-          <Button type="button" variant="faint" size="bare" onClick={copy} className="mt-1.5 gap-1 text-[10px] hover:text-navy">
+          <Button type="button" variant="faint" size="bare" onClick={copy} className="mt-1.5 gap-1 text-micro hover:text-navy">
             {copied ? <Check size={11} aria-hidden /> : <Copy size={11} aria-hidden />}
             {copied ? "Copied" : "Copy"}
           </Button>

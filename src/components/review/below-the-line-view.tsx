@@ -151,12 +151,12 @@ export function BelowTheLineView({ groups, canCreate }: { groups: BtlGroup[]; ca
                     <TableRow key={r.id}>
                       <TableCell className="whitespace-normal">
                         <p className="font-medium text-ink">{r.name}</p>
-                        {r.description && <p className="mt-0.5 text-[11px] leading-4 text-ink-muted">{r.description}</p>}
+                        {r.description && <p className="mt-0.5 text-note leading-4 text-ink-muted">{r.description}</p>}
                       </TableCell>
                       <TableCell className="whitespace-normal">
                         {r.si ? (
                           <Link href={`/initiatives/${r.si.id}`} className="text-ink hover:text-navy-deep hover:underline">
-                            <span className="tabular mr-1.5 text-[10px] text-ink-faint">{r.si.shortCode}</span>
+                            <span className="tabular mr-1.5 text-micro text-ink-faint">{r.si.shortCode}</span>
                             {r.si.name}
                           </Link>
                         ) : (
@@ -165,7 +165,7 @@ export function BelowTheLineView({ groups, canCreate }: { groups: BtlGroup[]; ca
                       </TableCell>
                       <TableCell className="whitespace-normal text-ink-muted">
                         {r.owner ?? "TBD"}
-                        {r.team && <span className="block text-[11px] text-ink-faint">{r.team}</span>}
+                        {r.team && <span className="block text-note text-ink-faint">{r.team}</span>}
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
                         <Badge variant={STATUS_META[r.status].variant}>{STATUS_META[r.status].label}</Badge>

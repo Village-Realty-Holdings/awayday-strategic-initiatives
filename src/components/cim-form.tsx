@@ -145,7 +145,7 @@ export function CimForm({
 
       <div>
         <span className="text-xs font-medium text-ink-muted">Linked Strategic Initiatives</span>
-        <p className="mb-2 mt-0.5 text-[11px] text-ink-faint">
+        <p className="mb-2 mt-0.5 text-note text-ink-faint">
           The SIs that drive this risk toward mitigation. Coverage = their average progress.
         </p>
         <InitiativeChecklist name="initiativeIds" initiatives={initiatives} defaultSelected={linkedIds} />

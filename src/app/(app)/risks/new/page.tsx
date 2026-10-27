@@ -25,7 +25,7 @@ export default async function NewCimRiskPage({ searchParams }: { searchParams: P
   const owners = [...new Set(roster.map((m) => m.name).filter(Boolean))] as string[];
   return (
     <div className={PAGE_FRAME}>
-      <PageHeader back={{ href: "/risks", label: "CIM Risks" }} eyebrow="CIM Risks" title="New CIM risk" />
+      <PageHeader sticky back={{ href: "/risks", label: "CIM Risks" }} eyebrow="CIM Risks" title="New CIM risk" />
       <div className={FORM_COLUMN}>
       {error && ERRORS[error] && (
         <Alert variant="risk" className="mb-4">

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { PageHeader } from "@/components/shell/page-header";
 import { requireSession } from "@/lib/session";
 import { activePlanInitiativeWhere } from "@/lib/active-plan";
 import { ScorecardTable, type ScorecardRow as Row } from "@/components/scorecard-table";
@@ -65,15 +66,19 @@ export default async function ScorecardPage() {
   const anyValue = tot.toCreate > 0;
 
   return (
-    <div className="mx-auto max-w-[1200px]">
-      <header className="mb-6">
-        <h1 className="text-xl font-semibold tracking-tight text-ink">Owner Scorecard</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          Everyone from the People directory, with their initiatives and value creation. Value
-          to-create / created come from each charter&apos;s dollar goal and dollars done (set on the
-          charter&apos;s Progress block).
-        </p>
-      </header>
+    <div className="mx-auto max-w-section">
+      <PageHeader
+        className="mb-6"
+        eyebrow="Portfolio"
+        title="Owner Scorecard"
+        description={
+          <>
+            Everyone from the People directory, with their initiatives and value creation. Value
+            to-create / created come from each charter&apos;s dollar goal and dollars done (set on the
+            charter&apos;s Progress block).
+          </>
+        }
+      />
 
       {!anyValue && (
         <div className="mb-4 rounded-lg border border-warn/40 bg-warn-soft px-3.5 py-2.5 text-sm text-ink">

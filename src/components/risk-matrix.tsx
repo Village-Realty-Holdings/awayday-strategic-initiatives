@@ -50,7 +50,7 @@ export function RiskMatrix({ risks }: { risks: RiskPoint[] }) {
     <div className="rounded-xl border border-border bg-surface p-5">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold text-ink">Exposure map</h2>
-        <div className="flex items-center gap-3 text-[11px] text-ink-muted">
+        <div className="flex items-center gap-3 text-note text-ink-muted">
           <Legend dot="bg-risk" label="<34% covered" />
           <Legend dot="bg-warn" label="34-66%" />
           <Legend dot="bg-ok" label="67%+" />
@@ -60,7 +60,7 @@ export function RiskMatrix({ risks }: { risks: RiskPoint[] }) {
 
       <div className="flex gap-2">
         <div className="flex w-5 items-center justify-center">
-          <span className="-rotate-90 whitespace-nowrap text-[11px] font-medium tracking-wide text-ink-faint">$ at stake →</span>
+          <span className="-rotate-90 whitespace-nowrap text-note font-medium tracking-wide text-ink-faint">$ at stake →</span>
         </div>
         <div className="min-w-0 flex-1">
           <div className="relative aspect-[16/9] w-full overflow-hidden rounded-lg border border-border bg-surface">
@@ -76,10 +76,10 @@ export function RiskMatrix({ risks }: { risks: RiskPoint[] }) {
             <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border" />
 
             {/* quadrant labels — above dots, with a translucent backdrop so they stay readable */}
-            <span className="absolute left-3 top-2.5 z-20 rounded bg-surface/75 px-1 text-[11px] font-semibold text-risk">Address now</span>
-            <span className="absolute right-3 top-2.5 z-20 rounded bg-surface/75 px-1 text-[11px] font-medium text-ok">Maintain</span>
-            <span className="absolute left-3 bottom-2.5 z-20 rounded bg-surface/75 px-1 text-[11px] font-medium text-warn">Watch</span>
-            <span className="absolute right-3 bottom-2.5 z-20 rounded bg-surface/75 px-1 text-[11px] font-medium text-ink-faint">Lower priority</span>
+            <span className="absolute left-3 top-2.5 z-20 rounded bg-surface/75 px-1 text-note font-semibold text-risk">Address now</span>
+            <span className="absolute right-3 top-2.5 z-20 rounded bg-surface/75 px-1 text-note font-medium text-ok">Maintain</span>
+            <span className="absolute left-3 bottom-2.5 z-20 rounded bg-surface/75 px-1 text-note font-medium text-warn">Watch</span>
+            <span className="absolute right-3 bottom-2.5 z-20 rounded bg-surface/75 px-1 text-note font-medium text-ink-faint">Lower priority</span>
 
             {dots.map(({ r, x, y }) => {
               const tone = covTone(r.coverage);
@@ -100,7 +100,7 @@ export function RiskMatrix({ risks }: { risks: RiskPoint[] }) {
                       r.critical ? `h-3.5 w-3.5 ${tone.ring} ring-offset-1 ring-offset-surface` : "h-3 w-3"
                     }`}
                   />
-                  <span className={`pointer-events-none absolute ${vClass} ${hClass} z-30 hidden w-max max-w-[220px] rounded-md bg-ink px-2 py-1.5 text-left text-[10px] leading-snug text-white shadow-lg group-hover:block`}>
+                  <span className={`pointer-events-none absolute ${vClass} ${hClass} z-30 hidden w-max max-w-[220px] rounded-md bg-ink px-2 py-1.5 text-left text-micro leading-snug text-white shadow-lg group-hover:block`}>
                     <span className="font-semibold">{r.code} · {r.risk}</span>
                     <span className="mt-0.5 block text-white/70">
                       {r.owner ?? "Unassigned"}
@@ -116,13 +116,13 @@ export function RiskMatrix({ risks }: { risks: RiskPoint[] }) {
               );
             })}
           </div>
-          <div className="mt-1.5 flex justify-between px-1 text-[11px] text-ink-faint">
+          <div className="mt-1.5 flex justify-between px-1 text-note text-ink-faint">
             <span>← under-mitigated</span>
             <span className="font-medium">Mitigation coverage →</span>
           </div>
         </div>
       </div>
-      <p className="mt-3 text-[11px] text-ink-faint">
+      <p className="mt-3 text-note text-ink-faint">
         Top-left is the danger zone: high dollars at stake, low mitigation. Click any risk to jump to its detail below.
       </p>
     </div>

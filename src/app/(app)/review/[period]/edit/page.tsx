@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { createReviewPeriod } from "@/app/(app)/review-actions";
 import { PeriodSwitcher } from "@/components/review/period-switcher";
-import { ReviewHeader } from "@/components/review/preview";
+import { PageHeader } from "@/components/shell/page-header";
 import { ReviewEditor } from "@/components/review/review-editor";
 import { Input } from "@/components/ui/input";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -24,8 +24,8 @@ export default async function ReviewEditPage({ params }: { params: Promise<{ per
   const sis = allSis(plan);
 
   return (
-    <div className="mx-auto flex max-w-[1100px] flex-col gap-8">
-      <ReviewHeader
+    <div className="mx-auto flex max-w-review flex-col gap-8">
+      <PageHeader
         eyebrow="Review authoring"
         title={`Edit ${period.label} review`}
         description="Set the month's details, write the summary so-whats and the so-whats for each pillar and enabler, then publish."

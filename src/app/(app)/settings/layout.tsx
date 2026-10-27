@@ -1,16 +1,14 @@
 import { requireSession } from "@/lib/session";
-import { SettingsTabs } from "@/components/settings-tabs";
+import { Eyebrow } from "@/components/shell/page-header";
 
-// Settings section: the signed-in user's own account. People, groups, plans and
-// other system settings live in the admin-only Admin section (/admin).
+// Settings section: the signed-in user's own account (today, just the
+// password). People, groups, plans and other system settings live in the
+// admin-only Admin section (/admin).
 export default async function SettingsLayout({ children }: { children: React.ReactNode }) {
-  const { user } = await requireSession();
+  await requireSession();
   return (
-    <div className="mx-auto flex max-w-[1200px] flex-col gap-6">
-      <div className="flex flex-col gap-3">
-        <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-faint">Settings</p>
-        <SettingsTabs isAdmin={user.role === "admin"} />
-      </div>
+    <div className="mx-auto flex max-w-section flex-col gap-6">
+      <Eyebrow>Settings</Eyebrow>
       {children}
     </div>
   );

@@ -4,28 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "@/components/icons";
 import { cn } from "@/lib/utils";
+import { Eyebrow } from "@/components/shell/eyebrow";
 
-/**
- * The page header every app route shares. The title row pins to the top of
- * the content inset once you scroll past it and compacts, like the Strategy
- * Review's title. A 1px sentinel above the row scrolls out of the inset at
- * exactly the moment the row sticks.
- *
- * Renders a fragment on purpose: a sticky element only sticks within its
- * parent, so the title row must be a direct child of the page's own wrapper
- * (which spans the whole page), not of a short <header>.
- */
-export function PageHeader({
-  back,
-  eyebrow,
-  title,
-  description,
-  meta,
-  badges,
-  actions,
-  stats,
-  className,
-}: {
+export type PageHeaderProps = {
   /** Where "Back" goes, e.g. { href: "/admin/initiatives", label: "Initiatives" }. */
   back?: { href: string; label: string };
   eyebrow?: React.ReactNode;
@@ -36,7 +17,28 @@ export function PageHeader({
   actions?: React.ReactNode;
   stats?: React.ReactNode;
   className?: string;
-}) {
+};
+
+/**
+ * The sticky variant of PageHeader (shell/page-header.tsx). The title row
+ * pins to the top of the content inset once you scroll past it and compacts. A 1px sentinel above the row scrolls out of the inset at
+ * exactly the moment the row sticks.
+ *
+ * Renders a fragment on purpose: a sticky element only sticks within its
+ * parent, so the title row must be a direct child of the page's own wrapper
+ * (which spans the whole page), not of a short <header>.
+ */
+export function StickyPageHeader({
+  back,
+  eyebrow,
+  title,
+  description,
+  meta,
+  badges,
+  actions,
+  stats,
+  className,
+}: PageHeaderProps) {
   const sentinel = useRef<HTMLDivElement>(null);
   const [stuck, setStuck] = useState(false);
   useEffect(() => {
@@ -82,9 +84,7 @@ export function PageHeader({
             )}
             <div className="grid min-w-0 gap-1">
               {eyebrow && (
-                <p className={cn("truncate font-semibold uppercase tracking-[0.12em] text-ink-faint", stuck ? "text-[9px]" : "text-[10px]")}>
-                  {eyebrow}
-                </p>
+                <Eyebrow className={cn("truncate", stuck && "text-micro")}>{eyebrow}</Eyebrow>
               )}
               <h1
                 className={cn(

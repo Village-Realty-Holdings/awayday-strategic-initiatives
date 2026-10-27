@@ -50,7 +50,7 @@ function AsksByLeader({ sis, compact, groupBy, today }: { sis: ReviewSi[]; compa
                   <li key={si.code} className="rounded-lg border border-border/70 bg-surface-2/30 px-3 py-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <Link href={`/initiatives/${si.id}`} className="text-sm font-medium text-ink hover:text-navy-deep">
-                        <span className="tabular mr-2 text-[10px] text-ink-faint">{si.shortCode}</span>
+                        <span className="tabular mr-2 text-micro text-ink-faint">{si.shortCode}</span>
                         {si.name}
                       </Link>
                       <span className="flex flex-wrap items-center gap-1.5">
@@ -58,7 +58,7 @@ function AsksByLeader({ sis, compact, groupBy, today }: { sis: ReviewSi[]; compa
                         <UpdatedBadge updated={si.updatedThisPeriod} />
                       </span>
                     </div>
-                    <p className="mt-1 text-[11px] text-ink-faint">{si.areaName}</p>
+                    <p className="mt-1 text-note text-ink-faint">{si.areaName}</p>
                     <dl className="mt-2 grid gap-1 text-xs">
                       <div><dt className="inline font-medium text-ink">Latest progress? </dt><dd className="inline text-ink-muted">{si.latestProgress ?? "TBD"}</dd></div>
                       <div><dt className="inline font-medium text-ink">What next? </dt><dd className="inline text-ink-muted">{si.whatNext ?? "TBD"}</dd></div>
@@ -104,7 +104,7 @@ export function AsksByLeaderToggle({ sis, today, compact = false }: { sis: Revie
           <TabsTrigger value="elt">By ELT sponsor</TabsTrigger>
           <TabsTrigger value="lead">By SI lead</TabsTrigger>
         </TabsList>
-        <p className="text-[11px] text-ink-faint">An SI with two ELT sponsors appears under both.</p>
+        <p className="text-note text-ink-faint">An SI with two ELT sponsors appears under both.</p>
       </div>
       <TabsContent value="elt">
         <AsksByLeader sis={sis} compact={compact} groupBy="elt" today={today} />

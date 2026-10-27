@@ -14,7 +14,7 @@ export default async function NewRosterMemberPage() {
   ]);
   return (
     <div className="max-w-2xl">
-      <PageHeader back={{ href: "/admin/people", label: "People & access" }} eyebrow="People & access" title="Add person" description="Add someone to the People directory so they can own initiatives, milestones and risks." />
+      <PageHeader sticky back={{ href: "/admin/people", label: "People & access" }} eyebrow="People & access" title="Add person" description="Add someone to the People directory so they can own initiatives, milestones and risks." />
       <RosterForm
         action={createRosterMember}
         departments={departments.map((d) => d.name)}

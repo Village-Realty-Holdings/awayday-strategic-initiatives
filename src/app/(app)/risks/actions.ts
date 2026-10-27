@@ -3,27 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { str, num, date } from "@/lib/form";
+import { audit } from "@/lib/audit";
 import { flash } from "@/lib/flash";
 import { requireEditor } from "@/lib/session";
 
-function str(fd: FormData, key: string): string | null {
-  const v = fd.get(key);
-  const s = typeof v === "string" ? v.trim() : "";
-  return s === "" ? null : s;
-}
-function num(fd: FormData, key: string): number | null {
-  const v = fd.get(key);
-  if (typeof v !== "string" || v.trim() === "") return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-function date(fd: FormData, key: string): Date | null {
-  const s = str(fd, key);
-  if (!s) return null;
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d;
-}
-const plain = (o: unknown) => JSON.parse(JSON.stringify(o));
 
 // Rough $M EBITDA-equivalent parsed from a prize display string ("$3-5M NOI" -> 4).
 // Falls back to null when there's no number ("EV moat").
@@ -68,9 +52,7 @@ export async function createCimRisk(formData: FormData) {
       initiatives: { create: ids.map((initiativeId) => ({ initiativeId })) },
     },
   });
-  await prisma.auditLog.create({
-    data: { userId: session.user.id, action: "CREATE", entity: "CimRisk", entityId: created.id, after: plain(created) },
-  });
+  await audit(session.user.id, "CREATE", "CimRisk", created.id, { after: created });
   revalidatePath("/risks");
   revalidatePath("/");
   revalidatePath("/admin/archive");
@@ -97,9 +79,7 @@ export async function updateCimRisk(formData: FormData) {
       },
     },
   });
-  await prisma.auditLog.create({
-    data: { userId: session.user.id, action: "UPDATE", entity: "CimRisk", entityId: id, before: plain(before), after: plain(after) },
-  });
+  await audit(session.user.id, "UPDATE", "CimRisk", id, { before, after });
   revalidatePath("/risks");
   revalidatePath("/");
   revalidatePath("/admin/archive");
@@ -113,9 +93,7 @@ export async function deleteCimRisk(formData: FormData) {
   const before = await prisma.cimRisk.findUnique({ where: { id } });
   if (!before) redirect("/risks");
   await prisma.cimRisk.delete({ where: { id } });
-  await prisma.auditLog.create({
-    data: { userId: session.user.id, action: "DELETE", entity: "CimRisk", entityId: id, before: plain(before) },
-  });
+  await audit(session.user.id, "DELETE", "CimRisk", id, { before });
   revalidatePath("/risks");
   revalidatePath("/");
   revalidatePath("/admin/archive");

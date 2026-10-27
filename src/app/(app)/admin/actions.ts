@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { str } from "@/lib/form";
 import { auth } from "@/lib/auth";
 import { flash } from "@/lib/flash";
 import { requireSession } from "@/lib/session";
@@ -27,11 +28,7 @@ export type AdminResult = { ok: true; message: string; tempPassword?: string } |
 const ROLES = ["admin", "editor", "user"] as const;
 type Role = (typeof ROLES)[number];
 
-function s(fd: FormData, k: string): string {
-  const v = fd.get(k);
-  return typeof v === "string" ? v.trim() : "";
-}
-const plain = (o: unknown) => JSON.parse(JSON.stringify(o));
+const s = (fd: FormData, k: string): string => str(fd, k) ?? "";
 
 export async function adminActivatePlan(fd: FormData): Promise<void> {
   const session = await requireSession({ role: "admin" });
@@ -104,9 +101,7 @@ export async function adminCreateUser(fd: FormData): Promise<AdminResult> {
   await prisma.account.create({
     data: { id: crypto.randomUUID(), userId: id, accountId: id, providerId: "credential", password: await hash(password) },
   });
-  await prisma.auditLog.create({
-    data: { userId: session.user.id, action: "CREATE", entity: "User", entityId: id, after: plain({ email, name, role, appAccess }) },
-  });
+  await audit(session.user.id, "CREATE", "User", id, { after: { email, name, role, appAccess } });
   revalidatePath("/admin");
   revalidatePath("/admin/people");
 
@@ -151,9 +146,7 @@ export async function adminSetAppAccess(fd: FormData): Promise<AdminResult> {
   const before = await prisma.user.findUnique({ where: { id }, select: { appAccess: true, email: true } });
   if (!before) return { ok: false, error: "User not found." };
   await prisma.user.update({ where: { id }, data: { appAccess: apps } });
-  await prisma.auditLog.create({
-    data: { userId: session.user.id, action: "UPDATE", entity: "User", entityId: id, before: plain({ appAccess: before.appAccess }), after: plain({ appAccess: apps }) },
-  });
+  await audit(session.user.id, "UPDATE", "User", id, { before: { appAccess: before.appAccess }, after: { appAccess: apps } });
   revalidatePath("/admin");
   revalidatePath("/admin/people");
   return { ok: true, message: `Updated app access for ${before.email}: ${apps.length ? apps.join(", ") : "none"}.` };
@@ -169,9 +162,7 @@ export async function adminSetRole(fd: FormData): Promise<AdminResult> {
   const before = await prisma.user.findUnique({ where: { id } });
   if (!before) return { ok: false, error: "User not found." };
   await prisma.user.update({ where: { id }, data: { role } });
-  await prisma.auditLog.create({
-    data: { userId: session.user.id, action: "UPDATE", entity: "User", entityId: id, before: plain({ role: before.role }), after: plain({ role }) },
-  });
+  await audit(session.user.id, "UPDATE", "User", id, { before: { role: before.role }, after: { role } });
   revalidatePath("/admin");
   revalidatePath("/admin/people");
   return { ok: true, message: `Updated ${before.email} to ${role}.` };
@@ -191,9 +182,7 @@ export async function adminSetPassword(fd: FormData): Promise<AdminResult> {
   else await prisma.account.create({ data: { id: crypto.randomUUID(), userId: id, accountId: id, providerId: "credential", ...data } });
 
   await prisma.session.deleteMany({ where: { userId: id } }); // force re-login with the new password
-  await prisma.auditLog.create({
-    data: { userId: session.user.id, action: "UPDATE", entity: "User", entityId: id, after: plain({ passwordReset: true }) },
-  });
+  await audit(session.user.id, "UPDATE", "User", id, { after: { passwordReset: true } });
   revalidatePath("/admin");
   revalidatePath("/admin/people");
   return { ok: true, message: `Password reset for ${user.email}. Their existing sessions were signed out.` };
@@ -208,9 +197,7 @@ export async function adminResetMfa(fd: FormData): Promise<AdminResult> {
   await prisma.twoFactor.deleteMany({ where: { userId: id } });
   await prisma.user.update({ where: { id }, data: { twoFactorEnabled: false } });
   await prisma.session.deleteMany({ where: { userId: id } });
-  await prisma.auditLog.create({
-    data: { userId: session.user.id, action: "UPDATE", entity: "User", entityId: id, after: plain({ mfaReset: true }) },
-  });
+  await audit(session.user.id, "UPDATE", "User", id, { after: { mfaReset: true } });
   revalidatePath("/admin");
   revalidatePath("/admin/people");
   return { ok: true, message: `MFA reset for ${user.email}. They'll set up a new authenticator on next login.` };
@@ -229,9 +216,7 @@ export async function adminRemoveUser(fd: FormData): Promise<AdminResult> {
     prisma.twoFactor.deleteMany({ where: { userId: id } }),
     prisma.user.delete({ where: { id } }),
   ]);
-  await prisma.auditLog.create({
-    data: { userId: session.user.id, action: "DELETE", entity: "User", entityId: id, before: plain({ email: user.email, role: user.role }) },
-  });
+  await audit(session.user.id, "DELETE", "User", id, { before: { email: user.email, role: user.role } });
   revalidatePath("/admin");
   revalidatePath("/admin/people");
   return { ok: true, message: `Removed ${user.email}.` };

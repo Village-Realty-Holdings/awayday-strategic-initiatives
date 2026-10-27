@@ -549,9 +549,3 @@ export async function resolveKpiSeries(
     ),
   };
 }
-
-export function assertConfiguredSource(source: KpiSource, identifier: string | null): void {
-  if (!identifier?.trim()) {
-    throw new Error(`${source} KPI source is not configured; provide a source identifier before refreshing.`);
-  }
-}

@@ -31,7 +31,7 @@ export default function AppError({
         <p className="mt-1 text-sm text-ink-muted">
           This page couldn&apos;t be loaded. Your data is safe. Try again, and if it keeps happening, let the team know.
         </p>
-        {error.digest && <p className="mt-2 text-[11px] text-ink-faint">Reference: {error.digest}</p>}
+        {error.digest && <p className="mt-2 text-note text-ink-faint">Reference: {error.digest}</p>}
       </div>
       <div className="flex items-center gap-2">
         <Button onClick={() => retry()}>Try again</Button>

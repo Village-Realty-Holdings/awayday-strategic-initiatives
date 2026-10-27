@@ -65,7 +65,6 @@ export function SetupMfaForm({ needsPassword }: { needsPassword: boolean }) {
     if (started.current) return;
     started.current = true;
     void start();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function verify(e: React.FormEvent) {
@@ -94,7 +93,7 @@ export function SetupMfaForm({ needsPassword }: { needsPassword: boolean }) {
             className="h-7 w-auto"
             priority
           />
-          <p className="mt-1.5 text-[11px] text-ink-faint">Strategic OS</p>
+          <p className="mt-1.5 text-note text-ink-faint">Strategic OS</p>
         </div>
 
         <div className="rounded-xl border border-border bg-surface p-6">
@@ -140,10 +139,10 @@ export function SetupMfaForm({ needsPassword }: { needsPassword: boolean }) {
               </div>
               {backupCodes.length > 0 && (
                 <div className="rounded-lg border border-border bg-surface-2/50 p-3">
-                  <p className="mb-1.5 text-[11px] font-medium text-ink-muted">
+                  <p className="mb-1.5 text-note font-medium text-ink-muted">
                     Backup codes (save these somewhere safe):
                   </p>
-                  <div className="tabular grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] text-ink">
+                  <div className="tabular grid grid-cols-2 gap-x-4 gap-y-0.5 text-note text-ink">
                     {backupCodes.map((c) => (
                       <span key={c}>{c}</span>
                     ))}

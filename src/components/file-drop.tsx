@@ -97,7 +97,7 @@ export function FileDrop({
       <span className={"min-w-0 truncate " + (fileName ? "font-medium text-ink" : "text-ink-muted")}>
         {fileName ?? label}
       </span>
-      {leftOut && <span className="basis-full text-[11px] text-warn">{leftOut}</span>}
+      {leftOut && <span className="basis-full text-note text-warn">{leftOut}</span>}
       <input
         ref={inputRef}
         id={id}

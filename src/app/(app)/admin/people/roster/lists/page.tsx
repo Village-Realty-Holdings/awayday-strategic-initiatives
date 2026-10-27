@@ -78,14 +78,14 @@ function ListCard({
     <section className="rounded-xl border border-border bg-surface p-5">
       <div className="mb-3 flex items-baseline justify-between">
         <h2 className="text-sm font-semibold text-ink">{title}</h2>
-        <span className="text-[11px] text-ink-faint">{items.length}</span>
+        <span className="text-note text-ink-faint">{items.length}</span>
       </div>
       <ul className="flex flex-col gap-1.5">
         {items.map((it) => (
           <li key={it.id} className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface-2/30 px-3 py-2">
             <span className="truncate text-sm text-ink">{it.name}</span>
             <span className="flex shrink-0 items-center gap-2">
-              <Badge variant="secondary" className="tabular rounded px-1.5 text-[10px] font-normal" title="People using this">
+              <Badge variant="secondary" className="tabular rounded px-1.5 text-micro font-normal" title="People using this">
                 {it.count} in use
               </Badge>
               <form action={deleteAction}>

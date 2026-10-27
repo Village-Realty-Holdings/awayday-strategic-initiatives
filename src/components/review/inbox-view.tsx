@@ -39,7 +39,7 @@ export function InboxView({
             {needUpdate.map((s) => (
               <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/70 bg-surface-2/30 px-3 py-2.5">
                 <Link href={`/initiatives/${s.id}`} className="text-sm font-medium text-ink hover:text-navy-deep">
-                  <span className="tabular mr-2 text-[10px] text-ink-faint">{s.shortCode}</span>
+                  <span className="tabular mr-2 text-micro text-ink-faint">{s.shortCode}</span>
                   {s.name}
                 </Link>
                 <Button asChild size="xs" variant="secondary"><Link href={`/my#si-${s.id}`}>Update</Link></Button>
@@ -64,7 +64,7 @@ export function InboxView({
                   </span>
                 </div>
                 <p className="mt-1.5 text-sm text-ink">{a.request}</p>
-                <p className="mt-1 text-[11px] text-ink-faint">Raised {a.raisedLabel}</p>
+                <p className="mt-1 text-note text-ink-faint">Raised {a.raisedLabel}</p>
               </li>
             ))}
           </ul>

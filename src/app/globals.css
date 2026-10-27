@@ -53,6 +53,17 @@
   --text-h1: 1.5rem;
   --text-h1--line-height: 2rem;
   --text-stat--line-height: 2rem;
+  /* Small print below text-xs: notes 11px, micro 10px, nano 9px. */
+  --text-micro: 0.625rem;
+  --text-nano: 0.5625rem;
+  /* Uppercase eyebrow labels above titles and sections. */
+  --tracking-eyebrow: 0.12em;
+
+  /* Page widths (max-w-page etc.). */
+  --container-page: 1400px;
+  --container-section: 1200px;
+  --container-review: 1100px;
+  --container-narrow: 900px;
 
   /* Motion — fast, ease-out, no bounce */
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
@@ -180,14 +191,14 @@ body {
   background: var(--color-surface-2);
 }
 .strategy-house__pillar--ahead {
-  border-top-color: #0ca30c;
+  border-top-color: var(--color-ok);
 }
 .strategy-house__pillar--on_track,
 .strategy-house__pillar--watch {
-  border-top-color: #c98500;
+  border-top-color: var(--color-warn);
 }
 .strategy-house__pillar--behind {
-  border-top-color: #d03b3b;
+  border-top-color: var(--color-risk);
 }
 .strategy-house__enablers a {
   min-width: 0;
@@ -366,21 +377,4 @@ body {
   .bn-doc h2, .bn-doc h3 { break-after: avoid; }
   .bn-doc p, .bn-doc li { break-inside: avoid; }
   @page { margin: 0.85in 0.8in; }
-}
-
-/* LOI approval memo (partners/deals/[id]/ic-snapshot): prints as the
-   committee's document. The app shell drops via [data-chrome] / .no-print. */
-@media print {
-  .memo-doc {
-    border: 0 !important;
-    border-radius: 0 !important;
-    padding: 0 !important;
-    font-size: 10.5pt;
-  }
-  .memo-doc h1 { font-size: 20pt; }
-  .memo-section { break-inside: auto; margin-top: 18pt !important; padding-top: 12pt !important; }
-  .memo-section h2 { break-after: avoid; }
-  .memo-table, .memo-figures, .memo-callout, .memo-doc dl > div, .memo-doc li { break-inside: avoid; }
-  .memo-contents a { text-decoration: none; }
-  @page { margin: 0.7in 0.75in; }
 }

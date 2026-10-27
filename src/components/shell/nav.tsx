@@ -1,8 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Inbox, Target, Layers, CalendarDays, FileText, type AppIcon } from "@/components/icons";
+
+/** Text and active-state classes shared by sidebar nav and footer links. */
+export function navLinkState(active: boolean) {
+  return cn(
+    "text-sm transition-colors",
+    active ? "bg-navy/10 font-medium text-navy-deep" : "text-ink-muted hover:bg-surface-2 hover:text-ink",
+  );
+}
 
 type Item = { label: string; href: string; icon: AppIcon };
 
@@ -34,11 +43,7 @@ export function SidebarNav() {
             key={item.href}
             href={item.href}
             aria-current={active ? "page" : undefined}
-            className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
-              active
-                ? "bg-navy/10 font-medium text-navy-deep"
-                : "text-ink-muted hover:bg-surface-2 hover:text-ink"
-            }`}
+            className={cn("flex items-center gap-2.5 rounded-md px-3 py-2", navLinkState(active))}
           >
             <Icon size={16} strokeWidth={1.75} aria-hidden />
             {item.label}

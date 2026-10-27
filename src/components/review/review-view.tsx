@@ -10,7 +10,8 @@ import { addDaysIso, fmtLong, ragLabel, ragTone, type ReviewArea, type ReviewMil
 import { AsksByLeaderToggle } from "./asks-by-leader";
 import { DataTable } from "./data-table";
 import { PeriodSwitcher } from "./period-switcher";
-import { NoDataNote, ReviewHeader, SectionTitle } from "./preview";
+import { NoDataNote, SectionTitle } from "./preview";
+import { PageHeader } from "@/components/shell/page-header";
 import { SiCard } from "./si-charter-dialog";
 import { SoWhatList } from "./so-whats";
 import { PeriodStatusBadge, PillarLabelBadge } from "./status";
@@ -22,7 +23,7 @@ function anchor(area: ReviewArea): string {
 
 function MeasureStatus({ area, className }: { area: ReviewArea; className?: string }) {
   const tone = area.measure ? ragTone(area.measure.rag) : null;
-  return tone ? <PillarLabelBadge label={ragLabel(area.measure!.rag)} tone={tone} className={className} /> : <span className={`text-[11px] text-ink-faint ${className ?? ""}`}>No data yet</span>;
+  return tone ? <PillarLabelBadge label={ragLabel(area.measure!.rag)} tone={tone} className={className} /> : <span className={`text-note text-ink-faint ${className ?? ""}`}>No data yet</span>;
 }
 
 function AreaSection({ area, soWhats }: { area: ReviewArea; soWhats: SoWhat[] }) {
@@ -31,7 +32,7 @@ function AreaSection({ area, soWhats }: { area: ReviewArea; soWhats: SoWhat[] })
     <Card id={anchor(area)} className="scroll-mt-20 gap-0 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
+          <p className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">
             {isPillar ? `Pillar ${area.number}` : "Enabler"} · {area.name}
           </p>
           <h3 className="mt-1 text-lg font-semibold text-ink">{area.name}</h3>
@@ -43,7 +44,7 @@ function AreaSection({ area, soWhats }: { area: ReviewArea; soWhats: SoWhat[] })
       {(area.measure || area.goal) && (
         <div className="mt-4 grid gap-4 border-y border-border/70 py-4 md:grid-cols-[minmax(0,16rem)_1fr]">
           <div>
-            <p className="text-[11px] text-ink-faint">Measure · {area.measure?.name || "not set"}</p>
+            <p className="text-note text-ink-faint">Measure · {area.measure?.name || "not set"}</p>
             <p className="tabular text-3xl font-semibold tracking-tight text-ink">{area.measure?.value ?? "—"}</p>
             {!area.measure?.value && <p className="mt-1 text-xs text-ink-faint">No value loaded for this month.</p>}
           </div>
@@ -124,8 +125,8 @@ export function ReviewView({
   ];
 
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-col gap-8">
-      <ReviewHeader
+    <div className="mx-auto flex max-w-page flex-col gap-8">
+      <PageHeader
         eyebrow="Awayday · Monthly Strategy Review"
         title={`${period.label} Strategy Review`}
         description="Where each pillar stands, the SIs behind it, and what the ELT needs to decide next."
@@ -174,10 +175,10 @@ export function ReviewView({
             return (
               <a key={a.code} href={`#${anchor(a)}`} className={`strategy-house__pillar ${tone ? `strategy-house__pillar--${tone}` : ""}`}>
                 <span className="text-xs font-semibold text-ink">{a.number} · {a.name}</span>
-                {a.ownerLine && <span className="mt-0.5 text-[11px] text-ink-faint">{a.ownerLine}</span>}
-                <span className="mt-1 text-[11px] text-ink-muted">{a.measure?.name || "Measure not set"}</span>
+                {a.ownerLine && <span className="mt-0.5 text-note text-ink-faint">{a.ownerLine}</span>}
+                <span className="mt-1 text-note text-ink-muted">{a.measure?.name || "Measure not set"}</span>
                 <span className="tabular mt-1 text-xl font-semibold text-ink">{a.measure?.value ?? "—"}</span>
-                {a.measure?.target && <span className="mt-1 text-[11px] leading-4 text-ink-muted">Target {a.measure.target}</span>}
+                {a.measure?.target && <span className="mt-1 text-note leading-4 text-ink-muted">Target {a.measure.target}</span>}
                 <MeasureStatus area={a} className="mt-2 w-fit" />
                 <span className="strategy-house__si-list">
                   {a.sis.map((si) => <span key={si.id}>{si.name}</span>)}
@@ -191,7 +192,7 @@ export function ReviewView({
             {enablers.map((a) => (
               <a key={a.code} href={`#${anchor(a)}`}>
                 <span className="font-semibold text-ink">{a.name}</span>
-                {a.ownerLine && <span className="block text-[11px] text-ink-muted">{a.ownerLine}</span>}
+                {a.ownerLine && <span className="block text-note text-ink-muted">{a.ownerLine}</span>}
                 <span className="strategy-house__si-list">
                   {a.sis.map((si) => <span key={si.id}>{si.name}</span>)}
                 </span>
@@ -236,7 +237,7 @@ export function ReviewView({
                 },
               }))}
             />
-            <p className="mt-2 text-[11px] text-ink-faint">Status compares this month&apos;s value with the target. SI status comes from owner updates; TBD means nothing entered.</p>
+            <p className="mt-2 text-note text-ink-faint">Status compares this month&apos;s value with the target. SI status comes from owner updates; TBD means nothing entered.</p>
           </Card>
         ) : (
           <NoDataNote>This plan has no leading measures per area yet.</NoDataNote>
@@ -252,7 +253,7 @@ export function ReviewView({
               columns={[{ key: "line", label: "Line" }, ...finance.columns.map((c) => ({ key: c.key, label: c.label, numeric: true }))]}
               rows={finance.rows.map((r) => ({ id: r.id, cells: { line: r.label, ...Object.fromEntries(finance.columns.map((c) => [c.key, r.cells[c.key] ?? "—"])) } }))}
             />
-            <p className="mt-2 text-[11px] text-ink-faint">Approved, consolidated values loaded for {period.label}.</p>
+            <p className="mt-2 text-note text-ink-faint">Approved, consolidated values loaded for {period.label}.</p>
           </Card>
         ) : (
           <NoDataNote>No Finance figures have been loaded for {period.label}.</NoDataNote>
@@ -305,7 +306,7 @@ export function ReviewView({
           ))}
           {!plan.sourceFileName && period.sources.length === 0 && <li>No source documents recorded.</li>}
         </ul>
-        <p className="mt-4 border-t border-border/70 pt-3 text-[11px] text-ink-faint">Prepared by {period.preparedBy ? `Strategy (${period.preparedBy})` : "Strategy"} for ELT discussion. Highly confidential.</p>
+        <p className="mt-4 border-t border-border/70 pt-3 text-note text-ink-faint">Prepared by {period.preparedBy ? `Strategy (${period.preparedBy})` : "Strategy"} for ELT discussion. Highly confidential.</p>
       </Card>
     </div>
   );

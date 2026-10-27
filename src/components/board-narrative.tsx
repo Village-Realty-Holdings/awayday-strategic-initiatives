@@ -110,7 +110,7 @@ export function BoardNarrative() {
             </Button>
           </>
         )}
-        <span className="text-[11px] text-ink-faint">Drafted from the live portfolio. Review and edit before sharing.</span>
+        <span className="text-note text-ink-faint">Drafted from the live portfolio. Review and edit before sharing.</span>
       </div>
 
       {error && (
@@ -166,7 +166,7 @@ export function BoardNarrative() {
             <Image src="/awayday-logo.png" alt="Awayday" width={475} height={101} className="h-7 w-auto" priority />
             <div className="text-right leading-tight">
               <p className="text-sm font-semibold text-navy-deep">Strategic Initiatives · Board Update</p>
-              <p className="text-[11px] text-ink-faint">
+              <p className="text-note text-ink-faint">
                 {generatedAt ? `As of ${generatedAt} · ` : ""}Confidential · for Awayday leadership
               </p>
             </div>

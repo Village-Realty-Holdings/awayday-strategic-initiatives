@@ -1,4 +1,4 @@
-import { ReviewHeader } from "@/components/review/preview";
+import { PageHeader } from "@/components/shell/page-header";
 import { TimelineExplorer } from "@/components/review/timeline-explorer";
 import { requireApp } from "@/lib/session";
 import { allSis, getReviewPlan, resolvePeriod } from "@/lib/review-data";
@@ -14,8 +14,8 @@ export default async function TimelinePage() {
     .sort((a, b) => (a.date ?? "9999").localeCompare(b.date ?? "9999"));
   const owners = [...new Set(milestones.map((m) => m.owner).filter((o): o is string => Boolean(o)))].sort();
   return (
-    <div className="mx-auto flex max-w-[1100px] flex-col gap-6">
-      <ReviewHeader
+    <div className="mx-auto flex max-w-review flex-col gap-6">
+      <PageHeader
         eyebrow="Timeline"
         title="Milestones"
         description="Every SI milestone in the active plan. Amber dates have passed and need a status."

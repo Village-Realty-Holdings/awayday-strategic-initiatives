@@ -37,7 +37,7 @@ export default async function EditCimRiskPage({
   return (
     <div className={PAGE_FRAME}>
       <BreadcrumbTitle path={`/risks/${risk.id}`} title={risk.code} />
-      <PageHeader
+      <PageHeader sticky
         back={{ href: "/risks", label: "CIM Risks" }}
         eyebrow={<span className="tabular">{risk.code}</span>}
         title="Edit CIM risk"

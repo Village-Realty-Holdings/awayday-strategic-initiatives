@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { str, date } from "@/lib/form";
 import { audit } from "@/lib/audit";
 import { flash } from "@/lib/flash";
 import { getReviewPlan } from "@/lib/review-data";
@@ -20,19 +21,6 @@ import {
   type SiReviewStatus,
 } from "@/lib/review-model";
 
-function text(formData: FormData, key: string): string | null {
-  const value = formData.get(key);
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed || null;
-}
-
-function parsedDate(formData: FormData, key: string): Date | null {
-  const value = text(formData, key);
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
 
 function revalidateReview() {
   revalidatePath("/", "layout");
@@ -42,7 +30,7 @@ function revalidateReview() {
 export async function saveInitiativeUpdate(formData: FormData) {
   const session = await requireSession();
   const initiativeId = String(formData.get("initiativeId") ?? "");
-  const rawPeriod = text(formData, "reportingPeriod");
+  const rawPeriod = str(formData, "reportingPeriod");
   const period = rawPeriod && PERIOD_PATTERN.test(rawPeriod) ? rawPeriod : null;
   const [initiative, review] = await Promise.all([
     prisma.initiative.findUnique({
@@ -56,7 +44,7 @@ export async function saveInitiativeUpdate(formData: FormData) {
   // A published review is final: its month takes no more updates, for anyone.
   if (review?.status === "PUBLISHED") redirect(`/my?period=${period}`);
 
-  const rawStatus = text(formData, "reviewStatus");
+  const rawStatus = str(formData, "reviewStatus");
   const reviewStatus = SI_REVIEW_STATUSES.includes(rawStatus as SiReviewStatus) ? (rawStatus as SiReviewStatus) : null;
   const created = await prisma.initiativeUpdate.create({
     data: {
@@ -64,10 +52,10 @@ export async function saveInitiativeUpdate(formData: FormData) {
       // Lifecycle status is copied, not changed: the review status is separate.
       status: initiative.status,
       reviewStatus,
-      update: text(formData, "update"),
-      pathForward: text(formData, "pathForward"),
-      nextMilestone: text(formData, "nextMilestone"),
-      milestoneDueAt: parsedDate(formData, "milestoneDueAt"),
+      update: str(formData, "update"),
+      pathForward: str(formData, "pathForward"),
+      nextMilestone: str(formData, "nextMilestone"),
+      milestoneDueAt: date(formData, "milestoneDueAt"),
       reportingPeriod: period,
       updatedBy: session.user.name,
     },
@@ -111,11 +99,11 @@ export async function createBelowLineProject(formData: FormData) {
   const session = await requireSession();
   if (!canEdit(session.user.role)) redirect("/below-the-line");
   const strategicAreaId = String(formData.get("strategicAreaId") ?? "");
-  const name = text(formData, "name");
+  const name = str(formData, "name");
   if (!name) redirect("/below-the-line");
   const area = await prisma.strategicArea.findUnique({ where: { id: strategicAreaId }, select: { id: true } });
   if (!area) redirect("/below-the-line");
-  const initiativeId = text(formData, "initiativeId");
+  const initiativeId = str(formData, "initiativeId");
   if (initiativeId) {
     const initiative = await prisma.initiative.findFirst({ where: { id: initiativeId, strategicAreaId }, select: { id: true } });
     if (!initiative) redirect("/below-the-line");
@@ -125,11 +113,11 @@ export async function createBelowLineProject(formData: FormData) {
     data: {
       strategicAreaId,
       name,
-      description: text(formData, "description"),
-      owner: text(formData, "owner"),
-      team: text(formData, "team"),
+      description: str(formData, "description"),
+      owner: str(formData, "owner"),
+      team: str(formData, "team"),
       status: BELOW_LINE_STATUSES.includes(rawStatus as (typeof BELOW_LINE_STATUSES)[number]) ? rawStatus : "NOT_STARTED",
-      dueAt: parsedDate(formData, "dueAt"),
+      dueAt: date(formData, "dueAt"),
       initiativeId,
       createdBy: session.user.id,
       updatedBy: session.user.id,
@@ -145,7 +133,7 @@ export async function createBelowLineProject(formData: FormData) {
 // ---------------------------------------------------------------------------
 
 function periodId(formData: FormData, key = "periodId"): string | null {
-  const id = text(formData, key);
+  const id = str(formData, key);
   return id && PERIOD_PATTERN.test(id) ? id : null;
 }
 
@@ -183,13 +171,13 @@ export async function saveReview(formData: FormData) {
 
   const plan = await getReviewPlan(id);
   const scopes = [SUMMARY_SCOPE, ...plan.areas.map((a) => a.code)];
-  const soWhats = parseSoWhats(text(formData, "soWhats"), scopes);
+  const soWhats = parseSoWhats(str(formData, "soWhats"), scopes);
   const publish = formData.get("intent") === "publish";
   const fields = {
-    preparedBy: text(formData, "preparedBy"),
-    meetingDate: parseIsoDay(text(formData, "meetingDate")),
-    updatesDueDate: parseIsoDay(text(formData, "updatesDueDate")),
-    dataAsOf: parseIsoDay(text(formData, "dataAsOf")),
+    preparedBy: str(formData, "preparedBy"),
+    meetingDate: parseIsoDay(str(formData, "meetingDate")),
+    updatesDueDate: parseIsoDay(str(formData, "updatesDueDate")),
+    dataAsOf: parseIsoDay(str(formData, "dataAsOf")),
     ...(publish ? { status: "PUBLISHED" as const, publishedAt: new Date(), publishedBy: session.user.name } : {}),
   };
 

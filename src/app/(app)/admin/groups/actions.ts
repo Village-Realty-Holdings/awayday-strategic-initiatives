@@ -3,16 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { str } from "@/lib/form";
+import { audit } from "@/lib/audit";
 import { flash } from "@/lib/flash";
 import { requireAdmin } from "@/lib/session";
 import { getActivePlan } from "@/lib/active-plan";
 
-const plain = (o: unknown) => JSON.parse(JSON.stringify(o));
-function str(fd: FormData, k: string): string | null {
-  const v = fd.get(k);
-  const s = typeof v === "string" ? v.trim() : "";
-  return s === "" ? null : s;
-}
 
 export async function createGroup(fd: FormData) {
   const session = await requireAdmin();
@@ -25,9 +21,7 @@ export async function createGroup(fd: FormData) {
   const created = await prisma.initiativeGroup.create({
     data: { name, description: str(fd, "description"), initiatives: { connect: ids.map((id) => ({ id })) } },
   });
-  await prisma.auditLog.create({
-    data: { userId: session.user.id, action: "CREATE", entity: "InitiativeGroup", entityId: created.id, after: plain({ name, members: ids.length }) },
-  });
+  await audit(session.user.id, "CREATE", "InitiativeGroup", created.id, { after: { name, members: ids.length } });
   revalidatePath("/admin/groups");
   revalidatePath("/admin/initiatives");
   await flash("Group created");
@@ -60,9 +54,7 @@ export async function updateGroup(fd: FormData) {
     where: { id },
     data: { name, description: str(fd, "description"), initiatives: { set: ids.map((x) => ({ id: x })) } },
   });
-  await prisma.auditLog.create({
-    data: { userId: session.user.id, action: "UPDATE", entity: "InitiativeGroup", entityId: id, after: plain({ name: after.name, members: ids.length }) },
-  });
+  await audit(session.user.id, "UPDATE", "InitiativeGroup", id, { after: { name: after.name, members: ids.length } });
   revalidatePath("/admin/groups");
   revalidatePath("/admin/initiatives");
   await flash("Group saved");
@@ -76,9 +68,7 @@ export async function setGroupArchived(fd: FormData) {
   const before = await prisma.initiativeGroup.findUnique({ where: { id } });
   if (!before) redirect("/admin/groups");
   await prisma.initiativeGroup.update({ where: { id }, data: { archived } });
-  await prisma.auditLog.create({
-    data: { userId: session.user.id, action: "UPDATE", entity: "InitiativeGroup", entityId: id, after: plain({ name: before.name, archived }) },
-  });
+  await audit(session.user.id, "UPDATE", "InitiativeGroup", id, { after: { name: before.name, archived } });
   revalidatePath("/admin/groups");
   revalidatePath("/admin/initiatives");
   await flash(archived ? "Group archived" : "Group restored");
@@ -91,9 +81,7 @@ export async function deleteGroup(fd: FormData) {
   const before = await prisma.initiativeGroup.findUnique({ where: { id } });
   if (!before) redirect("/admin/groups");
   await prisma.initiativeGroup.delete({ where: { id } });
-  await prisma.auditLog.create({
-    data: { userId: session.user.id, action: "DELETE", entity: "InitiativeGroup", entityId: id, before: plain({ name: before.name }) },
-  });
+  await audit(session.user.id, "DELETE", "InitiativeGroup", id, { before: { name: before.name } });
   revalidatePath("/admin/groups");
   revalidatePath("/admin/initiatives");
   await flash("Group deleted");

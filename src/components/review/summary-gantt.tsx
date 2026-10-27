@@ -12,7 +12,7 @@ export function SummaryGantt({ milestones, today }: { milestones: ReviewMileston
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-surface">
-      <div className="grid grid-cols-[minmax(13rem,1fr)_minmax(20rem,2fr)] border-b border-border bg-surface-2/40 px-4 py-2 text-[11px] font-medium text-ink-faint">
+      <div className="grid grid-cols-[minmax(13rem,1fr)_minmax(20rem,2fr)] border-b border-border bg-surface-2/40 px-4 py-2 text-note font-medium text-ink-faint">
         <span>Strategic initiative / milestone</span>
         <div className="relative flex justify-between">
           <span>Today</span>
@@ -28,7 +28,7 @@ export function SummaryGantt({ milestones, today }: { milestones: ReviewMileston
             <div key={m.id} className={`grid grid-cols-[minmax(13rem,1fr)_minmax(20rem,2fr)] items-center gap-3 px-4 py-2.5 ${past ? "bg-warn-soft/60" : ""}`}>
               <div className="min-w-0">
                 <p className="truncate text-xs font-medium text-ink">{m.title}</p>
-                <p className="truncate text-[11px] text-ink-faint">
+                <p className="truncate text-note text-ink-faint">
                   <Link href={`/initiatives/${m.siId}`} className="hover:text-navy hover:underline">
                     {shortCode(m.siCode)} {m.siName}
                   </Link>{" "}
@@ -49,7 +49,7 @@ export function SummaryGantt({ milestones, today }: { milestones: ReviewMileston
           );
         })}
       </div>
-      <div className="border-t border-border bg-surface-2/30 px-4 py-2 text-[11px] text-ink-faint">
+      <div className="border-t border-border bg-surface-2/30 px-4 py-2 text-note text-ink-faint">
         {milestones.length} milestone{milestones.length === 1 ? "" : "s"} in the next 60 days
         {milestones.length > visible.length ? ` · showing the first ${visible.length}` : ""}
       </div>

@@ -40,7 +40,7 @@ export default async function EditInitiativePage({
   return (
     <div className={PAGE_FRAME}>
       <BreadcrumbTitle path={`/initiatives/${initiative.id}`} title={`${initiative.code} ${initiative.name}`} />
-      <PageHeader
+      <PageHeader sticky
         back={{ href: `/initiatives/${id}`, label: "charter" }}
         eyebrow={<span className="tabular">{initiative.code}</span>}
         title="Edit initiative"

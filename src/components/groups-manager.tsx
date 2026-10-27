@@ -44,7 +44,7 @@ export function GroupsManager({
 
   return (
     <>
-      <PageHeader
+      <PageHeader sticky
         title="Initiative Groups"
         description="Custom collections of initiatives, such as “Q3 Board Meeting”. Each group becomes a filter on the Initiatives table so you can pull up exactly the set you need."
         stats={
@@ -185,7 +185,7 @@ function GroupCard({ group: g, editable, onEdit }: { group: Group; editable: boo
               <Badge
                 asChild
                 variant="outline"
-                className="bg-surface-2/40 text-[11px] font-normal transition-colors hover:border-navy/40 hover:text-ink"
+                className="bg-surface-2/40 text-note font-normal transition-colors hover:border-navy/40 hover:text-ink"
               >
                 <Link href={`/initiatives/${m.id}`} title={`${m.code} ${m.name}`}>
                   <span className="tabular text-ink-faint">{m.code}</span> <span className="max-w-[240px] truncate">{m.name}</span>

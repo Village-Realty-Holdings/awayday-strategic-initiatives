@@ -75,7 +75,7 @@ export function AskPanel({ ask: askFn = askBoard }: { ask?: (question: string) =
         <div className="flex-1 overflow-y-auto px-5 py-4" aria-live="polite">
           {!answer && !loading && (
             <div className="flex flex-col gap-1.5">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-ink-faint">Try</p>
+              <p className="text-note font-medium uppercase tracking-wide text-ink-faint">Try</p>
               {SUGGESTIONS.map((s) => (
                 <Button
                   key={s}
@@ -125,7 +125,7 @@ export function AskPanel({ ask: askFn = askBoard }: { ask?: (question: string) =
               {loading ? <Loader2 size={15} className="animate-spin" aria-hidden /> : <Send size={15} aria-hidden />}
             </Button>
           </form>
-          <p className="mt-1.5 text-[10px] text-ink-faint">Enter to send · Shift+Enter for a new line</p>
+          <p className="mt-1.5 text-micro text-ink-faint">Enter to send · Shift+Enter for a new line</p>
         </SheetFooter>
       </SheetContent>
     </Sheet>

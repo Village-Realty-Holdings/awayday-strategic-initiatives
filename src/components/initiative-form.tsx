@@ -281,7 +281,7 @@ export function InitiativeForm({
         {/* Working team: pick supporting people from the directory (Jakob). */}
         <Field label="Working team" hint="Supporting contributors beyond the lead and secondary lead." asDiv>
           {teamChips.length === 0 ? (
-            <p className="text-[11px] text-ink-faint">No people in the directory yet.</p>
+            <p className="text-note text-ink-faint">No people in the directory yet.</p>
           ) : (
             <TeamPicker options={teamChips} value={team} onChange={setTeam} />
           )}
@@ -329,7 +329,7 @@ export function InitiativeForm({
                 <Badge variant="custom" className={`rounded ${QUADRANT_META[quadrant].bg} ${QUADRANT_META[quadrant].fg}`}>
                   {QUADRANT_META[quadrant].label}
                 </Badge>
-                <span className="text-[11px] text-ink-faint">
+                <span className="text-note text-ink-faint">
                   Value {value} · {targeted != null ? formatMoney(targeted) : "set $"}
                 </span>
               </ReadOnlyValue>
@@ -414,7 +414,7 @@ export function InitiativeForm({
           <Link href={cancelHref}>Cancel</Link>
         </Button>
         {i && (
-          <span className="ml-auto text-[11px] text-ink-faint">
+          <span className="ml-auto text-note text-ink-faint">
             Last saved {i.updatedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
           </span>
         )}
@@ -479,7 +479,7 @@ function Field({
         {required && <span className="text-risk"> *</span>}
       </span>
       {children}
-      {hint && <span className="text-[10px] leading-snug text-ink-faint">{hint}</span>}
+      {hint && <span className="text-micro leading-snug text-ink-faint">{hint}</span>}
     </Wrap>
   );
 }
@@ -490,13 +490,13 @@ export function TeamPicker({ options, value, onChange }: { options: string[]; va
     <div className="flex flex-col gap-1.5">
       <ToggleGroup type="multiple" variant="chip" size="xs" value={value} onValueChange={onChange} aria-label="Working team">
         {options.map((name) => (
-          <ToggleGroupItem key={name} value={name} className="group px-2.5 py-1 text-[11px] font-normal">
+          <ToggleGroupItem key={name} value={name} className="group px-2.5 py-1 text-note font-normal">
             <Check size={11} strokeWidth={2.5} className="hidden group-data-[state=on]:block" aria-hidden />
             {name}
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
-      <p className="text-[10px] text-ink-faint" aria-live="polite">
+      <p className="text-micro text-ink-faint" aria-live="polite">
         {value.length === 0 ? "No one selected" : `${value.length} selected: ${value.join(", ")}`}
       </p>
     </div>
@@ -506,7 +506,7 @@ export function TeamPicker({ options, value, onChange }: { options: string[]; va
 /** Value / Non-value switch (single choice, never empty). */
 export function ValueTypeSwitch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <ToggleGroup type="single" size="xs" value={value} onValueChange={(v) => v && onChange(v)} aria-label="Initiative type" className="[&>button]:px-2.5 [&>button]:py-1 [&>button]:text-[11px]">
+    <ToggleGroup type="single" size="xs" value={value} onValueChange={(v) => v && onChange(v)} aria-label="Initiative type" className="[&>button]:px-2.5 [&>button]:py-1 [&>button]:text-note">
       <ToggleGroupItem value="VALUE">Value</ToggleGroupItem>
       <ToggleGroupItem value="NON_VALUE">Non-value</ToggleGroupItem>
     </ToggleGroup>

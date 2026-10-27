@@ -1,6 +1,6 @@
 import { InboxView, type InboxAsk } from "@/components/review/inbox-view";
 import type { MyItem } from "@/components/review/my-updates";
-import { ReviewHeader } from "@/components/review/preview";
+import { PageHeader } from "@/components/shell/page-header";
 import { requireApp } from "@/lib/session";
 import { allSis, getReviewPlan, resolvePeriod } from "@/lib/review-data";
 import { fmtDay, initiativeOwnerMatches, periodMonthName, todayIso } from "@/lib/review-model";
@@ -33,8 +33,8 @@ export default async function InboxPage() {
   );
 
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
-      <ReviewHeader
+    <div className="mx-auto flex max-w-page flex-col gap-6">
+      <PageHeader
         eyebrow="Inbox"
         title={`Inbox · ${me.name}`}
         description="Your SIs that need an update this month, the milestones and action items you own, and ELT asks on your SIs. Ticking an item off saves it."

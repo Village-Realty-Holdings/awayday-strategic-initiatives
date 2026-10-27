@@ -35,7 +35,7 @@ const buttonVariants = cva(
       size: {
         default: "px-4 py-2 text-sm",
         sm: "px-3 py-1.5 text-xs",
-        xs: "px-2 py-1 text-[11px]",
+        xs: "px-2 py-1 text-note",
         icon: "h-9 w-9 text-sm",
         "icon-sm": "h-6 w-6 text-xs",
         // No padding or size: for bare icon/text affordances.

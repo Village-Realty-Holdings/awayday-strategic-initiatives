@@ -70,7 +70,7 @@ export default async function PeoplePage() {
   });
 
   return (
-    <div className="max-w-[1200px]">
+    <div className="max-w-section">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-ink">People &amp; access</h1>
@@ -98,7 +98,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="text-right">
       <p className="tabular text-lg font-semibold text-ink">{value}</p>
-      <p className="text-[11px] text-ink-faint">{label}</p>
+      <p className="text-note text-ink-faint">{label}</p>
     </div>
   );
 }

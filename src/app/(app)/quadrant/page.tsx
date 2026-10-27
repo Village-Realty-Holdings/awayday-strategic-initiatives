@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { PageHeader } from "@/components/shell/page-header";
 import { activePlanInitiativeWhere } from "@/lib/active-plan";
 import {
   VALUE_SCALE,
@@ -10,7 +11,6 @@ import {
   HEALTH_ORDER,
   siHealth,
   quadrantTooltipClasses,
-  type Health,
 } from "@/lib/initiatives";
 
 export const dynamic = "force-dynamic";
@@ -46,16 +46,15 @@ export default async function QuadrantPage() {
   });
 
   return (
-    <div className="mx-auto max-w-[900px]">
-      <header className="mb-5">
-        <h1 className="text-xl font-semibold tracking-tight text-ink">Lift × Value</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          Where to spend: strategic value against effort to deliver. Top-right is the sweet spot.
-          Dot color shows delivery health against the timeline.
-        </p>
-      </header>
+    <div className="mx-auto max-w-narrow">
+      <PageHeader
+        className="mb-5"
+        eyebrow="Portfolio"
+        title="Lift × Value"
+        description="Where to spend: strategic value against effort to deliver. Top-right is the sweet spot. Dot color shows delivery health against the timeline."
+      />
 
-      <div className="flex flex-wrap items-center gap-4 pb-3 text-[11px] text-ink-muted">
+      <div className="flex flex-wrap items-center gap-4 pb-3 text-note text-ink-muted">
         {HEALTH_ORDER.map((h) => (
           <span key={h} className="inline-flex items-center gap-1.5">
             <span className={`h-2.5 w-2.5 rounded-full ${HEALTH_META[h].dot}`} aria-hidden /> {HEALTH_META[h].label}
@@ -66,7 +65,7 @@ export default async function QuadrantPage() {
       <div className="flex gap-3">
         {/* Y axis label */}
         <div className="flex w-5 items-center justify-center">
-          <span className="-rotate-90 whitespace-nowrap text-[11px] font-medium tracking-wide text-ink-faint">
+          <span className="-rotate-90 whitespace-nowrap text-note font-medium tracking-wide text-ink-faint">
             Strategic value →
           </span>
         </div>
@@ -89,10 +88,10 @@ export default async function QuadrantPage() {
             ))}
 
             {/* Quadrant labels */}
-            <span className="absolute left-3 top-3 text-[11px] font-medium text-navy-deep">Big Bet</span>
-            <span className="absolute right-3 top-3 text-[11px] font-medium text-ok">Quick Win</span>
-            <span className="absolute left-3 bottom-3 text-[11px] font-medium text-risk">Avoid</span>
-            <span className="absolute right-3 bottom-3 text-[11px] font-medium text-ink-faint">Maybe</span>
+            <span className="absolute left-3 top-3 text-note font-medium text-navy-deep">Big Bet</span>
+            <span className="absolute right-3 top-3 text-note font-medium text-ok">Quick Win</span>
+            <span className="absolute left-3 bottom-3 text-note font-medium text-risk">Avoid</span>
+            <span className="absolute right-3 bottom-3 text-note font-medium text-ink-faint">Maybe</span>
 
             {/* Dots */}
             {dots.map(({ i, x, y, health }) => (
@@ -108,7 +107,7 @@ export default async function QuadrantPage() {
                   className={`block h-3 w-3 rounded-full ring-2 ring-surface transition-transform group-hover:scale-150 ${HEALTH_META[health].dot}`}
                 />
                 <span
-                  className={`pointer-events-none absolute z-20 hidden w-max max-w-[200px] rounded-md bg-ink px-2 py-1.5 text-left text-[10px] leading-snug text-white shadow-lg group-hover:block ${quadrantTooltipClasses(x, y)}`}
+                  className={`pointer-events-none absolute z-20 hidden w-max max-w-[200px] rounded-md bg-ink px-2 py-1.5 text-left text-micro leading-snug text-white shadow-lg group-hover:block ${quadrantTooltipClasses(x, y)}`}
                 >
                   <span className="font-semibold">{i.code} · {i.name}</span>
                   <span className="mt-0.5 block text-white/70">
@@ -123,7 +122,7 @@ export default async function QuadrantPage() {
             ))}
           </div>
           {/* X axis label */}
-          <div className="mt-1.5 flex justify-between px-1 text-[11px] text-ink-faint">
+          <div className="mt-1.5 flex justify-between px-1 text-note text-ink-faint">
             <span>← harder (more lift)</span>
             <span className="font-medium">Ease to deliver →</span>
           </div>
@@ -145,7 +144,7 @@ export default async function QuadrantPage() {
           <h2 className="mb-3 text-sm font-semibold text-ink">Scoring rubric</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <p className="mb-1 text-[11px] font-medium text-ink-faint">Value</p>
+              <p className="mb-1 text-note font-medium text-ink-faint">Value</p>
               <ul className="flex flex-col gap-0.5">
                 {VALUE_SCALE.map((v) => (
                   <li key={v.n} className="text-xs text-ink-muted">
@@ -155,7 +154,7 @@ export default async function QuadrantPage() {
               </ul>
             </div>
             <div>
-              <p className="mb-1 text-[11px] font-medium text-ink-faint">Lift (effort)</p>
+              <p className="mb-1 text-note font-medium text-ink-faint">Lift (effort)</p>
               <ul className="flex flex-col gap-0.5">
                 {LIFT_SCALE.map((l) => (
                   <li key={l.n} className="text-xs text-ink-muted">

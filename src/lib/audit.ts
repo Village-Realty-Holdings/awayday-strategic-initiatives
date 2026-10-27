@@ -2,8 +2,7 @@ import { prisma } from "@/lib/prisma";
 
 // One-line audit trail for server actions. Best-effort by design: the audit
 // write must never turn a completed mutation into a user-facing error.
-// DOWNLOAD and DENIED record who fetched a file, or was refused one
-// (src/lib/partners/download-audit.ts).
+// DOWNLOAD and DENIED record who fetched an attachment, or was refused one.
 export async function audit(
   userId: string | null | undefined,
   action: "CREATE" | "UPDATE" | "DELETE" | "IMPORT" | "DOWNLOAD" | "DENIED",

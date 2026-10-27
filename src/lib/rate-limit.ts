@@ -74,9 +74,8 @@ export async function rateLimit(key: string, max: number, windowMs: number): Pro
 
 /**
  * The current count in a rateLimit bucket, without counting this call. For a
- * check that mustn't add to the bucket (the seller sign-in code's daily cap
- * counts failures only: it checks with this, then calls rateLimit on a
- * failure). Reads 0 for a missing, expired or malformed row.
+ * check that mustn't add to the bucket (e.g. a cap that counts failures only:
+ * check with this, then call rateLimit on a failure). Reads 0 for a missing, expired or malformed row.
  */
 export async function rateLimitCount(key: string): Promise<number> {
   const row = await prisma.setting.findUnique({ where: { key: `rl:${key}` } });

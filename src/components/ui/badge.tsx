@@ -21,7 +21,7 @@ const badgeVariants = cva(
       },
       shape: {
         default: "",
-        pill: "rounded-full text-[11px] font-semibold",
+        pill: "rounded-full text-note font-semibold",
       },
     },
     defaultVariants: { variant: "default", shape: "default" },

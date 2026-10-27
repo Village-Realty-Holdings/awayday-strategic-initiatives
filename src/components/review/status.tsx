@@ -20,7 +20,7 @@ export function SiStatusBadge({ status }: { status: SiStatus | null }) {
   const m = SI_STATUS_META[status];
   return (
     <Badge variant={m.variant}>
-      <span aria-hidden className="text-[9px] leading-none">{m.glyph}</span>
+      <span aria-hidden className="text-nano leading-none">{m.glyph}</span>
       {m.label}
     </Badge>
   );
@@ -76,7 +76,7 @@ export function SiStatusPicker({
     >
       {SI_STATUS_ORDER.map((s) => (
         <RadioGroupItem key={s} value={s} variant="pill" className={STATUS_PICKED[SI_STATUS_META[s].variant]}>
-          <span aria-hidden className="text-[9px]">{SI_STATUS_META[s].glyph}</span>
+          <span aria-hidden className="text-nano">{SI_STATUS_META[s].glyph}</span>
           {SI_STATUS_META[s].label}
         </RadioGroupItem>
       ))}

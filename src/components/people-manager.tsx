@@ -120,7 +120,7 @@ export function PeopleManager({
               <SlidersHorizontal size={14} aria-hidden /> Manage lists
             </Link>
           </Button>
-          {!isAdmin && <span className="text-[11px] text-ink-faint">Login &amp; role changes require an admin.</span>}
+          {!isAdmin && <span className="text-note text-ink-faint">Login &amp; role changes require an admin.</span>}
         </div>
       )}
 
@@ -171,7 +171,7 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
     <>
       <TableRow data-state={open ? "selected" : undefined}>
         <TableCell className="py-3 pl-4">
-          <div className="font-medium text-ink">{p.name}{p.isSelf && <span className="ml-1.5 text-[10px] text-ink-faint">(you)</span>}</div>
+          <div className="font-medium text-ink">{p.name}{p.isSelf && <span className="ml-1.5 text-micro text-ink-faint">(you)</span>}</div>
           <div className="text-xs text-ink-muted">{p.email ?? <span className="text-ink-faint">no email</span>}</div>
         </TableCell>
         <TableCell className="py-3">
@@ -200,7 +200,7 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
           {!p.userId ? (
             <span className="text-xs text-ink-faint">—</span>
           ) : p.role === "admin" ? (
-            <span className="text-[11px] text-ink-faint">All (admin)</span>
+            <span className="text-note text-ink-faint">All (admin)</span>
           ) : (
             <div className="flex items-center gap-1.5">
               <ToggleGroup
@@ -299,7 +299,7 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
                 <Check size={13} aria-hidden /> Save details
               </SubmitButton>
               <Button type="button" onClick={() => setEditing(false)} variant="outline" size="sm" className="py-2">Cancel</Button>
-              {!p.email && <span className="text-[11px] text-ink-faint">Tip: add an email to enable a login later.</span>}
+              {!p.email && <span className="text-note text-ink-faint">Tip: add an email to enable a login later.</span>}
             </form>
           </TableCell>
         </TableRow>
@@ -323,7 +323,7 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
               </NativeSelect>
               <fieldset className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5">
                 <legend className="sr-only">Apps</legend>
-                <span className="text-[11px] font-medium text-ink-faint" aria-hidden>
+                <span className="text-note font-medium text-ink-faint" aria-hidden>
                   Apps <span className="tabular">{grantApps.length}/{APPS.length}</span>
                 </span>
                 {APPS.map((a) => (
@@ -343,7 +343,7 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
               <Button type="submit" disabled={busy === "grant"} size="sm">
                 {busy === "grant" ? <Loader2 size={13} className="animate-spin" aria-hidden /> : <UserPlus size={13} aria-hidden />} Create login
               </Button>
-              <span className="text-[11px] text-ink-faint">Blank password: their login details are emailed automatically. They set up MFA + change it on first login.</span>
+              <span className="text-note text-ink-faint">Blank password: their login details are emailed automatically. They set up MFA + change it on first login.</span>
             </form>
           </TableCell>
         </TableRow>
@@ -366,7 +366,7 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
               <Button type="submit" disabled={busy === "pw"} size="sm">
                 {busy === "pw" ? <Loader2 size={13} className="animate-spin" aria-hidden /> : <KeyRound size={13} aria-hidden />} Set password
               </Button>
-              <span className="text-[11px] text-ink-faint">Signs out their current sessions.</span>
+              <span className="text-note text-ink-faint">Signs out their current sessions.</span>
             </form>
           </TableCell>
         </TableRow>
@@ -378,7 +378,7 @@ function PersonRow({ p, isAdmin, editable, onResult }: { p: Person; isAdmin: boo
 function Labeled({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Label className="flex flex-col gap-1">
-      <span className="text-[10px] font-medium uppercase tracking-wide text-ink-faint">{label}</span>
+      <span className="text-micro font-medium uppercase tracking-wide text-ink-faint">{label}</span>
       {children}
     </Label>
   );

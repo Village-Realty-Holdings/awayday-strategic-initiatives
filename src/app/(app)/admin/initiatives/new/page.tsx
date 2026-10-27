@@ -44,7 +44,7 @@ export default async function NewInitiativePage({
 
   return (
     <div className={PAGE_FRAME}>
-      <PageHeader back={{ href: "/admin/initiatives", label: "Initiatives" }} eyebrow="Initiatives" title="New initiative" description="Priority is derived from the targeted value and effort. Only the driver, code, name and problem statement are required." />
+      <PageHeader sticky back={{ href: "/admin/initiatives", label: "Initiatives" }} eyebrow="Initiatives" title="New initiative" description="Priority is derived from the targeted value and effort. Only the driver, code, name and problem statement are required." />
       <div className={FORM_COLUMN}>
 
         {error && ERRORS[error] && error !== "problem" && (

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { InitiativeStatus } from "@/generated/prisma/enums";
 import { ProgressForm, ProgressSummary } from "@/components/progress-editor";
 import {
   formatDateDay,
@@ -74,7 +75,7 @@ const ATTACH_ERRORS: Record<string, string> = {
   type: "That file type isn't allowed. Use PDF, an image, or an Office/CSV/text doc.",
 };
 
-const STATUSES = ["NOT_STARTED", "PLANNING", "IN_PROGRESS", "AT_RISK", "DONE"] as const;
+const STATUSES = Object.values(InitiativeStatus);
 
 export const dynamic = "force-dynamic";
 
@@ -133,7 +134,7 @@ export default async function InitiativeDetail({
     <div className={PAGE_FRAME}>
       <BreadcrumbTitle path={`/initiatives/${i.id}`} title={`${i.code} ${i.name}`} />
 
-      <PageHeader
+      <PageHeader sticky
         back={isAdmin ? { href: "/admin/initiatives", label: "Initiatives" } : { href: "/", label: "Strategy Review" }}
         eyebrow={
           <>
@@ -180,7 +181,7 @@ export default async function InitiativeDetail({
               ) : (
                 <div className="grid gap-1">
                   <StatusBadge status={i.status} />
-                  <p className="text-[11px] text-ink-faint">Non-value initiative. Completion is tracked by status, not dollars.</p>
+                  <p className="text-note text-ink-faint">Non-value initiative. Completion is tracked by status, not dollars.</p>
                   {objectiveLine && <p className="mt-1 text-xs text-ink-muted">KPI: <span className="text-ink">{objectiveLine}</span></p>}
                 </div>
               )}
@@ -358,7 +359,7 @@ export default async function InitiativeDetail({
                     <CompletionToggle id={m.id} done={!!m.completedAt} label={m.title} action={toggleInitiativeMilestone} editable={editable} />
                     <div className="min-w-0 flex-1">
                       <p className={`text-sm ${m.completedAt ? "text-ink-faint line-through" : "text-ink"}`}>{m.title}</p>
-                      <p className="text-[11px] text-ink-faint">
+                      <p className="text-note text-ink-faint">
                         {[m.owner, m.dueAt ? `due ${formatDateDay(m.dueAt)}` : null, m.completedAt ? `done ${formatDateDay(m.completedAt)}` : null]
                           .filter(Boolean)
                           .join(" · ")}
@@ -397,7 +398,7 @@ export default async function InitiativeDetail({
                 <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-ink">{s.title}</p>
-                    {s.owner && <p className="text-[11px] text-ink-faint">{s.owner}</p>}
+                    {s.owner && <p className="text-note text-ink-faint">{s.owner}</p>}
                   </div>
                   <div className="flex items-center gap-2">
                     {editable ? (
@@ -455,7 +456,7 @@ export default async function InitiativeDetail({
                         <span className="font-semibold text-ink-faint">Mitigation:</span> {r.mitigation}
                       </p>
                     )}
-                    {r.owner && <p className="mt-0.5 text-[11px] text-ink-faint">{r.owner}</p>}
+                    {r.owner && <p className="mt-0.5 text-note text-ink-faint">{r.owner}</p>}
                   </div>
                   <div className="flex items-center gap-2">
                     {editable ? (
@@ -514,13 +515,13 @@ export default async function InitiativeDetail({
                     <Badge
                       variant="custom"
                       shape="pill"
-                      className={`shrink-0 text-[10px] uppercase tracking-wide ${a.kind === "DEPENDENCY" ? "bg-gold/20 text-gold-deep" : "bg-navy/10 text-navy-deep"}`}
+                      className={`shrink-0 text-micro uppercase tracking-wide ${a.kind === "DEPENDENCY" ? "bg-gold/20 text-gold-deep" : "bg-navy/10 text-navy-deep"}`}
                     >
                       {a.kind === "DEPENDENCY" ? "Dependency" : "Action"}
                     </Badge>
                     <div className="min-w-0 flex-1">
                       <p className={`text-sm ${a.status === "DONE" ? "text-ink-faint line-through" : "text-ink"}`}>{a.title}</p>
-                      <p className="text-[11px] text-ink-faint">
+                      <p className="text-note text-ink-faint">
                         {[a.owner, a.dueAt ? `due ${formatDateDay(a.dueAt)}` : null].filter(Boolean).join(" · ")}
                       </p>
                     </div>
@@ -564,14 +565,14 @@ export default async function InitiativeDetail({
                       <Badge
                         variant="custom"
                         shape="pill"
-                        className={`mr-2 text-[10px] uppercase tracking-wide ${r.kind === "INVESTMENT" ? "bg-gold/20 text-gold-deep" : "bg-navy/10 text-navy-deep"}`}
+                        className={`mr-2 text-micro uppercase tracking-wide ${r.kind === "INVESTMENT" ? "bg-gold/20 text-gold-deep" : "bg-navy/10 text-navy-deep"}`}
                       >
                         {r.kind === "INVESTMENT" ? "Investment" : "Support"}
                       </Badge>
                       {r.request}
                       {r.amount != null && <span className="tabular ml-1.5 font-semibold text-ink">{formatMoney(Number(r.amount))}</span>}
                     </p>
-                    {r.decidedNote && <p className="mt-0.5 text-[11px] text-ink-faint">{r.decidedNote}</p>}
+                    {r.decidedNote && <p className="mt-0.5 text-note text-ink-faint">{r.decidedNote}</p>}
                   </div>
                   <div className="flex items-center gap-2">
                     {editable ? (
@@ -627,10 +628,10 @@ export default async function InitiativeDetail({
                 <li key={u.id} className="py-2.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <StatusBadge status={u.status} />
-                    <span className="text-[11px] text-ink-faint">{u.reportingPeriod ?? "Unspecified period"} · {formatDateDay(u.createdAt)}</span>
+                    <span className="text-note text-ink-faint">{u.reportingPeriod ?? "Unspecified period"} · {formatDateDay(u.createdAt)}</span>
                   </div>
                   {u.update && <p className="mt-1 text-sm text-ink-muted">{u.update}</p>}
-                  <p className="mt-1 text-[11px] text-ink-faint">Path forward: {u.pathForward ?? "TBD"} · Next milestone: {u.nextMilestone ?? "TBD"}{u.milestoneDueAt ? ` (${formatDateDay(u.milestoneDueAt)})` : ""}</p>
+                  <p className="mt-1 text-note text-ink-faint">Path forward: {u.pathForward ?? "TBD"} · Next milestone: {u.nextMilestone ?? "TBD"}{u.milestoneDueAt ? ` (${formatDateDay(u.milestoneDueAt)})` : ""}</p>
                 </li>
               ))}
             </DetailList>
@@ -659,7 +660,7 @@ export default async function InitiativeDetail({
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-medium text-ink">{c.authorName}</p>
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-ink-faint">{formatDateDay(c.createdAt)}</span>
+                      <span className="text-note text-ink-faint">{formatDateDay(c.createdAt)}</span>
                       {editable && (c.authorUserId === session.user.id || isAdmin) && (
                         <RemoveButton action={removeComment} id={c.id} title="Delete comment?" description={`Delete this comment by ${c.authorName}? This can't be undone.`} confirmLabel="Delete" label="Delete comment" />
                       )}
@@ -685,7 +686,7 @@ export default async function InitiativeDetail({
 function RailGroup({ title, icon: Icon, children }: { title: string; icon?: typeof Paperclip; children: React.ReactNode }) {
   return (
     <section className="border-b border-border px-4 py-4 last:border-b-0">
-      <h2 className="mb-2.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
+      <h2 className="mb-2.5 flex items-center gap-1.5 text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">
         {Icon && <Icon size={12} aria-hidden />}
         {title}
       </h2>
@@ -716,7 +717,7 @@ function Block({
 }) {
   return (
     <section className="flex flex-col rounded-md border border-border bg-surface px-4 py-4 sm:px-5">
-      <h2 className="text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-faint">{title}</h2>
+      <h2 className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">{title}</h2>
       {body ? (
         <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-ink">{body}</p>
       ) : (

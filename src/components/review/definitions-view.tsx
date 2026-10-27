@@ -36,7 +36,7 @@ export function DefinitionsView({ rows }: { rows: DefinitionRow[] }) {
           name: (
             <span>
               {r.name}
-              <span className="block font-mono text-[10px] font-normal text-ink-faint">{r.metricKey}</span>
+              <span className="block font-mono text-micro font-normal text-ink-faint">{r.metricKey}</span>
             </span>
           ),
           area: r.area ?? "Company-wide",

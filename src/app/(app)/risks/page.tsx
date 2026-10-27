@@ -75,7 +75,7 @@ export default async function RisksPage() {
   return (
     <div className={PAGE_FRAME}>
       <RiskTargetHighlight />
-      <PageHeader
+      <PageHeader sticky
         title="CIM Risk Scorecard"
         description="Every risk dimension on one page. Coverage = the average progress of the SIs driving each risk toward its mitigated state."
         stats={
@@ -103,7 +103,7 @@ export default async function RisksPage() {
 
       <h2 className="mb-2 text-sm font-semibold text-ink">All risks</h2>
       <div className="overflow-hidden rounded-xl border border-border bg-surface">
-        <div className="grid grid-cols-[1fr_180px_120px] items-center gap-3 border-b border-border bg-surface-2/40 px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-ink-faint sm:grid-cols-[1fr_220px_160px_120px]">
+        <div className="grid grid-cols-[1fr_180px_120px] items-center gap-3 border-b border-border bg-surface-2/40 px-4 py-2 text-micro font-semibold uppercase tracking-wide text-ink-faint sm:grid-cols-[1fr_220px_160px_120px]">
           <span>Risk dimension</span>
           <span className="hidden sm:block">Driving initiatives</span>
           <span>Coverage</span>
@@ -112,7 +112,7 @@ export default async function RisksPage() {
 
         {groups.map((group) => (
           <div key={group.category}>
-            <div className="bg-surface-2/20 px-4 py-1.5 text-[11px] font-semibold text-ink-muted">{group.category}</div>
+            <div className="bg-surface-2/20 px-4 py-1.5 text-note font-semibold text-ink-muted">{group.category}</div>
             {group.items.map(({ r, linked, cov }) => (
               <div
                 key={r.id}
@@ -122,7 +122,7 @@ export default async function RisksPage() {
                 {/* Risk name + flags */}
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="tabular text-[11px] text-ink-faint">{r.code}</span>
+                    <span className="tabular text-note text-ink-faint">{r.code}</span>
                     <span
                       className="truncate text-sm font-medium text-ink"
                       title={[r.currentState && `Now: ${r.currentState}`, r.targetState && `Mitigated: ${r.targetState}`].filter(Boolean).join("\n")}
@@ -139,20 +139,20 @@ export default async function RisksPage() {
                       </Button>
                     )}
                   </div>
-                  <p className="mt-0.5 truncate text-[11px] text-ink-faint">{r.owner ?? "Unassigned"}</p>
+                  <p className="mt-0.5 truncate text-note text-ink-faint">{r.owner ?? "Unassigned"}</p>
                 </div>
 
                 {/* Driving SIs (compact pills) */}
                 <div className="hidden flex-wrap items-center gap-1 sm:flex">
                   {linked.length === 0 ? (
-                    <span className="text-[10px] text-ink-faint">none</span>
+                    <span className="text-micro text-ink-faint">none</span>
                   ) : (
                     linked.slice(0, 4).map((si) => (
                       <Badge
                         key={si.id}
                         asChild
                         variant="custom"
-                        className={`tabular rounded px-1 text-[9px] transition-opacity hover:opacity-80 ${siColor(si)}`}
+                        className={`tabular rounded px-1 text-nano transition-opacity hover:opacity-80 ${siColor(si)}`}
                       >
                         <Link
                           href={`/initiatives/${si.id}`}
@@ -163,7 +163,7 @@ export default async function RisksPage() {
                       </Badge>
                     ))
                   )}
-                  {linked.length > 4 && <span className="text-[10px] text-ink-faint">+{linked.length - 4}</span>}
+                  {linked.length > 4 && <span className="text-micro text-ink-faint">+{linked.length - 4}</span>}
                 </div>
 
                 {/* Coverage */}
@@ -175,7 +175,7 @@ export default async function RisksPage() {
                 </div>
 
                 {/* Prize + target */}
-                <div className="text-right text-[11px] leading-tight text-ink-muted">
+                <div className="text-right text-note leading-tight text-ink-muted">
                   <div className="tabular font-medium text-ink">{r.prize ?? "—"}</div>
                   {r.targetDate && <div className="text-ink-faint">{formatDateShort(r.targetDate)}</div>}
                 </div>
@@ -185,7 +185,7 @@ export default async function RisksPage() {
         ))}
       </div>
 
-      <p className="mt-3 text-[11px] text-ink-faint">
+      <p className="mt-3 text-note text-ink-faint">
         Hover a risk name to see its current and mitigated state. Click an initiative code to open its
         charter, or the pencil to edit the risk.
       </p>

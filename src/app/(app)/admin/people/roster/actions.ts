@@ -3,15 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { str } from "@/lib/form";
+import { audit } from "@/lib/audit";
 import { flash } from "@/lib/flash";
 import { requireAdmin } from "@/lib/session";
 
-function str(fd: FormData, key: string): string | null {
-  const v = fd.get(key);
-  const s = typeof v === "string" ? v.trim() : "";
-  return s === "" ? null : s;
-}
-const plain = (o: unknown) => JSON.parse(JSON.stringify(o));
 
 // True if a DIFFERENT roster member already uses this email. Pointing two rows
 // at one email is what let the email-match path in upsertPersonDetails overwrite
@@ -37,9 +33,7 @@ export async function createRosterMember(formData: FormData) {
       email,
     },
   });
-  await prisma.auditLog.create({
-    data: { userId: session.user.id, action: "CREATE", entity: "RosterMember", entityId: created.id, after: plain(created) },
-  });
+  await audit(session.user.id, "CREATE", "RosterMember", created.id, { after: created });
   revalidatePath("/admin/people");
   await flash("Person added");
   redirect("/admin/people");
@@ -69,9 +63,7 @@ export async function updateRosterMember(formData: FormData) {
     revalidatePath("/scorecard");
     revalidatePath("/admin/initiatives");
   }
-  await prisma.auditLog.create({
-    data: { userId: session.user.id, action: "UPDATE", entity: "RosterMember", entityId: id, before: plain(before), after: plain(after) },
-  });
+  await audit(session.user.id, "UPDATE", "RosterMember", id, { before, after });
   revalidatePath("/admin/people");
   await flash("Person updated");
   redirect("/admin/people");
@@ -109,14 +101,10 @@ export async function upsertPersonDetails(formData: FormData) {
       revalidatePath("/scorecard");
       revalidatePath("/admin/initiatives");
     }
-    await prisma.auditLog.create({
-      data: { userId: session.user.id, action: "UPDATE", entity: "RosterMember", entityId: after.id, before: plain(before), after: plain(after) },
-    });
+    await audit(session.user.id, "UPDATE", "RosterMember", after.id, { before, after });
   } else {
     const created = await prisma.rosterMember.create({ data: { name, email, position, department } });
-    await prisma.auditLog.create({
-      data: { userId: session.user.id, action: "CREATE", entity: "RosterMember", entityId: created.id, after: plain(created) },
-    });
+    await audit(session.user.id, "CREATE", "RosterMember", created.id, { after: created });
   }
   revalidatePath("/admin/people");
   await flash("Details saved");
@@ -129,9 +117,7 @@ export async function deleteRosterMember(formData: FormData) {
   const before = await prisma.rosterMember.findUnique({ where: { id } });
   if (!before) redirect("/admin/people");
   await prisma.rosterMember.delete({ where: { id } });
-  await prisma.auditLog.create({
-    data: { userId: session.user.id, action: "DELETE", entity: "RosterMember", entityId: id, before: plain(before) },
-  });
+  await audit(session.user.id, "DELETE", "RosterMember", id, { before });
   revalidatePath("/admin/people");
   await flash("Person removed");
   redirect("/admin/people");

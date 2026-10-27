@@ -102,7 +102,7 @@ export function LoginForm({ ssoEnabled = false, initialError = "" }: { ssoEnable
             className="h-7 w-auto"
             priority
           />
-          <p className="mt-1.5 text-[11px] text-ink-faint">Strategic OS</p>
+          <p className="mt-1.5 text-note text-ink-faint">Strategic OS</p>
         </div>
 
         <div className="rounded-xl border border-border bg-surface p-6">
@@ -149,7 +149,7 @@ export function LoginForm({ ssoEnabled = false, initialError = "" }: { ssoEnable
                   </Button>
                   <div className="flex items-center gap-3">
                     <span className="h-px flex-1 bg-border" />
-                    <span className="text-[11px] uppercase tracking-wide text-ink-faint">or</span>
+                    <span className="text-note uppercase tracking-wide text-ink-faint">or</span>
                     <span className="h-px flex-1 bg-border" />
                   </div>
                 </>

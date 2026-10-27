@@ -39,7 +39,7 @@ export default async function LauncherPage() {
 
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-6 py-12">
         <div className="mb-8">
-          <p className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.08em] text-gold-deep">
+          <p className="flex items-center gap-2 text-note font-medium uppercase tracking-eyebrow text-gold-deep">
             <LayoutGrid size={13} aria-hidden /> Awayday
           </p>
           <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-ink">
@@ -68,7 +68,7 @@ export default async function LauncherPage() {
                     <Icon size={20} aria-hidden />
                   </span>
                   <h2 className="mt-4 text-base font-semibold text-ink">{a.name}</h2>
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-gold-deep">{a.tagline}</p>
+                  <p className="text-note font-medium uppercase tracking-wide text-gold-deep">{a.tagline}</p>
                   <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-muted">{a.blurb}</p>
                   <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-navy-deep">
                     Open <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" aria-hidden />
@@ -96,7 +96,7 @@ export default async function LauncherPage() {
         )}
       </main>
 
-      <footer className="px-6 py-4 text-center text-[11px] text-ink-faint">
+      <footer className="px-6 py-4 text-center text-note text-ink-faint">
         Confidential · for Awayday leadership
       </footer>
     </div>

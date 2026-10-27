@@ -1,5 +1,6 @@
 import { BelowTheLineView, type BtlGroup } from "@/components/review/below-the-line-view";
-import { NoDataNote, ReviewHeader } from "@/components/review/preview";
+import { NoDataNote } from "@/components/review/preview";
+import { PageHeader } from "@/components/shell/page-header";
 import { prisma } from "@/lib/prisma";
 import { canEdit, requireApp } from "@/lib/session";
 import { getReviewPlan, resolvePeriod } from "@/lib/review-data";
@@ -42,8 +43,8 @@ export default async function BelowTheLinePage() {
     }));
 
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
-      <ReviewHeader
+    <div className="mx-auto flex max-w-page flex-col gap-6">
+      <PageHeader
         eyebrow="Below the line"
         title="Below the line"
         description="The smaller projects teams run in each area that feed the strategic initiatives above the line, each with an owner, a status and the SI it feeds."

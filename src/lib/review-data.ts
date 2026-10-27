@@ -91,8 +91,6 @@ export const getReviewPeriodIndex = cache(async (): Promise<{ periods: string[];
 });
 
 /** Every period that has KPI data, SI updates or a stored review, newest first. */
-export const getReviewPeriodIds = cache(async (): Promise<string[]> => (await getReviewPeriodIndex()).periods);
-
 /** Period header (label, status, prepared by, dates, sources) and its so-whats. */
 export const getReviewPeriod = cache(async (id: string): Promise<ReviewPeriod> => {
   const [rows, stored] = await Promise.all([

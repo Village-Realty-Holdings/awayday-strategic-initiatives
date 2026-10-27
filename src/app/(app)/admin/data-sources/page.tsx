@@ -94,7 +94,7 @@ export default async function DataSourcesPage() {
                 doc: (
                   <span>
                     {d.name}
-                    {d.category && <span className="block text-[11px] font-normal text-ink-faint">{d.category}</span>}
+                    {d.category && <span className="block text-note font-normal text-ink-faint">{d.category}</span>}
                   </span>
                 ),
                 period: periodLabel(d.period),
@@ -136,11 +136,11 @@ export default async function DataSourcesPage() {
                 metric: (
                   <span>
                     {d.name}
-                    <span className="block font-mono text-[10px] font-normal text-ink-faint">{d.metricKey}</span>
+                    <span className="block font-mono text-micro font-normal text-ink-faint">{d.metricKey}</span>
                   </span>
                 ),
                 source: <Badge variant="secondary">{SOURCE_LABEL[d.sourceType] ?? d.sourceType}</Badge>,
-                identifier: d.sourceIdentifier ? <span className="font-mono text-[11px]">{d.sourceIdentifier}</span> : <span className="text-ink-faint">—</span>,
+                identifier: d.sourceIdentifier ? <span className="font-mono text-note">{d.sourceIdentifier}</span> : <span className="text-ink-faint">—</span>,
                 area: d.strategicArea?.name ?? "Company-wide",
                 values: d.observations.length,
                 latest: latest ? periodLabel(latest) : <span className="text-ink-faint">No values yet</span>,

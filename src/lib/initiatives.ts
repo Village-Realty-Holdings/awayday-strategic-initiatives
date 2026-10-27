@@ -1,4 +1,4 @@
-import type { InitiativeStatus, Quadrant, ImpactLevel, DmaicStage } from "@/generated/prisma/client";
+import type { InitiativeStatus, Quadrant } from "@/generated/prisma/client";
 
 // Status display metadata. Per DESIGN.md, status is always color + glyph + label
 // (never color alone), so it reads for colorblind users too.
@@ -19,35 +19,6 @@ export const QUADRANT_META: Record<Quadrant, { label: string; hint: string; fg: 
   FILL_IN: { label: "Maybe", hint: "Low value · low effort", fg: "text-gold-deep", bg: "bg-gold/15" },
   AVOID: { label: "Avoid", hint: "Low value · high effort", fg: "text-risk", bg: "bg-risk-soft" },
 };
-
-export const IMPACT_LABEL: Record<ImpactLevel, string> = {
-  HIGH: "High",
-  MEDIUM: "Medium",
-  LOW: "Low",
-};
-
-// Six Sigma DMAIC delivery stage. Color ramp advances red -> orange -> yellow ->
-// green -> purple as work moves toward Control (completion).
-export const DMAIC_META: Record<DmaicStage, { label: string; n: number; bg: string; fg: string; dot: string }> = {
-  DEFINE: { label: "Define", n: 1, bg: "bg-risk-soft", fg: "text-risk", dot: "bg-risk" },
-  MEASURE: { label: "Measure", n: 2, bg: "bg-warn-soft", fg: "text-warn", dot: "bg-warn" },
-  ANALYZE: { label: "Analyze", n: 3, bg: "bg-gold/20", fg: "text-gold-deep", dot: "bg-gold" },
-  IMPROVE: { label: "Improve", n: 4, bg: "bg-ok-soft", fg: "text-ok", dot: "bg-ok" },
-  CONTROL: { label: "Control", n: 5, bg: "bg-done/15", fg: "text-done", dot: "bg-done" },
-};
-
-export const DMAIC_ORDER: DmaicStage[] = ["DEFINE", "MEASURE", "ANALYZE", "IMPROVE", "CONTROL"];
-
-// Theme order for grouping (matches the strategic spine).
-export const CIM_DRIVER_ORDER = [
-  "M&A",
-  "Grow new units",
-  "Owner retention",
-  "Margin expansion",
-  "TrevPAR expansion",
-  "Key Enablers — Talent",
-  "Key Enablers — Technology",
-];
 
 // Scoring rubric (source: Tracker "Scoring Key"). Keeps Value/Lift scored consistently.
 export const VALUE_SCALE: { n: number; label: string; def: string }[] = [
@@ -158,13 +129,6 @@ export function parseTeam(raw: string | null | undefined): string[] {
 
 export const formatTeam = (raw: string | null | undefined): string => parseTeam(raw).join(", ");
 export const serializeTeam = (names: string[]): string => JSON.stringify(names);
-
-export const formatPct = (v: number) => `${Math.round(v * 100)}%`;
-
-// Charter Impact badge: $ scale derived from strategic value (matches the Tracker heuristic).
-export function impactBadge(value: number): string {
-  return ["$", "$", "$$", "$$$", "$$$$", "$$$$"][Math.min(Math.max(value, 0), 5)];
-}
 
 // Charter Effort badge: L/M/H derived from lift (higher lift = more effort to ship).
 export function effortBadge(lift: number): "L" | "M" | "H" {

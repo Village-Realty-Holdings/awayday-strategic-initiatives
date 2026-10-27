@@ -1,5 +1,5 @@
 import { DefinitionsView } from "@/components/review/definitions-view";
-import { ReviewHeader } from "@/components/review/preview";
+import { PageHeader } from "@/components/shell/page-header";
 import { prisma } from "@/lib/prisma";
 import { requireApp } from "@/lib/session";
 import { comparePeriods, PUBLICATION_APPROVED } from "@/lib/kpi";
@@ -26,8 +26,8 @@ export default async function DefinitionsPage() {
     latestPeriod: d.observations.map((o) => o.reportingPeriod).sort((a, b) => comparePeriods(b, a))[0] ?? null,
   }));
   return (
-    <div className="mx-auto flex max-w-[1100px] flex-col gap-6">
-      <ReviewHeader
+    <div className="mx-auto flex max-w-review flex-col gap-6">
+      <PageHeader
         eyebrow="Metric definitions"
         title="Metric definitions"
         description="Every metric the review can show, where its values come from, and the latest month that has data."

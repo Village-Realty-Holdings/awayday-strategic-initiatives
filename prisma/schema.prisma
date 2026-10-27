@@ -691,7 +691,7 @@ model User {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
   twoFactorEnabled   Boolean?        @default(false)
-  role               String? // platform role: admin | editor | viewer
+  role               String? // platform role: admin | editor | user
   // Per-app entitlement. Only "initiatives" exists in this app; admins always pass.
   appAccess          String[]        @default(["initiatives"])
   banned             Boolean?        @default(false)

@@ -34,10 +34,10 @@ export default async function PlanVersionsPage({ searchParams }: { searchParams:
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-semibold text-ink">{plan.code}</h2>
-                {plan.active && <Badge variant="ok" className="rounded px-1.5 text-[10px] font-semibold"><Check size={11} aria-hidden /> Active</Badge>}
+                {plan.active && <Badge variant="ok" className="rounded px-1.5 text-micro font-semibold"><Check size={11} aria-hidden /> Active</Badge>}
               </div>
               <p className="mt-1 text-sm text-ink-muted">{plan.title}</p>
-              <p className="mt-1 text-[11px] text-ink-faint">
+              <p className="mt-1 text-note text-ink-faint">
                 {plan._count.initiatives} initiatives · {plan.sourceFileName ?? "No source file"}
                 {plan.importedAt ? ` · imported ${plan.importedAt.toLocaleDateString()}` : ""}
               </p>

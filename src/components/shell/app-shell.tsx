@@ -52,12 +52,12 @@ export function AppShell({
           </FooterLink>
         )}
         <div className="flex items-center gap-2.5 border-t border-border px-4 py-3">
-          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-navy/10 text-[11px] font-semibold text-navy-deep">
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-navy/10 text-note font-semibold text-navy-deep">
             {initials(user.name)}
           </span>
           <div className="min-w-0 flex-1 leading-tight">
             <p className="truncate text-xs font-medium text-ink">{user.name}</p>
-            <p className="truncate text-[10px] text-ink-faint">
+            <p className="truncate text-micro text-ink-faint">
               {user.role === "admin" ? "Admin" : "Member"}
             </p>
           </div>
@@ -77,7 +77,7 @@ export function AppShell({
         <div className="app-inset flex min-h-0 flex-1 flex-col overflow-y-auto scroll-smooth">
           <InsetScrollReset />
           <main className="flex-1 px-6 py-7">{children}</main>
-          <footer data-chrome className="border-t border-border bg-surface px-6 py-4 text-center text-[11px] text-ink-faint">
+          <footer data-chrome className="border-t border-border bg-surface px-6 py-4 text-center text-note text-ink-faint">
             Awayday Strategic Initiatives · Confidential · for Awayday leadership. Changes are versioned in the audit log.
           </footer>
         </div>

@@ -79,7 +79,7 @@ export function ReviewEditor({
               <h2 className="text-sm font-semibold text-ink">Review details</h2>
               <div className="flex items-center gap-2">
                 <PeriodStatusBadge status={status} />
-                {!stored && <span className="text-[11px] text-ink-faint">Not saved yet</span>}
+                {!stored && <span className="text-note text-ink-faint">Not saved yet</span>}
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -98,7 +98,7 @@ export function ReviewEditor({
               <Label className="flex flex-col gap-1.5">
                 Data as of
                 <Input name="dataAsOf" type="date" defaultValue={dataAsOf ?? ""} />
-                <span className="text-[11px] font-normal text-ink-faint">
+                <span className="text-note font-normal text-ink-faint">
                   {observedAsOf ? `Blank uses the KPI data: ${fmtLong(observedAsOf)}.` : "No KPI data loaded for this month."}
                 </span>
               </Label>
@@ -121,7 +121,7 @@ export function ReviewEditor({
               {areas.map((a) => (
                 <li key={a.code}>
                   <Card className="gap-0 p-4">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-faint">{a.eyebrow}</p>
+                    <p className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">{a.eyebrow}</p>
                     <h3 className="mb-3 mt-0.5 text-sm font-semibold text-ink">{a.name}</h3>
                     <SoWhatEditor compact scopeLabel={a.name} items={byArea[a.code] ?? []} onChange={(next) => setByArea((m) => ({ ...m, [a.code]: next }))} locked={locked} />
                   </Card>

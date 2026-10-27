@@ -66,7 +66,7 @@ function SiUpdateCard({ row, period, locked }: { row: MySiRow; period: string; l
     <article id={`si-${row.id}`} className="scroll-mt-20 rounded-xl border border-border bg-surface p-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-faint">{row.areaName}</p>
+          <p className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">{row.areaName}</p>
           <h3 className="mt-0.5 text-base font-semibold text-ink">
             <Link href={`/initiatives/${row.id}`} className="hover:text-navy-deep">
               <span className="tabular mr-2 text-xs text-ink-faint">{row.shortCode}</span>

@@ -1,24 +1,14 @@
 "use client";
 
-import type { InitiativeStatus, Quadrant, DmaicStage } from "@/generated/prisma/client";
-import { STATUS_META, QUADRANT_META, DMAIC_META } from "@/lib/initiatives";
+import type { InitiativeStatus, Quadrant } from "@/generated/prisma/client";
+import { STATUS_META, QUADRANT_META } from "@/lib/initiatives";
 import { Badge } from "@/components/ui/badge";
-
-export function DmaicBadge({ stage, showStep = true }: { stage: DmaicStage; showStep?: boolean }) {
-  const m = DMAIC_META[stage];
-  return (
-    <Badge variant="custom" title={`DMAIC stage ${m.n} of 5: ${m.label}`} className={`${m.bg} ${m.fg}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${m.dot}`} aria-hidden />
-      {showStep && <span className="tabular opacity-70">{m.n}</span>} {m.label}
-    </Badge>
-  );
-}
 
 export function StatusBadge({ status }: { status: InitiativeStatus }) {
   const m = STATUS_META[status];
   return (
     <span className="inline-flex items-center gap-1.5 text-xs font-medium whitespace-nowrap">
-      <span className={`${m.fg} text-[10px] leading-none`} aria-hidden>
+      <span className={`${m.fg} text-micro leading-none`} aria-hidden>
         {m.glyph}
       </span>
       <span className="text-ink">{m.label}</span>

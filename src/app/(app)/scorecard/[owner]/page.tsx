@@ -86,7 +86,7 @@ export default async function OwnerPage({ params }: { params: Promise<{ owner: s
 
   return (
     <div className={PAGE_FRAME}>
-      <PageHeader
+      <PageHeader sticky
         back={{ href: "/scorecard", label: "Owner Scorecard" }}
         eyebrow="Owner Scorecard"
         title={owner}

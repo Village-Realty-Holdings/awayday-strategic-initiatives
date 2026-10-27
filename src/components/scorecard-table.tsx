@@ -58,13 +58,13 @@ export function ScorecardTable({ rows, totals: tot }: { rows: ScorecardRow[]; to
                     {r.owner}
                   </Link>
                   {!r.inDirectory && (
-                    <Badge variant="custom" className="ml-1.5 rounded bg-warn-soft px-1.5 text-[10px] text-warn" title="This owner is not in the People directory">
+                    <Badge variant="custom" className="ml-1.5 rounded bg-warn-soft px-1.5 text-micro text-warn" title="This owner is not in the People directory">
                       not in People
                     </Badge>
                   )}
                 </div>
                 {(r.position || r.department) && (
-                  <div className="text-[11px] text-ink-faint">{[r.position, r.department].filter(Boolean).join(" · ")}</div>
+                  <div className="text-note text-ink-faint">{[r.position, r.department].filter(Boolean).join(" · ")}</div>
                 )}
               </TableCell>
               <TableCell className={cn(NUM, !idle && "text-ink-muted")}>{r.count || "—"}</TableCell>

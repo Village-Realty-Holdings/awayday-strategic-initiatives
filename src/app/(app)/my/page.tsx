@@ -1,6 +1,7 @@
 import { MyUpdates, type MySiRow } from "@/components/review/my-updates";
 import { PeriodSwitcherQuery } from "@/components/review/period-query";
-import { NoDataNote, ReviewHeader } from "@/components/review/preview";
+import { NoDataNote } from "@/components/review/preview";
+import { PageHeader } from "@/components/shell/page-header";
 import { requireApp } from "@/lib/session";
 import { allSis, getReviewPeriod, getReviewPlan, resolvePeriod } from "@/lib/review-data";
 import { fmtDay, fmtLong, initiativeOwnerMatches, periodLabel, todayIso } from "@/lib/review-model";
@@ -34,8 +35,8 @@ export default async function MySisPage({ searchParams }: { searchParams: Promis
   }));
 
   return (
-    <div className="mx-auto flex max-w-[1100px] flex-col gap-6">
-      <ReviewHeader
+    <div className="mx-auto flex max-w-review flex-col gap-6">
+      <PageHeader
         eyebrow="My SIs"
         title={`My SIs · ${periodLabel(id)}`}
         description="Your monthly update for each SI you lead: a status, latest progress and what next. It feeds the review and Asks by leader."

@@ -33,7 +33,7 @@ export function RiskViews({ risks }: { risks: RiskPoint[] }) {
         <div className="rounded-xl border border-border bg-surface p-5">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-sm font-semibold text-ink">Risk scorecard</h2>
-            <div className="flex items-center gap-3 text-[11px] text-ink-muted">
+            <div className="flex items-center gap-3 text-note text-ink-muted">
               <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-risk" aria-hidden /> &lt;34%</span>
               <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-warn" aria-hidden /> 34-66%</span>
               <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-ok" aria-hidden /> 67%+</span>
@@ -43,14 +43,14 @@ export function RiskViews({ risks }: { risks: RiskPoint[] }) {
           <div className="flex flex-col gap-2.5">
             {groups.map((g) => (
               <div key={g.category} className="grid grid-cols-1 gap-2 sm:grid-cols-[140px_1fr] sm:items-start">
-                <span className="pt-1 text-[11px] font-medium text-ink-muted">{g.category}</span>
+                <span className="pt-1 text-note font-medium text-ink-muted">{g.category}</span>
                 <div className="flex flex-wrap gap-1.5">
                   {g.items.map((r) => (
                     <Badge
                       key={r.id}
                       asChild
                       variant="custom"
-                      className={`py-1 text-[11px] transition-opacity hover:opacity-80 ${healthChip(r.coverage)}`}
+                      className={`py-1 text-note transition-opacity hover:opacity-80 ${healthChip(r.coverage)}`}
                     >
                       <a
                         href={`#${r.code}`}
@@ -66,7 +66,7 @@ export function RiskViews({ risks }: { risks: RiskPoint[] }) {
               </div>
             ))}
           </div>
-          <p className="mt-3 text-[11px] text-ink-faint">
+          <p className="mt-3 text-note text-ink-faint">
             Each chip is a risk, colored by mitigation coverage. Hover for detail, click to jump to its row below.
           </p>
         </div>

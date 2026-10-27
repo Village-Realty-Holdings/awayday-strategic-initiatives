@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 // admin...) get the same header + cards shape, which is close enough.
 export default function Loading() {
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-col gap-8" role="status" aria-label="Loading">
+    <div className="mx-auto flex max-w-page flex-col gap-8" role="status" aria-label="Loading">
       <header className="flex flex-col gap-2">
         <Skeleton className="h-3 w-40" />
         <Skeleton className="h-7 w-80 max-w-full" />

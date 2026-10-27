@@ -68,7 +68,7 @@ export default async function InitiativesPage({
 
   return (
     <div className={PAGE_FRAME}>
-      <PageHeader
+      <PageHeader sticky
         title="Strategic Initiatives"
         description={<>{activePlan?.title ?? "All initiatives"}. Status updates and charter details are maintained here.</>}
         stats={
