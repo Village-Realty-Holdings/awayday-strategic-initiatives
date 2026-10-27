@@ -2,35 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Target,
-  FileText,
-  Compass,
-  Layers,
-  type AppIcon,
-} from "@/components/icons";
+import { LayoutDashboard, Inbox, Target, Layers, CalendarDays, FileText, type AppIcon } from "@/components/icons";
 
 type Item = { label: string; href: string; icon: AppIcon };
 
 const NAV: Item[] = [
   { label: "Strategy Review", href: "/", icon: LayoutDashboard },
-  { label: "Initiatives", href: "/initiatives", icon: Target },
-  { label: "Groups", href: "/groups", icon: Layers },
-  { label: "Strategy Sources", href: "/sources", icon: Compass },
+  { label: "Inbox", href: "/inbox", icon: Inbox },
+  { label: "My SIs", href: "/my", icon: Target },
+  { label: "Below the line", href: "/below-the-line", icon: Layers },
+  { label: "Timeline", href: "/timeline", icon: CalendarDays },
   { label: "Reporting", href: "/reporting", icon: FileText },
-];
-
-const V2_NAV: Item[] = [
-  { label: "Summary", href: "/v2", icon: LayoutDashboard },
-  { label: "Personal inbox", href: "/v2/inbox", icon: Target },
-  { label: "Below the line", href: "/v2/below-the-line", icon: Layers },
-  { label: "Data & definitions", href: "/v2/data", icon: Compass },
 ];
 
 export function SidebarNav() {
   const pathname = usePathname();
-  const items = pathname === "/v2" || pathname.startsWith("/v2/") ? V2_NAV : NAV;
+  const items = NAV;
   // Longest matching href wins so nested routes (/initiatives/new) highlight
   // only the most specific item, not every prefix.
   const activeHref = items.map((i) => i.href)

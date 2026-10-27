@@ -12,7 +12,7 @@ const read = (p: string) => readFileSync(join(__dirname, "..", p), "utf8");
 
 describe("app access coverage", () => {
   it("the admin action derives its allowlist from the registry, not a literal", () => {
-    const src = read("app/(app)/settings/admin/actions.ts");
+    const src = read("app/(app)/admin/actions.ts");
     expect(src).toMatch(/APP_KEYS\s*=\s*APPS\.map/);
     // A literal array of app keys is exactly the bug.
     expect(src).not.toMatch(/APP_KEYS\s*=\s*\[\s*"/);

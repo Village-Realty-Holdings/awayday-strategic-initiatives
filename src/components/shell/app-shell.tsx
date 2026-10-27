@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Settings } from "@/components/icons";
+import { Settings, ShieldCheck } from "@/components/icons";
 import { SidebarNav } from "@/components/shell/nav";
 import { FooterLink } from "@/components/shell/footer-link";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -45,6 +45,12 @@ export function AppShell({
           <Settings size={16} strokeWidth={1.75} aria-hidden />
           Settings
         </FooterLink>
+        {user.role === "admin" && (
+          <FooterLink href="/admin" match={["/admin"]}>
+            <ShieldCheck size={16} strokeWidth={1.75} aria-hidden />
+            Admin
+          </FooterLink>
+        )}
         <div className="flex items-center gap-2.5 border-t border-border px-4 py-3">
           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-navy/10 text-[11px] font-semibold text-navy-deep">
             {initials(user.name)}

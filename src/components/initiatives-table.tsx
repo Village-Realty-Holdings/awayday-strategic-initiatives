@@ -42,7 +42,7 @@ type SortKey = "code" | "name" | "cimDriver" | "teamLead" | "valueTargeted" | "q
 export function NewInitiativeButton() {
   return (
     <Button asChild size="sm">
-      <Link href="/initiatives/new"><Plus size={14} aria-hidden /> New initiative</Link>
+      <Link href="/admin/initiatives/new"><Plus size={14} aria-hidden /> New initiative</Link>
     </Button>
   );
 }

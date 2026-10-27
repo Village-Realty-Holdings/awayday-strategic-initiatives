@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { FolderPlus, Pencil, Trash2, Archive, ArchiveRestore, ChevronRight, Layers } from "@/components/icons";
-import { createGroup, updateGroup, deleteGroup, setGroupArchived } from "@/app/(app)/groups/actions";
+import { createGroup, updateGroup, deleteGroup, setGroupArchived } from "@/app/(app)/admin/groups/actions";
 import { ConfirmAction } from "@/components/confirm-action";
 import { PageHeader } from "@/components/shell/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -142,7 +142,7 @@ function GroupCard({ group: g, editable, onEdit }: { group: Group; editable: boo
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <Button asChild variant="secondary" size="sm">
-            <Link href={`/initiatives?group=${g.id}`}>View in table</Link>
+            <Link href={`/admin/initiatives?group=${g.id}`}>View in table</Link>
           </Button>
           {editable && (
             <>

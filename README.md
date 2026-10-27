@@ -102,7 +102,7 @@ To create a migration: edit the schema, then `npx prisma migrate dev --name <cha
 DIRECT_URL=postgresql://… ADMIN_EMAIL=you@awayday.com ADMIN_NAME="Your Name" npm run db:seed:admin
 ```
 
-This prints a temporary password, or you can pass `ADMIN_PASSWORD`. MFA enrolment is forced on first sign-in. Admins invite everyone else from **People & access**.
+This prints a temporary password, or you can pass `ADMIN_PASSWORD`. MFA enrolment is forced on first sign-in. Admins invite everyone else from **Admin → People & access** (`/admin/people`).
 
 Break-glass password reset: `DIRECT_URL=… PW_EMAIL=… PW_NEW=… npm run db:set-password`.
 
@@ -135,7 +135,7 @@ npx wrangler secret put AI_BUDGET_ALERT_TO
 
 The FY27 refresh uses an explicit `PlanVersion` (`FY27`) and `StrategicArea` records rather than replacing or deleting the legacy FY26 initiatives. The repeatable import manifest is derived from the supplied September 2026 refresh deck and currently defines 31 stable `FY27-SI-###` initiatives across the five value drivers and five enablers.
 
-Administrators can switch the active plan from **Admin → Plan versions**. The switch is transactional: it deactivates the current plan, activates the selected version, writes an audit record, and refreshes the Overview and Initiative List. It does not delete or modify initiatives belonging to the inactive plan.
+Administrators can switch the active plan from **Admin → Plan versions**. The switch is transactional: it deactivates the current plan, activates the selected version, writes an audit record, and refreshes the Strategy Review and the Initiatives list. The review works for any plan version: a plan without strategic areas (FY26) is grouped by its initiatives' CIM driver. It does not delete or modify initiatives belonging to the inactive plan.
 
 After applying the migration to the intended database branch, run:
 

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { flash } from "@/lib/flash";
-import { requireEditor } from "@/lib/session";
+import { requireAdmin } from "@/lib/session";
 import { audit } from "@/lib/audit";
 import { getActivePlan } from "@/lib/active-plan";
 import { attachmentKey, deleteAttachment, putAttachment } from "@/lib/storage";
@@ -109,19 +109,19 @@ function parseFields(fd: FormData) {
 const plain = (o: unknown) => JSON.parse(JSON.stringify(o));
 
 export async function updateInitiative(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const id = String(formData.get("id"));
   const expectedUpdatedAt = String(formData.get("updatedAt"));
 
   const before = await prisma.initiative.findUnique({ where: { id } });
-  if (!before) redirect("/initiatives");
+  if (!before) redirect("/admin/initiatives");
 
   // Optimistic concurrency: someone else saved since this form was loaded.
   if (before.updatedAt.toISOString() !== expectedUpdatedAt) {
-    redirect(`/initiatives/${id}/edit?conflict=1`);
+    redirect(`/admin/initiatives/${id}/edit?conflict=1`);
   }
 
-  if (!str(formData, "problem")) redirect(`/initiatives/${id}/edit?error=problem`);
+  if (!str(formData, "problem")) redirect(`/admin/initiatives/${id}/edit?error=problem`);
 
   const data: ReturnType<typeof parseFields> & { strategicAreaId?: string | null; planVersionId?: string } = parseFields(formData);
   data.cimItemCode = await validCimItemCode(data.cimItemCode);
@@ -132,7 +132,7 @@ export async function updateInitiative(formData: FormData) {
     const planId = before.planVersionId ?? (await getActivePlan())?.id ?? null;
     const chosenArea = str(formData, "strategicAreaId");
     const areaId = await validAreaId(chosenArea, planId);
-    if (chosenArea && !areaId) redirect(`/initiatives/${id}/edit?error=area`);
+    if (chosenArea && !areaId) redirect(`/admin/initiatives/${id}/edit?error=area`);
     data.strategicAreaId = areaId;
     if (areaId && !before.planVersionId && planId) data.planVersionId = planId;
   }
@@ -141,21 +141,21 @@ export async function updateInitiative(formData: FormData) {
     data: { userId: session.user.id, action: "UPDATE", entity: "Initiative", entityId: id, before: plain(before), after: plain(after) },
   });
 
-  revalidatePath("/initiatives");
+  revalidatePath("/admin/initiatives");
   revalidatePath(`/initiatives/${id}`);
   revalidatePath("/");
-  revalidatePath("/settings/archive");
+  revalidatePath("/admin/archive");
   await flash("Initiative saved");
   redirect(`/initiatives/${id}`);
 }
 
 export async function createInitiative(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const code = (str(formData, "code") ?? "").toUpperCase();
-  if (!code) redirect("/initiatives/new?error=code");
+  if (!code) redirect("/admin/initiatives/new?error=code");
   const exists = await prisma.initiative.findUnique({ where: { code } });
-  if (exists) redirect("/initiatives/new?error=duplicate");
-  if (!str(formData, "problem")) redirect("/initiatives/new?error=problem");
+  if (exists) redirect("/admin/initiatives/new?error=duplicate");
+  if (!str(formData, "problem")) redirect("/admin/initiatives/new?error=problem");
 
   const fields = parseFields(formData);
   fields.cimItemCode = await validCimItemCode(fields.cimItemCode);
@@ -164,7 +164,7 @@ export async function createInitiative(formData: FormData) {
   const activePlan = await getActivePlan();
   const chosenArea = str(formData, "strategicAreaId");
   const strategicAreaId = await validAreaId(chosenArea, activePlan?.id ?? null);
-  if (chosenArea && !strategicAreaId) redirect("/initiatives/new?error=area");
+  if (chosenArea && !strategicAreaId) redirect("/admin/initiatives/new?error=area");
   const created = await prisma.initiative.create({
     data: { code, ...fields, planVersionId: activePlan?.id ?? null, strategicAreaId },
   });
@@ -172,9 +172,9 @@ export async function createInitiative(formData: FormData) {
     data: { userId: session.user.id, action: "CREATE", entity: "Initiative", entityId: created.id, after: plain(created) },
   });
 
-  revalidatePath("/initiatives");
+  revalidatePath("/admin/initiatives");
   revalidatePath("/");
-  revalidatePath("/settings/archive");
+  revalidatePath("/admin/archive");
   await flash("Initiative created");
   redirect(`/initiatives/${created.id}`);
 }
@@ -182,10 +182,10 @@ export async function createInitiative(formData: FormData) {
 // Inline charter progress update. Percent is purely value created ÷ value to
 // create (may exceed 100%); there is no manual percent entry.
 export async function updateProgress(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const id = String(formData.get("initiativeId"));
   const before = await prisma.initiative.findUnique({ where: { id } });
-  if (!before) redirect("/initiatives");
+  if (!before) redirect("/admin/initiatives");
 
   // Dollar inputs may carry commas / $ / M-K suffixes.
   const actual = parseDollars(str(formData, "actual"));
@@ -208,9 +208,9 @@ export async function updateProgress(formData: FormData) {
     },
   });
   revalidatePath(`/initiatives/${id}`);
-  revalidatePath("/initiatives");
+  revalidatePath("/admin/initiatives");
   revalidatePath("/");
-  revalidatePath("/settings/archive");
+  revalidatePath("/admin/archive");
   await flash("Progress updated");
   redirect(`/initiatives/${id}`);
 }
@@ -225,7 +225,7 @@ function isValidUrl(u: string): boolean {
 }
 
 export async function addAttachment(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const initiativeId = String(formData.get("initiativeId"));
   const label = str(formData, "label") ?? "Link";
   const url = str(formData, "url") ?? "";
@@ -259,7 +259,7 @@ const ALLOWED_FILE_MIME = new Set([
 ]);
 
 export async function addFileAttachment(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const initiativeId = String(formData.get("initiativeId"));
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
@@ -273,7 +273,7 @@ export async function addFileAttachment(formData: FormData) {
     redirect(`/initiatives/${initiativeId}?attachError=type`);
   }
   if (!(await prisma.initiative.findUnique({ where: { id: initiativeId }, select: { id: true } }))) {
-    redirect("/initiatives");
+    redirect("/admin/initiatives");
   }
 
   // Object first, then the row: a failed upload leaves nothing behind, and a
@@ -308,10 +308,10 @@ export async function addFileAttachment(formData: FormData) {
 }
 
 export async function removeAttachment(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const id = String(formData.get("id"));
   const before = await prisma.attachment.findUnique({ where: { id } });
-  if (!before) redirect("/initiatives");
+  if (!before) redirect("/admin/initiatives");
 
   await prisma.attachment.delete({ where: { id } });
   if (before.storageKey) await deleteAttachment(before.storageKey);
@@ -355,7 +355,7 @@ async function rollUpParent(initiativeId: string, userId: string) {
 }
 
 export async function addSubInitiative(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const initiativeId = String(formData.get("initiativeId"));
   const title = str(formData, "title");
   if (!title) redirect(`/initiatives/${initiativeId}?subError=1`);
@@ -371,10 +371,10 @@ export async function addSubInitiative(formData: FormData) {
 }
 
 export async function updateSubInitiative(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const id = String(formData.get("id"));
   const before = await prisma.subInitiative.findUnique({ where: { id } });
-  if (!before) redirect("/initiatives");
+  if (!before) redirect("/admin/initiatives");
   const statusRaw = String(formData.get("status") ?? "");
   const status = (STATUSES.includes(statusRaw) ? statusRaw : before.status) as InitiativeStatus;
   const pct = clampInt(formData, "pctComplete", 0, 100, Math.round(before.pctComplete * 100)) / 100;
@@ -390,10 +390,10 @@ export async function updateSubInitiative(formData: FormData) {
 }
 
 export async function removeSubInitiative(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const id = String(formData.get("id"));
   const before = await prisma.subInitiative.findUnique({ where: { id } });
-  if (!before) redirect("/initiatives");
+  if (!before) redirect("/admin/initiatives");
   await prisma.subInitiative.delete({ where: { id } });
   await audit(session.user.id, "DELETE", "SubInitiative", id, { before: { title: before.title } });
   await rollUpParent(before.initiativeId, session.user.id);
@@ -405,7 +405,7 @@ export async function removeSubInitiative(formData: FormData) {
 // ───────────────────────── Comments ─────────────────────────
 
 export async function addComment(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const initiativeId = String(formData.get("initiativeId"));
   const body = str(formData, "body");
   if (!body) redirect(`/initiatives/${initiativeId}`);
@@ -424,10 +424,10 @@ export async function addComment(formData: FormData) {
 }
 
 export async function removeComment(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const id = String(formData.get("id"));
   const before = await prisma.initiativeComment.findUnique({ where: { id } });
-  if (!before) redirect("/initiatives");
+  if (!before) redirect("/admin/initiatives");
   // Authors can remove their own; admins can remove any.
   if (before.authorUserId !== session.user.id && session.user.role !== "admin") {
     redirect(`/initiatives/${before.initiativeId}`);
@@ -440,10 +440,10 @@ export async function removeComment(formData: FormData) {
 }
 
 export async function deleteInitiative(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const id = String(formData.get("id"));
   const before = await prisma.initiative.findUnique({ where: { id } });
-  if (!before) redirect("/initiatives");
+  if (!before) redirect("/admin/initiatives");
   // Attachment rows cascade with the initiative; their R2 objects don't.
   const files = await prisma.attachment.findMany({
     where: { initiativeId: id, storageKey: { not: null } },
@@ -456,11 +456,11 @@ export async function deleteInitiative(formData: FormData) {
     data: { userId: session.user.id, action: "DELETE", entity: "Initiative", entityId: id, before: plain(before) },
   });
 
-  revalidatePath("/initiatives");
+  revalidatePath("/admin/initiatives");
   revalidatePath("/");
-  revalidatePath("/settings/archive");
+  revalidatePath("/admin/archive");
   await flash("Initiative deleted");
-  redirect("/initiatives");
+  redirect("/admin/initiatives");
 }
 
 // ---------------------------------------------------------------------------
@@ -479,10 +479,10 @@ function pick(fd: FormData, key: string, allowed: string[], fallback: string): s
 }
 
 export async function addInitiativeUpdate(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const initiativeId = String(formData.get("initiativeId"));
   const existing = await prisma.initiative.findUnique({ where: { id: initiativeId }, select: { id: true, status: true } });
-  if (!existing) redirect("/initiatives");
+  if (!existing) redirect("/admin/initiatives");
   const status = pick(formData, "status", UPDATE_STATUSES, existing.status) as InitiativeStatus;
   const update = str(formData, "update");
   const pathForward = str(formData, "pathForward");
@@ -505,14 +505,14 @@ export async function addInitiativeUpdate(formData: FormData) {
   await audit(session.user.id, "CREATE", "InitiativeUpdate", created.id, { after: { initiativeId, status, reportingPeriod } });
   revalidatePath(`/initiatives/${initiativeId}`);
   revalidatePath("/");
-  revalidatePath("/settings/archive");
-  revalidatePath("/initiatives");
+  revalidatePath("/admin/archive");
+  revalidatePath("/admin/initiatives");
   await flash("Status update saved");
   redirect(`/initiatives/${initiativeId}`);
 }
 
 export async function addInitiativeRisk(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const initiativeId = String(formData.get("initiativeId"));
   const risk = str(formData, "risk");
   if (!risk) redirect(`/initiatives/${initiativeId}`);
@@ -527,10 +527,10 @@ export async function addInitiativeRisk(formData: FormData) {
 }
 
 export async function updateInitiativeRisk(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const id = String(formData.get("id"));
   const existing = await prisma.initiativeRisk.findUnique({ where: { id } });
-  if (!existing) redirect("/initiatives");
+  if (!existing) redirect("/admin/initiatives");
   const status = pick(formData, "status", RISK_STATUSES, existing.status);
   const mitigation = formData.has("mitigation") ? str(formData, "mitigation") : existing.mitigation;
   await prisma.initiativeRisk.update({ where: { id }, data: { status, mitigation } });
@@ -541,10 +541,10 @@ export async function updateInitiativeRisk(formData: FormData) {
 }
 
 export async function removeInitiativeRisk(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const id = String(formData.get("id"));
   const existing = await prisma.initiativeRisk.findUnique({ where: { id } });
-  if (!existing) redirect("/initiatives");
+  if (!existing) redirect("/admin/initiatives");
   await prisma.initiativeRisk.delete({ where: { id } });
   await audit(session.user.id, "DELETE", "InitiativeRisk", id, { before: { risk: existing.risk } });
   revalidatePath(`/initiatives/${existing.initiativeId}`);
@@ -553,7 +553,7 @@ export async function removeInitiativeRisk(formData: FormData) {
 }
 
 export async function addInitiativeMilestone(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const initiativeId = String(formData.get("initiativeId"));
   const title = str(formData, "title");
   if (!title) redirect(`/initiatives/${initiativeId}`);
@@ -568,10 +568,10 @@ export async function addInitiativeMilestone(formData: FormData) {
 }
 
 export async function toggleInitiativeMilestone(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const id = String(formData.get("id"));
   const existing = await prisma.initiativeMilestone.findUnique({ where: { id } });
-  if (!existing) redirect("/initiatives");
+  if (!existing) redirect("/admin/initiatives");
   const completedAt = existing.completedAt ? null : new Date();
   await prisma.initiativeMilestone.update({ where: { id }, data: { completedAt } });
   await audit(session.user.id, "UPDATE", "InitiativeMilestone", id, {
@@ -583,10 +583,10 @@ export async function toggleInitiativeMilestone(formData: FormData) {
 }
 
 export async function removeInitiativeMilestone(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const id = String(formData.get("id"));
   const existing = await prisma.initiativeMilestone.findUnique({ where: { id } });
-  if (!existing) redirect("/initiatives");
+  if (!existing) redirect("/admin/initiatives");
   await prisma.initiativeMilestone.delete({ where: { id } });
   await audit(session.user.id, "DELETE", "InitiativeMilestone", id, { before: { title: existing.title } });
   revalidatePath(`/initiatives/${existing.initiativeId}`);
@@ -595,7 +595,7 @@ export async function removeInitiativeMilestone(formData: FormData) {
 }
 
 export async function addInitiativeActionItem(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const initiativeId = String(formData.get("initiativeId"));
   const title = str(formData, "title");
   const owner = str(formData, "owner");
@@ -612,10 +612,10 @@ export async function addInitiativeActionItem(formData: FormData) {
 }
 
 export async function toggleInitiativeActionItem(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const id = String(formData.get("id"));
   const existing = await prisma.initiativeActionItem.findUnique({ where: { id } });
-  if (!existing) redirect("/initiatives");
+  if (!existing) redirect("/admin/initiatives");
   const status = existing.status === "DONE" ? "OPEN" : "DONE";
   await prisma.initiativeActionItem.update({ where: { id }, data: { status } });
   await audit(session.user.id, "UPDATE", "InitiativeActionItem", id, { before: { status: existing.status }, after: { status } });
@@ -624,10 +624,10 @@ export async function toggleInitiativeActionItem(formData: FormData) {
 }
 
 export async function removeInitiativeActionItem(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const id = String(formData.get("id"));
   const existing = await prisma.initiativeActionItem.findUnique({ where: { id } });
-  if (!existing) redirect("/initiatives");
+  if (!existing) redirect("/admin/initiatives");
   await prisma.initiativeActionItem.delete({ where: { id } });
   await audit(session.user.id, "DELETE", "InitiativeActionItem", id, { before: { title: existing.title } });
   revalidatePath(`/initiatives/${existing.initiativeId}`);
@@ -636,7 +636,7 @@ export async function removeInitiativeActionItem(formData: FormData) {
 }
 
 export async function addInitiativeEltRequest(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const initiativeId = String(formData.get("initiativeId"));
   const request = str(formData, "request");
   if (!request) redirect(`/initiatives/${initiativeId}`);
@@ -652,10 +652,10 @@ export async function addInitiativeEltRequest(formData: FormData) {
 }
 
 export async function updateInitiativeEltRequest(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const id = String(formData.get("id"));
   const existing = await prisma.initiativeEltRequest.findUnique({ where: { id } });
-  if (!existing) redirect("/initiatives");
+  if (!existing) redirect("/admin/initiatives");
   const status = pick(formData, "status", ELT_STATUSES, existing.status);
   await prisma.initiativeEltRequest.update({ where: { id }, data: { status, decidedNote: str(formData, "decidedNote") ?? existing.decidedNote } });
   await audit(session.user.id, "UPDATE", "InitiativeEltRequest", id, { before: { status: existing.status }, after: { status } });
@@ -665,10 +665,10 @@ export async function updateInitiativeEltRequest(formData: FormData) {
 }
 
 export async function removeInitiativeEltRequest(formData: FormData) {
-  const session = await requireEditor();
+  const session = await requireAdmin();
   const id = String(formData.get("id"));
   const existing = await prisma.initiativeEltRequest.findUnique({ where: { id } });
-  if (!existing) redirect("/initiatives");
+  if (!existing) redirect("/admin/initiatives");
   await prisma.initiativeEltRequest.delete({ where: { id } });
   await audit(session.user.id, "DELETE", "InitiativeEltRequest", id, { before: { request: existing.request } });
   revalidatePath(`/initiatives/${existing.initiativeId}`);

@@ -26,7 +26,7 @@ export function PageHeader({
   stats,
   className,
 }: {
-  /** Where "Back" goes, e.g. { href: "/initiatives", label: "Initiatives" }. */
+  /** Where "Back" goes, e.g. { href: "/admin/initiatives", label: "Initiatives" }. */
   back?: { href: string; label: string };
   eyebrow?: React.ReactNode;
   title: React.ReactNode;

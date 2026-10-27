@@ -85,6 +85,11 @@ export async function requireEditor() {
   return session;
 }
 
+/** Require an authenticated, MFA'd admin session, or redirect home. */
+export async function requireAdmin() {
+  return requireSession({ role: "admin" });
+}
+
 /**
  * Gate an application by per-user entitlement. Call at the top of each app's
  * entry surfaces. Admins always pass; otherwise the user must be granted the

@@ -313,7 +313,7 @@ describe("getAlertRecipients", () => {
   });
 });
 
-// Form parsers used by the admin actions (src/app/(app)/settings/admin/actions.ts).
+// Form parsers used by the admin actions (src/app/(app)/admin/actions.ts).
 // Pure, so the validation copy and the stored normal form are pinned here.
 describe("parseBudgetInput (admin form)", () => {
   it("normalizes a dollar amount to the stored value", () => {

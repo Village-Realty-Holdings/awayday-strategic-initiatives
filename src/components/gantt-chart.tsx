@@ -181,7 +181,7 @@ export function GanttChart({
                   {u.teamLead && <span className="text-ink-faint"> · {u.teamLead}</span>}
                 </Link>
                 <Button asChild variant="link" size="xs" className="no-print shrink-0">
-                  <Link href={`/initiatives/${u.id}/edit`}>Set dates</Link>
+                  <Link href={`/admin/initiatives/${u.id}/edit`}>Set dates</Link>
                 </Button>
               </li>
             ))}

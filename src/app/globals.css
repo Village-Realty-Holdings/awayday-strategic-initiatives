@@ -160,7 +160,8 @@ body {
 .strategy-house__pillars,
 .strategy-house__enablers {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  /* --house-cols is set per row from the plan (FY27 has 5 + 5, FY26 5 + 2). */
+  grid-template-columns: repeat(var(--house-cols, 5), minmax(0, 1fr));
   gap: 0.25rem;
 }
 .strategy-house__pillar {
@@ -228,7 +229,7 @@ body {
 @media (max-width: 900px) {
   .strategy-house__pillars,
   .strategy-house__enablers {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(min(2, var(--house-cols, 5)), minmax(0, 1fr));
   }
 }
 

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { adminSetAiBudget, adminSetAiBudgetRecipients } from "@/app/(app)/settings/admin/actions";
+import { adminSetAiBudget, adminSetAiBudgetRecipients } from "@/app/(app)/admin/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

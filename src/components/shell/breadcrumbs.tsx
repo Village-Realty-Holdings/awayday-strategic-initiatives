@@ -20,7 +20,6 @@ import {
 const LABELS: Record<string, string> = {
   initiatives: "Initiatives",
   groups: "Groups",
-  sources: "Strategy Sources",
   reporting: "Reporting",
   quadrant: "Lift × Value",
   risks: "CIM Risks",
@@ -30,30 +29,24 @@ const LABELS: Record<string, string> = {
   people: "People & access",
   roster: "Directory",
   lists: "Manage lists",
-  admin: "Admin settings",
+  admin: "Admin",
+  "data-sources": "Data sources",
   "ai-telemetry": "AI telemetry",
-  completeness: "FY27 completeness",
   plans: "Plan versions",
-  scoreboard: "Scoreboard editor",
   archive: "Archive",
-  v2: "V2 preview",
-  asks: "Asks",
+  asks: "Asks by leader",
   "below-the-line": "Below the line",
-  data: "Data inputs",
   definitions: "Definitions",
   inbox: "Inbox",
   my: "My SIs",
   review: "Review",
   timeline: "Timeline",
-  si: "SI",
-  dev: "Dev",
-  comparison: "shadcn comparison",
   new: "New",
   edit: "Edit",
 };
 
 // Paths that only group child routes and have no page of their own.
-const NO_PAGE = [/^\/settings\/people\/roster$/, /^\/v2\/si$/, /^\/dev$/, /^\/risks\/[^/]+$/];
+const NO_PAGE = [/^\/admin\/people\/roster$/, /^\/admin\/initiatives\/[^/]+$/, /^\/review$/, /^\/risks\/[^/]+$/];
 
 const TitleContext = createContext<{ titles: Record<string, string>; setTitle: (path: string, title: string | null) => void }>({
   titles: {},

@@ -7,7 +7,7 @@ const matches = (path: string) => config.matcher.some((m) => new RegExp(`^${m}$`
 
 describe("proxy matcher", () => {
   it("gates app pages and app API routes", () => {
-    for (const p of ["/", "/initiatives", "/initiatives/abc/edit", "/risks", "/settings/admin", "/settings/people", "/reporting", "/api/attachments/abc"]) {
+    for (const p of ["/", "/admin/initiatives", "/initiatives/abc/edit", "/risks", "/admin", "/admin/people", "/reporting", "/api/attachments/abc"]) {
       expect(matches(p)).toBe(true);
     }
   });

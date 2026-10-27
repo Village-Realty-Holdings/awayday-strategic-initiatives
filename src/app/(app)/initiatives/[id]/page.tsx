@@ -12,7 +12,7 @@ import {
   durationDays,
   formatTeam,
 } from "@/lib/initiatives";
-import { requireSession, canEdit } from "@/lib/session";
+import { requireSession } from "@/lib/session";
 import { DeleteInitiativeButton } from "@/components/delete-initiative-button";
 import {
   addAttachment,
@@ -88,8 +88,9 @@ export default async function InitiativeDetail({
   const { id } = await params;
   const { attachError } = await searchParams;
   const session = await requireSession();
-  const editable = canEdit(session.user.role);
+  // Everyone can read a charter; only admins manage it.
   const isAdmin = session.user.role === "admin";
+  const editable = isAdmin;
   const i = await prisma.initiative.findUnique({
     where: { id },
     include: {
@@ -126,14 +127,14 @@ export default async function InitiativeDetail({
       ? `${i.quantMetric ?? ""}${i.quantTarget ? ` → ${i.quantTarget}` : ""}`
       : null;
 
-  const editHref = `/initiatives/${i.id}/edit`;
+  const editHref = `/admin/initiatives/${i.id}/edit`;
 
   return (
     <div className={PAGE_FRAME}>
       <BreadcrumbTitle path={`/initiatives/${i.id}`} title={`${i.code} ${i.name}`} />
 
       <PageHeader
-        back={{ href: "/initiatives", label: "Initiatives" }}
+        back={isAdmin ? { href: "/admin/initiatives", label: "Initiatives" } : { href: "/", label: "Strategy Review" }}
         eyebrow={
           <>
             <span className="tabular">{i.code}</span>

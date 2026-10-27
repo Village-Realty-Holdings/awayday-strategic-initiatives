@@ -2,15 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { KeyRound, Users, ShieldCheck, Archive, type AppIcon } from "@/components/icons";
+import { KeyRound, type AppIcon } from "@/components/icons";
 
 type Tab = { label: string; href: string; icon: AppIcon; adminOnly?: boolean };
 
 const TABS: Tab[] = [
   { label: "Change password", href: "/settings/password", icon: KeyRound },
-  { label: "People & access", href: "/settings/people", icon: Users },
-  { label: "Admin settings", href: "/settings/admin", icon: ShieldCheck, adminOnly: true },
-  { label: "Archive", href: "/settings/archive", icon: Archive },
 ];
 
 export function SettingsTabs({ isAdmin = false }: { isAdmin?: boolean }) {

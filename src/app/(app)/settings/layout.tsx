@@ -1,8 +1,8 @@
 import { requireSession } from "@/lib/session";
 import { SettingsTabs } from "@/components/settings-tabs";
 
-// Settings section: password, people & access, and (admins only) system
-// settings. Each page still enforces its own role checks.
+// Settings section: the signed-in user's own account. People, groups, plans and
+// other system settings live in the admin-only Admin section (/admin).
 export default async function SettingsLayout({ children }: { children: React.ReactNode }) {
   const { user } = await requireSession();
   return (

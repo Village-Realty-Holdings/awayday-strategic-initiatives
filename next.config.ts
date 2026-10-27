@@ -51,19 +51,37 @@ const nextConfig: NextConfig = {
   },
   // Attachment uploads go through a server action (3 MB file cap + form fields).
   experimental: { serverActions: { bodySizeLimit: "4mb" } },
-  // Old locations from before the Settings and Reporting sections; kept so
-  // bookmarks and links in sent emails still resolve.
+  // Old locations kept so bookmarks and links in sent emails still resolve:
+  // the V2 preview (now the app at /), the Settings pages that moved to the
+  // admin-only Admin section, and earlier renames.
   async redirects() {
     return [
       { source: "/account", destination: "/settings/password", permanent: false },
-      { source: "/people", destination: "/settings/people", permanent: false },
-      { source: "/roster", destination: "/settings/people", permanent: false },
-      { source: "/roster/:path*", destination: "/settings/people/roster/:path*", permanent: false },
-      { source: "/admin", destination: "/settings/admin", permanent: false },
-      { source: "/admin/:path*", destination: "/settings/admin/:path*", permanent: false },
+      { source: "/people", destination: "/admin/people", permanent: false },
+      { source: "/roster", destination: "/admin/people", permanent: false },
+      { source: "/roster/:path*", destination: "/admin/people/roster/:path*", permanent: false },
+      { source: "/settings/people", destination: "/admin/people", permanent: false },
+      { source: "/settings/people/:path*", destination: "/admin/people/:path*", permanent: false },
+      { source: "/settings/archive", destination: "/admin/archive", permanent: false },
+      { source: "/legacy", destination: "/admin/archive", permanent: false },
+      { source: "/settings/admin/plans", destination: "/admin/plans", permanent: false },
+      { source: "/settings/admin/ai-telemetry", destination: "/admin/ai-telemetry", permanent: false },
+      { source: "/settings/admin", destination: "/admin", permanent: false },
+      { source: "/settings/admin/:path*", destination: "/admin", permanent: false },
+      { source: "/groups", destination: "/admin/groups", permanent: false },
+      { source: "/initiatives", destination: "/admin/initiatives", permanent: false },
+      { source: "/initiatives/new", destination: "/admin/initiatives/new", permanent: false },
+      { source: "/initiatives/:id/edit", destination: "/admin/initiatives/:id/edit", permanent: false },
+      { source: "/sources", destination: "/admin/data-sources", permanent: false },
+      { source: "/v2/data", destination: "/admin/data-sources", permanent: false },
+      { source: "/v2/review/:period/edit", destination: "/review/:period", permanent: false },
+      { source: "/v2/review", destination: "/", permanent: false },
+      { source: "/v2/si/:code", destination: "/", permanent: false },
+      { source: "/v2/shop-plans", destination: "/", permanent: false },
+      { source: "/v2", destination: "/", permanent: false },
+      { source: "/v2/:path*", destination: "/:path*", permanent: false },
       { source: "/narrative", destination: "/reporting", permanent: false },
       { source: "/gantt", destination: "/reporting?view=gantt", permanent: false },
-      { source: "/legacy", destination: "/settings/archive", permanent: false },
     ];
   },
   async headers() {

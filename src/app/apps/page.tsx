@@ -81,7 +81,7 @@ export default async function LauncherPage() {
 
         {isAdmin && (
           <Link
-            href="/settings/admin"
+            href="/admin"
             className="group mt-4 flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 shadow-sm transition-all hover:border-navy/40 hover:shadow-md"
           >
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-navy/10 text-navy-deep transition-colors group-hover:bg-navy group-hover:text-white">
