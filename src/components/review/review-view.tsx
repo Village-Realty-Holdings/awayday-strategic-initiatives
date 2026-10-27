@@ -7,7 +7,7 @@ import type { FinanceTable } from "@/lib/review-kpi";
 import { addDaysIso, fmtLong, ragLabel, ragTone, SUMMARY_SCOPE, type ReviewArea, type ReviewMilestone, type SoWhat } from "@/lib/review-model";
 import { AsksByLeaderToggle } from "./asks-by-leader";
 import { DataTable } from "./data-table";
-import { AreaEditor, PlanHeaderEditor, ReviewDetailsEditor, SiUpdateEditor, SoWhatsEditor } from "./edit-dialogs";
+import { AreaEditor, MeasureValueEditor, PlanHeaderEditor, ReviewDetailsEditor, SiUpdateEditor, SoWhatsEditor } from "./edit-dialogs";
 import { Editable, EditModeBar, EditModeProvider, EditModeToggle, EditOnly } from "./edit-mode";
 import { PeriodSwitcher } from "./period-switcher";
 import { NoDataNote, SectionTitle } from "./preview";
@@ -40,6 +40,21 @@ function EditableArea({ area, className, children }: { area: ReviewArea; classNa
   );
 }
 
+/** The month's measure value in Edit Mode, when the area has a KPI definition to hold it. */
+function EditableMeasure({ area, periodId, periodLabel, children }: { area: ReviewArea; periodId: string; periodLabel: string; children: ReactNode }) {
+  const measure = area.measure;
+  if (!area.id || !measure?.kpiId) return <div>{children}</div>;
+  return (
+    <Editable
+      label={`${area.name} measure`}
+      periodLocked
+      editor={<MeasureValueEditor areaId={area.id} periodId={periodId} periodLabel={periodLabel} name={measure.name} target={measure.target} value={measure.value} source={measure.source} />}
+    >
+      {children}
+    </Editable>
+  );
+}
+
 function AreaSection({ area, soWhats, periodId, periodLabel }: { area: ReviewArea; soWhats: SoWhat[]; periodId: string; periodLabel: string }) {
   const isPillar = area.kind === "VALUE_DRIVER";
   return (
@@ -59,23 +74,26 @@ function AreaSection({ area, soWhats, periodId, periodLabel }: { area: ReviewAre
 
       {(area.measure || area.goal) && (
         <div className="mt-4 grid gap-4 border-y border-border/70 py-4 md:grid-cols-[minmax(0,16rem)_1fr]">
-          <div>
+          <EditableMeasure area={area} periodId={periodId} periodLabel={periodLabel}>
             <p className="text-note text-ink-faint">Measure · {area.measure?.name || "not set"}</p>
             <p className="tabular text-3xl font-semibold tracking-tight text-ink">{area.measure?.value ?? "—"}</p>
+            {area.measure?.value && area.measure.source === "manual" && <p className="mt-1 text-xs text-ink-faint">Entered by hand.</p>}
             {!area.measure?.value && <p className="mt-1 text-xs text-ink-faint">No value loaded for this month.</p>}
-          </div>
-          <dl className="grid gap-3 text-xs sm:grid-cols-2">
-            <div>
-              <dt className="font-semibold text-ink">Target</dt>
-              <dd className="mt-0.5 text-ink-muted">{area.measure?.target || "Not set"}</dd>
-            </div>
-            {area.goal && (
+          </EditableMeasure>
+          <EditableArea area={area}>
+            <dl className="grid gap-3 text-xs sm:grid-cols-2">
               <div>
-                <dt className="font-semibold text-ink">Objective</dt>
-                <dd className="mt-0.5 text-ink-muted">{area.goal}</dd>
+                <dt className="font-semibold text-ink">Target</dt>
+                <dd className="mt-0.5 text-ink-muted">{area.measure?.target || "Not set"}</dd>
               </div>
-            )}
-          </dl>
+              {area.goal && (
+                <div>
+                  <dt className="font-semibold text-ink">Objective</dt>
+                  <dd className="mt-0.5 text-ink-muted">{area.goal}</dd>
+                </div>
+              )}
+            </dl>
+          </EditableArea>
         </div>
       )}
 

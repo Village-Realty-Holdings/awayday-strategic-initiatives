@@ -5,7 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { str, lines } from "@/lib/form";
 import { audit } from "@/lib/audit";
 import { getActivePlan } from "@/lib/active-plan";
+import { PUBLICATION_APPROVED, PUBLICATION_SUPERSEDED } from "@/lib/kpi";
 import { getReviewPlan } from "@/lib/review-data";
+import { MANUAL_MEASURE_IDENTITY, MANUAL_SOURCE_CATEGORY } from "@/lib/review-kpi";
 import { requireEditor } from "@/lib/session";
 import { isoDay, parseIsoDay, parseSoWhats, PERIOD_PATTERN, SI_REVIEW_STATUSES, SUMMARY_SCOPE, type SiReviewStatus } from "@/lib/review-model";
 
@@ -154,5 +156,80 @@ export async function editSiUpdate(fd: FormData): Promise<EditResult> {
   });
   await audit(session.user.id, "CREATE", "InitiativeUpdate", created.id, { after: { initiativeId, reviewStatus, reportingPeriod: id } });
   revalidateReview();
+  return { ok: true };
+}
+
+/**
+ * A pillar's measure value for the month, typed in by hand. Stored as an
+ * approved KpiObservation on the area's KPI under MANUAL_MEASURE_IDENTITY, with
+ * every value kept in KpiObservationRevision. Saving again revises it; a blank
+ * value supersedes it. A value loaded from a document is never overwritten.
+ */
+export async function editMeasureValue(fd: FormData): Promise<EditResult> {
+  const session = await requireEditor();
+  const id = periodId(fd);
+  const areaId = str(fd, "areaId") ?? "";
+  if (!id) return { ok: false, error: "Unknown review month." };
+  if (await isPublished(id)) return LOCKED;
+  const plan = await getActivePlan();
+  const area = await prisma.strategicArea.findUnique({
+    where: { id: areaId },
+    // Same order as getReviewPlan, so this is the KPI the review shows.
+    select: { planVersionId: true, kpis: { orderBy: { name: "asc" }, take: 1, select: { id: true } } },
+  });
+  if (!plan || !area || area.planVersionId !== plan.id) return { ok: false, error: "That pillar is not in the active plan." };
+  const kpiId = area.kpis[0]?.id;
+  if (!kpiId) return { ok: false, error: "This pillar has no KPI definition to hold a value." };
+  const value = str(fd, "value")?.slice(0, 60) ?? null;
+
+  const { sourceRef, ...identity } = MANUAL_MEASURE_IDENTITY;
+  const result = await prisma.$transaction(async (tx): Promise<EditResult & { before?: string | null; observationId?: string }> => {
+    const approved = await tx.kpiObservation.findFirst({
+      where: { kpiId, reportingPeriod: id, publicationState: PUBLICATION_APPROVED, ...identity },
+      select: { id: true, value: true, sourceRef: true, sourceDocumentName: true },
+    });
+    if (approved && approved.sourceRef !== sourceRef) {
+      const from = approved.sourceDocumentName ? ` from ${approved.sourceDocumentName}` : "";
+      return { ok: false, error: `This month's value was loaded${from}. Change it at the source.` };
+    }
+    if (!value) {
+      if (approved) await tx.kpiObservation.update({ where: { id: approved.id }, data: { publicationState: PUBLICATION_SUPERSEDED, supersededAt: new Date() } });
+      return { ok: true, before: approved?.value ?? null, observationId: approved?.id };
+    }
+    if (approved?.value === value) return { ok: true };
+
+    // The manual row for this month, approved or cleared earlier.
+    const existing = approved ?? (await tx.kpiObservation.findFirst({ where: { kpiId, reportingPeriod: id, sourceRef, ...identity }, select: { id: true, value: true } }));
+    const now = new Date();
+    const fields = { value, observedAt: now, refreshedAt: now, quality: "VALID", publicationState: PUBLICATION_APPROVED, supersededAt: null };
+    const row = existing
+      ? await tx.kpiObservation.update({ where: { id: existing.id }, data: { ...fields, revision: { increment: 1 } }, select: { id: true, revision: true } })
+      : await tx.kpiObservation.create({
+          data: { kpiId, reportingPeriod: id, sourceRef, ...identity, ...fields, sourceCategory: MANUAL_SOURCE_CATEGORY, valueDerivation: "REPORTED", evidence: `Entered on the review by ${session.user.name}` },
+          select: { id: true, revision: true },
+        });
+    await tx.kpiObservationRevision.create({
+      data: {
+        observationId: row.id,
+        revision: row.revision,
+        value,
+        reportingScope: identity.reportingScope,
+        comparisonBasis: identity.comparisonBasis,
+        timeBasis: identity.timeBasis,
+        entityId: identity.entityId,
+        sourceDocumentId: sourceRef,
+        sourceCategory: MANUAL_SOURCE_CATEGORY,
+        valueDerivation: "REPORTED",
+        evidence: `Entered on the review by ${session.user.name}`,
+        observedAt: now,
+      },
+    });
+    return { ok: true, before: existing?.value ?? null, observationId: row.id };
+  });
+  if (!result.ok) return result;
+  if (result.observationId) {
+    await audit(session.user.id, "UPDATE", "KpiObservation", result.observationId, { before: { value: result.before }, after: { kpiId, reportingPeriod: id, value } });
+    revalidateReview();
+  }
   return { ok: true };
 }

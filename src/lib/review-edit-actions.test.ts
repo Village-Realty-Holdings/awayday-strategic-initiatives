@@ -18,7 +18,13 @@ const m = vi.hoisted(() => ({
   areaUpdate: vi.fn(),
   initiativeFindUnique: vi.fn(),
   updateCreate: vi.fn(),
-  transaction: vi.fn(async (ops: unknown[]) => ops),
+  obsFindFirst: vi.fn(),
+  obsUpdate: vi.fn(),
+  obsCreate: vi.fn(),
+  revisionCreate: vi.fn(),
+  tx: null as unknown,
+  // Batches resolve to their ops; interactive transactions run against the mock client.
+  transaction: vi.fn(async (arg: unknown) => (typeof arg === "function" ? arg(m.tx) : arg)),
   getReviewPlan: vi.fn(),
   audit: vi.fn(),
   redirect: vi.fn((to: string) => {
@@ -36,19 +42,23 @@ vi.mock("@/lib/session", () => ({
     return m.session;
   }),
 }));
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", () => {
+  const prisma = {
     planVersion: { findUnique: m.planFindUnique, update: m.planUpdate },
     reviewPeriod: { findUnique: m.periodFindUnique, upsert: m.periodUpsert },
     reviewSoWhat: { deleteMany: m.soWhatDeleteMany, createMany: m.soWhatCreateMany },
     strategicArea: { findUnique: m.areaFindUnique, update: m.areaUpdate },
     initiative: { findUnique: m.initiativeFindUnique },
     initiativeUpdate: { create: m.updateCreate },
+    kpiObservation: { findFirst: m.obsFindFirst, update: m.obsUpdate, create: m.obsCreate },
+    kpiObservationRevision: { create: m.revisionCreate },
     $transaction: m.transaction,
-  },
-}));
+  };
+  m.tx = prisma;
+  return { prisma };
+});
 
-import { editPlanHeader, editReviewDetails, editSiUpdate, editSoWhats, editStrategicArea } from "@/app/(app)/review-edit-actions";
+import { editMeasureValue, editPlanHeader, editReviewDetails, editSiUpdate, editSoWhats, editStrategicArea } from "@/app/(app)/review-edit-actions";
 
 function form(fields: Record<string, string>) {
   const fd = new FormData();
@@ -174,5 +184,68 @@ describe("editSiUpdate", () => {
     m.periodFindUnique.mockResolvedValue({ status: "PUBLISHED" });
     expect((await editSiUpdate(form({ periodId: "2026-10", initiativeId: "i1" }))).ok).toBe(false);
     expect(m.updateCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("editMeasureValue", () => {
+  const area = { planVersionId: "fy27", kpis: [{ id: "k1" }] };
+  const manual = { id: "o1", value: "9%", sourceRef: "review:edit-mode", sourceDocumentName: null };
+
+  beforeEach(() => {
+    m.areaFindUnique.mockResolvedValue(area);
+    m.obsFindFirst.mockResolvedValue(null);
+    m.obsCreate.mockResolvedValue({ id: "o-new", revision: 1 });
+    m.obsUpdate.mockResolvedValue({ id: "o1", revision: 2 });
+  });
+
+  it("creates an approved manual observation and its first revision", async () => {
+    const result = await editMeasureValue(form({ periodId: "2026-10", areaId: "a1", value: " 9.8% " }));
+    expect(result).toEqual({ ok: true });
+    expect(m.obsCreate.mock.calls[0][0].data).toMatchObject({
+      kpiId: "k1",
+      reportingPeriod: "2026-10",
+      value: "9.8%",
+      sourceRef: "review:edit-mode",
+      sourceCategory: "MANUAL",
+      comparisonBasis: "ACTUAL",
+      timeBasis: "POINT_IN_TIME",
+      reportingScope: "AWAYDAY_CONSOLIDATED",
+      publicationState: "APPROVED",
+    });
+    expect(m.revisionCreate.mock.calls[0][0].data).toMatchObject({ observationId: "o-new", revision: 1, value: "9.8%" });
+    expect(m.audit).toHaveBeenCalledOnce();
+  });
+
+  it("revises the month's manual value in place", async () => {
+    m.obsFindFirst.mockResolvedValueOnce(manual);
+    await editMeasureValue(form({ periodId: "2026-10", areaId: "a1", value: "10%" }));
+    expect(m.obsUpdate.mock.calls[0][0]).toMatchObject({ where: { id: "o1" }, data: { value: "10%", revision: { increment: 1 } } });
+    expect(m.revisionCreate.mock.calls[0][0].data).toMatchObject({ observationId: "o1", revision: 2, value: "10%" });
+    expect(m.obsCreate).not.toHaveBeenCalled();
+  });
+
+  it("supersedes the manual value when cleared", async () => {
+    m.obsFindFirst.mockResolvedValueOnce(manual);
+    await editMeasureValue(form({ periodId: "2026-10", areaId: "a1", value: "" }));
+    expect(m.obsUpdate.mock.calls[0][0]).toMatchObject({ where: { id: "o1" }, data: { publicationState: "SUPERSEDED" } });
+    expect(m.revisionCreate).not.toHaveBeenCalled();
+  });
+
+  it("never overwrites a value loaded from a document", async () => {
+    m.obsFindFirst.mockResolvedValueOnce({ ...manual, sourceRef: "sheet!B4", sourceDocumentName: "Financials.xlsx" });
+    const result = await editMeasureValue(form({ periodId: "2026-10", areaId: "a1", value: "10%" }));
+    expect(result).toEqual({ ok: false, error: "This month's value was loaded from Financials.xlsx. Change it at the source." });
+    expect(m.obsUpdate).not.toHaveBeenCalled();
+    expect(m.obsCreate).not.toHaveBeenCalled();
+  });
+
+  it("refuses a published month, another plan's area, and an area without a KPI", async () => {
+    m.periodFindUnique.mockResolvedValueOnce({ status: "PUBLISHED" });
+    expect((await editMeasureValue(form({ periodId: "2026-10", areaId: "a1", value: "1" }))).ok).toBe(false);
+    m.areaFindUnique.mockResolvedValueOnce({ ...area, planVersionId: "fy26" });
+    expect((await editMeasureValue(form({ periodId: "2026-10", areaId: "a1", value: "1" }))).ok).toBe(false);
+    m.areaFindUnique.mockResolvedValueOnce({ ...area, kpis: [] });
+    expect((await editMeasureValue(form({ periodId: "2026-10", areaId: "a1", value: "1" }))).ok).toBe(false);
+    expect(m.transaction).not.toHaveBeenCalled();
   });
 });

@@ -2,7 +2,7 @@ import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { getActivePlan } from "@/lib/active-plan";
 import { PUBLICATION_APPROVED } from "@/lib/kpi";
-import { buildFinanceTable, currentKpiValue, type FinanceTable, type KpiRow } from "@/lib/review-kpi";
+import { buildFinanceTable, currentKpiValue, MANUAL_SOURCE_CATEGORY, type FinanceTable, type KpiRow } from "@/lib/review-kpi";
 import {
   homeReviewPeriod,
   isoDay,
@@ -76,6 +76,7 @@ const OBSERVATION_SELECT = {
   entityId: true,
   authorityRank: true,
   sourceDocumentName: true,
+  sourceCategory: true,
 } as const;
 
 const currentObservationWhere = {
@@ -98,8 +99,9 @@ export const getReviewPeriodIndex = cache(async (): Promise<{ periods: string[];
 /** Period header (label, status, prepared by, dates, sources) and its so-whats. */
 export const getReviewPeriod = cache(async (id: string): Promise<ReviewPeriod> => {
   const [rows, stored] = await Promise.all([
+    // Values typed in on the review don't move "data as of": that dates the loaded figures.
     prisma.kpiObservation.findMany({
-      where: { ...currentObservationWhere, reportingPeriod: id },
+      where: { ...currentObservationWhere, reportingPeriod: id, OR: [{ sourceCategory: null }, { sourceCategory: { not: MANUAL_SOURCE_CATEGORY } }] },
       select: { observedAt: true, sourceDocumentName: true },
     }),
     prisma.reviewPeriod.findUnique({
@@ -147,7 +149,8 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
       ? prisma.strategicArea.findMany({
           where: { planVersionId: plan.id },
           orderBy: [{ kind: "desc" }, { order: "asc" }],
-          include: { kpis: { select: { id: true, name: true, target: true, observations: { where: currentObservationWhere, select: OBSERVATION_SELECT } } } },
+          // Ordered so "the area's measure" is the same KPI here and in Edit Mode's save.
+          include: { kpis: { orderBy: { name: "asc" }, select: { id: true, name: true, target: true, observations: { where: currentObservationWhere, select: OBSERVATION_SELECT } } } },
         })
       : [],
     prisma.initiative.findMany({
@@ -179,6 +182,7 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
     : areaRows.map((a) => {
         const kpi = a.kpis[0];
         const obs = kpi ? currentKpiValue(kpi.observations as KpiRow[], period) : null;
+        const source = obs ? (obs.sourceCategory === MANUAL_SOURCE_CATEGORY ? "manual" : "import") : null;
         const target = kpi?.target ?? a.kpiTarget ?? null;
         return {
           id: a.id,
@@ -188,7 +192,9 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
           goal: a.goal,
           owner: a.owner,
           ownerLine: a.owner,
-          measure: kpi || a.kpiName ? { name: kpi?.name ?? a.kpiName ?? "", value: obs?.value ?? null, target, rag: ragFor(obs?.value ?? null, target, obs?.quality) } : null,
+          measure: kpi || a.kpiName
+            ? { kpiId: kpi?.id ?? null, name: kpi?.name ?? a.kpiName ?? "", value: obs?.value ?? null, target, rag: ragFor(obs?.value ?? null, target, obs?.quality), source }
+            : null,
           match: (i) => i.strategicAreaId === a.id,
         };
       });

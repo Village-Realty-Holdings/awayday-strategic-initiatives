@@ -74,10 +74,14 @@ export type ReviewSi = {
 };
 
 export type ReviewMeasure = {
+  /** The area's KPI definition; null when the plan names a measure but none is defined. */
+  kpiId: string | null;
   name: string;
   value: string | null;
   target: string | null;
   rag: Rag;
+  /** Where this month's value came from: typed in on the review, a loaded document, or none yet. */
+  source: "manual" | "import" | null;
 };
 
 export type ReviewArea = {

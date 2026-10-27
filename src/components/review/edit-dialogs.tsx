@@ -8,7 +8,7 @@ import { DialogClose, DialogDescription, DialogFooter, DialogHeader, DialogTitle
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { editPlanHeader, editReviewDetails, editSiUpdate, editSoWhats, editStrategicArea, type EditResult } from "@/app/(app)/review-edit-actions";
+import { editMeasureValue, editPlanHeader, editReviewDetails, editSiUpdate, editSoWhats, editStrategicArea, type EditResult } from "@/app/(app)/review-edit-actions";
 import { fmtLong, type ReviewSi, type SiReviewStatus, type SoWhat } from "@/lib/review-model";
 import { useCloseEditor } from "./edit-mode";
 import { type EditorSoWhat, SoWhatEditor } from "./so-what-editor";
@@ -166,6 +166,51 @@ export function AreaEditor({ areaId, eyebrow, name, goal, owner }: { areaId: str
       </Field>
       <Field label="Objective">
         <Textarea name="goal" rows={3} defaultValue={goal ?? ""} maxLength={1000} />
+      </Field>
+    </EditForm>
+  );
+}
+
+export function MeasureValueEditor({
+  areaId,
+  periodId,
+  periodLabel,
+  name,
+  target,
+  value,
+  source,
+}: {
+  areaId: string;
+  periodId: string;
+  periodLabel: string;
+  name: string;
+  target: string | null;
+  value: string | null;
+  source: "manual" | "import" | null;
+}) {
+  if (source === "import") {
+    return (
+      <>
+        <DialogHeader className="border-b border-border px-6 pb-4 pt-5">
+          <DialogTitle>{name}</DialogTitle>
+          <DialogDescription>
+            {periodLabel}&apos;s value, {value}, was loaded from a data source. Change it at the source, not here.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="border-t border-border bg-surface-2/50 px-6 py-3">
+          <DialogClose asChild>
+            <Button type="button" size="sm">
+              Close
+            </Button>
+          </DialogClose>
+        </DialogFooter>
+      </>
+    );
+  }
+  return (
+    <EditForm title={`Edit ${name}`} description={`This measure's value for ${periodLabel}. The status compares it with the target${target ? `, ${target}` : ""}.`} action={editMeasureValue} hidden={{ areaId, periodId }}>
+      <Field label="Value" hint="As it should read on the review, e.g. 9.8% or $12.4M. Leave blank to remove it.">
+        <Input name="value" defaultValue={value ?? ""} maxLength={60} autoFocus />
       </Field>
     </EditForm>
   );

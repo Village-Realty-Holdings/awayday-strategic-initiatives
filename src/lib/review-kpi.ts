@@ -23,7 +23,28 @@ export type KpiDefinitionLite = {
 export type KpiRow = KpiObservationRecord & {
   kpiId: string;
   sourceDocumentName?: string | null;
+  sourceCategory?: string | null;
 };
+
+// ---------------------------------------------------------------------------
+// Pillar measure values entered by hand in the review's Edit Mode
+// ---------------------------------------------------------------------------
+
+/** sourceCategory of a value typed in on the review rather than loaded from a document. */
+export const MANUAL_SOURCE_CATEGORY = "MANUAL";
+
+/**
+ * The identity a hand-entered measure value is stored under: the consolidated
+ * actual as at the month. The sourceRef keeps it apart from any loaded row.
+ */
+export const MANUAL_MEASURE_IDENTITY = {
+  sourceRef: "review:edit-mode",
+  comparisonBasis: "ACTUAL",
+  timeBasis: "POINT_IN_TIME",
+  reportingScope: CONSOLIDATED_REPORTING_SCOPE,
+  entityScope: "CONSOLIDATED",
+  entityId: null,
+} as const;
 
 const TIME_ORDER = ["MONTHLY", "YTD", "LTM", "POINT_IN_TIME"];
 const BASIS_ORDER = ["ACTUAL", "BUDGET", "FORECAST", "PRIOR_YEAR", "VARIANCE", "LTM"];
@@ -89,7 +110,8 @@ export function buildFinanceTable(defs: readonly KpiDefinitionLite[], rows: read
 }
 
 /** The current value of one metric for a period, or null. */
-export function currentKpiValue(rows: readonly KpiRow[], period: string): KpiObservationRecord | null {
-  const current = selectCurrentObservations(rows, { reportingPeriod: period });
+export function currentKpiValue<T extends KpiObservationRecord>(rows: readonly T[], period: string): T | null {
+  // selectCurrentObservations returns the rows it was given, not copies.
+  const current = selectCurrentObservations(rows, { reportingPeriod: period }) as T[];
   return current[0] ?? null;
 }
