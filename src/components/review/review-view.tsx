@@ -1,13 +1,14 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
-import { Pencil } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { ReviewPeriod, ReviewPlan } from "@/lib/review-data";
 import type { FinanceTable } from "@/lib/review-kpi";
-import { addDaysIso, fmtLong, ragLabel, ragTone, type ReviewArea, type ReviewMilestone, type SoWhat } from "@/lib/review-model";
+import { addDaysIso, fmtLong, ragLabel, ragTone, SUMMARY_SCOPE, type ReviewArea, type ReviewMilestone, type SoWhat } from "@/lib/review-model";
 import { AsksByLeaderToggle } from "./asks-by-leader";
 import { DataTable } from "./data-table";
+import { AreaEditor, PlanHeaderEditor, ReviewDetailsEditor, SiUpdateEditor, SoWhatsEditor } from "./edit-dialogs";
+import { Editable, EditModeBar, EditModeProvider, EditModeToggle, EditOnly } from "./edit-mode";
 import { PeriodSwitcher } from "./period-switcher";
 import { NoDataNote, SectionTitle } from "./preview";
 import { PageHeader } from "@/components/shell/page-header";
@@ -25,20 +26,36 @@ function MeasureStatus({ area, className }: { area: ReviewArea; className?: stri
   return tone ? <PillarLabelBadge label={ragLabel(area.measure!.rag)} tone={tone} className={className} /> : <span className={`text-note text-ink-faint ${className ?? ""}`}>No data yet</span>;
 }
 
-function AreaSection({ area, soWhats }: { area: ReviewArea; soWhats: SoWhat[] }) {
+function eyebrow(area: ReviewArea): string {
+  return area.kind === "VALUE_DRIVER" ? `Pillar ${area.number}` : "Enabler";
+}
+
+/** The area's own fields in Edit Mode; areas synthesised from a plan without StrategicArea rows have none to edit. */
+function EditableArea({ area, className, children }: { area: ReviewArea; className?: string; children: ReactNode }) {
+  if (!area.id) return <div className={className}>{children}</div>;
+  return (
+    <Editable label={area.name} className={className} editor={<AreaEditor areaId={area.id} eyebrow={eyebrow(area)} name={area.name} goal={area.goal} owner={area.owner} />}>
+      {children}
+    </Editable>
+  );
+}
+
+function AreaSection({ area, soWhats, periodId, periodLabel }: { area: ReviewArea; soWhats: SoWhat[]; periodId: string; periodLabel: string }) {
   const isPillar = area.kind === "VALUE_DRIVER";
   return (
     <Card id={anchor(area)} className="scroll-mt-20 gap-0 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">
-            {isPillar ? `Pillar ${area.number}` : "Enabler"} · {area.name}
-          </p>
-          <h3 className="mt-1 text-lg font-semibold text-ink">{area.name}</h3>
-          {area.ownerLine && <p className="mt-1 text-xs text-ink-muted">{area.ownerLine}</p>}
+      <EditableArea area={area}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">
+              {isPillar ? `Pillar ${area.number}` : "Enabler"} · {area.name}
+            </p>
+            <h3 className="mt-1 text-lg font-semibold text-ink">{area.name}</h3>
+            {area.ownerLine && <p className="mt-1 text-xs text-ink-muted">{area.ownerLine}</p>}
+          </div>
+          <MeasureStatus area={area} />
         </div>
-        <MeasureStatus area={area} />
-      </div>
+      </EditableArea>
 
       {(area.measure || area.goal) && (
         <div className="mt-4 grid gap-4 border-y border-border/70 py-4 md:grid-cols-[minmax(0,16rem)_1fr]">
@@ -62,23 +79,39 @@ function AreaSection({ area, soWhats }: { area: ReviewArea; soWhats: SoWhat[] })
         </div>
       )}
 
-      {soWhats.length > 0 && (
-        <div className="mt-4">
-          <p className="mb-2 text-xs font-semibold text-ink">So what</p>
-          <SoWhatList items={soWhats} />
-        </div>
-      )}
+      <AreaSoWhats area={area} soWhats={soWhats} periodId={periodId} />
 
       <div className="mt-5">
         <p className="mb-2 text-xs font-semibold text-ink">Strategic initiatives · click a card to open its charter</p>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {area.sis.map((si) => (
-            <SiCard key={si.id} si={si} />
+            <Editable key={si.id} label={`${si.shortCode} update`} periodLocked className="flex flex-col" editor={<SiUpdateEditor periodId={periodId} periodLabel={periodLabel} si={si} />}>
+              <SiCard si={si} />
+            </Editable>
           ))}
           {area.sis.length === 0 && <p className="text-xs text-ink-faint">No strategic initiatives in this area.</p>}
         </div>
       </div>
     </Card>
+  );
+}
+
+function AreaSoWhats({ area, soWhats, periodId }: { area: ReviewArea; soWhats: SoWhat[]; periodId: string }) {
+  const editor = <SoWhatsEditor periodId={periodId} scope={area.code} scopeLabel={area.name} items={soWhats} />;
+  if (soWhats.length === 0) {
+    return (
+      <EditOnly>
+        <Editable label={`${area.name} so-whats`} periodLocked wide className="mt-4" editor={editor}>
+          <p className="rounded-lg border border-dashed border-border px-3 py-2 pr-20 text-xs text-ink-faint">No so-whats for this section. Click to add some.</p>
+        </Editable>
+      </EditOnly>
+    );
+  }
+  return (
+    <Editable label={`${area.name} so-whats`} periodLocked wide className="mt-4" editor={editor}>
+      <p className="mb-2 text-xs font-semibold text-ink">So what</p>
+      <SoWhatList items={soWhats} />
+    </Editable>
   );
 }
 
@@ -90,6 +123,7 @@ export function ReviewView({
   finance,
   today,
   canAuthor = false,
+  canEdit = false,
 }: {
   plan: ReviewPlan;
   period: ReviewPeriod;
@@ -98,8 +132,10 @@ export function ReviewView({
   home: string;
   finance: FinanceTable;
   today: string;
-  /** Admins (Strategy) get the Edit review link. */
+  /** Admins (Strategy) get the full editor, where months are published. */
   canAuthor?: boolean;
+  /** Admins and editors get Edit Mode. */
+  canEdit?: boolean;
 }) {
   const pillars = plan.areas.filter((a) => a.kind === "VALUE_DRIVER");
   const enablers = plan.areas.filter((a) => a.kind === "ENABLER");
@@ -122,7 +158,17 @@ export function ReviewView({
     ["#sources", "Sources"],
   ];
 
-  return (
+  const locked = period.status === "PUBLISHED";
+  const houseEditor = plan.id ? <PlanHeaderEditor planId={plan.id} mission={plan.mission} goal={plan.goal} values={plan.values} /> : null;
+  const roof = (
+    <div className="strategy-house__roof">
+      {plan.mission && <p>Mission · {plan.mission}</p>}
+      {plan.goal && <p>{plan.goal}</p>}
+    </div>
+  );
+  const values = plan.values.length > 0 && <div className="strategy-house__values">{plan.values.join(" · ")}</div>;
+
+  const page = (
     <div className="mx-auto flex max-w-page flex-col gap-8">
       <PageHeader
         eyebrow="Awayday · Monthly Strategy Review"
@@ -132,25 +178,36 @@ export function ReviewView({
           <>
             <PeriodStatusBadge status={period.status} />
             <PeriodSwitcher periods={periods} current={period.id} home={home} />
-            {canAuthor && (
-              <Button asChild variant="secondary" size="sm">
-                <Link href={`/review/${period.id}/edit`}>
-                  <Pencil size={12} aria-hidden /> Edit review
-                </Link>
-              </Button>
-            )}
+            {canEdit && <EditModeToggle />}
           </>
         }
       />
 
-      <p className="-mt-4 text-xs text-ink-muted">
-        {plan.title ?? "No active plan"}
-        {period.preparedBy ? ` · Prepared by ${period.preparedBy}` : ""}
-        {period.meetingDate ? ` · ELT meeting ${fmtLong(period.meetingDate)}` : ""}
-        {period.dataAsOf ? ` · Data as of ${fmtLong(period.dataAsOf)}` : " · No figures loaded for this month"}
-        {period.sources.length > 0 ? ` · Finance figures: ${period.sources.join(", ")}` : ""}
-        {" · Highly confidential"}
-      </p>
+      <Editable
+        label="review details"
+        periodLocked
+        className="-mt-4"
+        editor={
+          <ReviewDetailsEditor
+            periodId={period.id}
+            periodLabel={period.label}
+            preparedBy={period.preparedBy}
+            meetingDate={period.meetingDate}
+            updatesDueDate={period.updatesDueDate}
+            dataAsOf={period.dataAsOfOverride}
+            observedAsOf={period.observedAsOf}
+          />
+        }
+      >
+        <p className="pr-20 text-xs text-ink-muted">
+          {plan.title ?? "No active plan"}
+          {period.preparedBy ? ` · Prepared by ${period.preparedBy}` : ""}
+          {period.meetingDate ? ` · ELT meeting ${fmtLong(period.meetingDate)}` : ""}
+          {period.dataAsOf ? ` · Data as of ${fmtLong(period.dataAsOf)}` : " · No figures loaded for this month"}
+          {period.sources.length > 0 ? ` · Finance figures: ${period.sources.join(", ")}` : ""}
+          {" · Highly confidential"}
+        </p>
+      </Editable>
 
       <nav aria-label="On this page" className="sticky top-0 z-10 -mx-2 flex gap-1 overflow-x-auto border-y border-border bg-bg/95 px-2 py-2 text-xs backdrop-blur">
         {jump.map(([href, label]) => (
@@ -163,56 +220,57 @@ export function ReviewView({
       {statusTbd && <p className="-mt-4 text-xs text-ink-faint">SI status is TBD until owners enter it on My SIs.</p>}
 
       <section className="strategy-house" aria-label="Strategy house">
-        <div className="strategy-house__roof">
-          {plan.mission && <p>Mission · {plan.mission}</p>}
-          {plan.goal && <p>{plan.goal}</p>}
-        </div>
+        {houseEditor ? <Editable label="strategy house" editor={houseEditor}>{roof}</Editable> : roof}
         <div className="strategy-house__pillars" style={{ "--house-cols": Math.max(1, pillars.length) } as CSSProperties}>
           {pillars.map((a) => {
             const tone = a.measure ? ragTone(a.measure.rag) : null;
             return (
-              <a key={a.code} href={`#${anchor(a)}`} className={`strategy-house__pillar ${tone ? `strategy-house__pillar--${tone}` : ""}`}>
-                <span className="text-xs font-semibold text-ink">{a.number} · {a.name}</span>
-                {a.ownerLine && <span className="mt-0.5 text-note text-ink-faint">{a.ownerLine}</span>}
-                <span className="mt-1 text-note text-ink-muted">{a.measure?.name || "Measure not set"}</span>
-                <span className="tabular mt-1 text-xl font-semibold text-ink">{a.measure?.value ?? "—"}</span>
-                {a.measure?.target && <span className="mt-1 text-note leading-4 text-ink-muted">Target {a.measure.target}</span>}
-                <MeasureStatus area={a} className="mt-2 w-fit" />
-                <span className="strategy-house__si-list">
-                  {a.sis.map((si) => <span key={si.id}>{si.name}</span>)}
-                </span>
-              </a>
+              <EditableArea key={a.code} area={a} className="flex flex-col">
+                <a href={`#${anchor(a)}`} className={`strategy-house__pillar flex-1 ${tone ? `strategy-house__pillar--${tone}` : ""}`}>
+                  <span className="text-xs font-semibold text-ink">{a.number} · {a.name}</span>
+                  {a.ownerLine && <span className="mt-0.5 text-note text-ink-faint">{a.ownerLine}</span>}
+                  <span className="mt-1 text-note text-ink-muted">{a.measure?.name || "Measure not set"}</span>
+                  <span className="tabular mt-1 text-xl font-semibold text-ink">{a.measure?.value ?? "—"}</span>
+                  {a.measure?.target && <span className="mt-1 text-note leading-4 text-ink-muted">Target {a.measure.target}</span>}
+                  <MeasureStatus area={a} className="mt-2 w-fit" />
+                  <span className="strategy-house__si-list">
+                    {a.sis.map((si) => <span key={si.id}>{si.name}</span>)}
+                  </span>
+                </a>
+              </EditableArea>
             );
           })}
         </div>
         {enablers.length > 0 && (
           <div className="strategy-house__enablers" style={{ "--house-cols": enablers.length } as CSSProperties}>
             {enablers.map((a) => (
-              <a key={a.code} href={`#${anchor(a)}`}>
-                <span className="font-semibold text-ink">{a.name}</span>
-                {a.ownerLine && <span className="block text-note text-ink-muted">{a.ownerLine}</span>}
-                <span className="strategy-house__si-list">
-                  {a.sis.map((si) => <span key={si.id}>{si.name}</span>)}
-                </span>
-              </a>
+              <EditableArea key={a.code} area={a} className="flex flex-col">
+                <a href={`#${anchor(a)}`} className="flex-1">
+                  <span className="font-semibold text-ink">{a.name}</span>
+                  {a.ownerLine && <span className="block text-note text-ink-muted">{a.ownerLine}</span>}
+                  <span className="strategy-house__si-list">
+                    {a.sis.map((si) => <span key={si.id}>{si.name}</span>)}
+                  </span>
+                </a>
+              </EditableArea>
             ))}
           </div>
         )}
-        {plan.values.length > 0 && <div className="strategy-house__values">{plan.values.join(" · ")}</div>}
+        {values && (houseEditor ? <Editable label="strategy house values" editor={houseEditor}>{values}</Editable> : values)}
       </section>
 
       <section id="summary" className="scroll-mt-20">
         <SectionTitle>Where the pillars stand · {period.monthName}</SectionTitle>
-        {period.summary.length > 0 ? (
-          <Card className="mb-4 gap-0 p-5">
-            <p className="mb-3 text-xs font-semibold text-ink">So what</p>
-            <SoWhatList items={period.summary} />
-          </Card>
-        ) : (
-          <div className="mb-4">
+        <Editable label="summary so-whats" periodLocked wide className="mb-4" editor={<SoWhatsEditor periodId={period.id} scope={SUMMARY_SCOPE} scopeLabel="summary" items={period.summary} />}>
+          {period.summary.length > 0 ? (
+            <Card className="gap-0 p-5">
+              <p className="mb-3 text-xs font-semibold text-ink">So what</p>
+              <SoWhatList items={period.summary} />
+            </Card>
+          ) : (
             <NoDataNote>Strategy hasn&apos;t written the so-whats for {period.label} yet.</NoDataNote>
-          </div>
-        )}
+          )}
+        </Editable>
         {withMeasure.length > 0 ? (
           <Card className="gap-0 p-5">
             <DataTable
@@ -261,7 +319,7 @@ export function ReviewView({
       <section id="pillars" className="flex scroll-mt-20 flex-col gap-4">
         <SectionTitle>Value creation pillars</SectionTitle>
         {pillars.map((a) => (
-          <AreaSection key={a.code} area={a} soWhats={period.areaSoWhats[a.code] ?? []} />
+          <AreaSection key={a.code} area={a} soWhats={period.areaSoWhats[a.code] ?? []} periodId={period.id} periodLabel={period.label} />
         ))}
         {pillars.length === 0 && <NoDataNote>The active plan has no value drivers.</NoDataNote>}
       </section>
@@ -270,7 +328,7 @@ export function ReviewView({
         <section id="enablers" className="flex scroll-mt-20 flex-col gap-4">
           <SectionTitle>Enablers</SectionTitle>
           {enablers.map((a) => (
-            <AreaSection key={a.code} area={a} soWhats={period.areaSoWhats[a.code] ?? []} />
+            <AreaSection key={a.code} area={a} soWhats={period.areaSoWhats[a.code] ?? []} periodId={period.id} periodLabel={period.label} />
           ))}
         </section>
       )}
@@ -307,5 +365,13 @@ export function ReviewView({
         <p className="mt-4 border-t border-border/70 pt-3 text-note text-ink-faint">Prepared by {period.preparedBy ? `Strategy (${period.preparedBy})` : "Strategy"} for ELT discussion. Highly confidential.</p>
       </Card>
     </div>
+  );
+
+  if (!canEdit) return page;
+  return (
+    <EditModeProvider locked={locked}>
+      {page}
+      <EditModeBar periodId={period.id} periodLabel={period.label} canPublish={canAuthor} />
+    </EditModeProvider>
   );
 }

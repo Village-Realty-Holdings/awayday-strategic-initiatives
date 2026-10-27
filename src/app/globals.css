@@ -244,6 +244,26 @@ body {
   }
 }
 
+/* Edit Mode on the Strategy Review (components/review/edit-mode.tsx). */
+.edit-target {
+  cursor: pointer;
+  border-radius: 0.5rem;
+  outline: 1.5px dashed color-mix(in oklch, var(--color-navy) 40%, transparent);
+  outline-offset: 3px;
+  transition: outline-color 150ms ease;
+}
+.edit-target:hover:not(:has(.edit-target:hover)),
+.edit-target:focus-within:not(:has(.edit-target:focus-within)) {
+  outline: 2px solid var(--color-navy);
+}
+.edit-target--locked {
+  cursor: not-allowed;
+  outline-color: var(--color-border);
+}
+.edit-target--locked:hover:not(:has(.edit-target:hover)) {
+  outline: 1.5px dashed var(--color-border-strong);
+}
+
 ::selection {
   background: color-mix(in oklch, var(--color-navy) 22%, transparent);
 }

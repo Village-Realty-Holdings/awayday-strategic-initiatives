@@ -89,6 +89,9 @@ export type ReviewArea = {
   /** 1-based pillar number for value drivers. */
   number: number | null;
   goal: string | null;
+  /** StrategicArea.owner as stored; null when unset or synthesised. */
+  owner: string | null;
+  /** The owner, else the SI leads joined, for display. */
   ownerLine: string | null;
   measure: ReviewMeasure | null;
   sis: ReviewSi[];
