@@ -48,51 +48,6 @@ const CIM_TO_PREFIX: Record<string, string> = {
 };
 const CIM_DRIVERS = Object.keys(CIM_TO_PREFIX);
 
-// KPIs relevant to each CIM driver ("Metric → target"). Picking the driver
-// filters the KPI list (Jakob: "too many KPIs … auto-map to the CIM driver").
-const CIM_KPIS: Record<string, string[]> = {
-  "M&A": [
-    "Acquired EBITDA → $27.5M",
-    "Margin of Safety → 25%",
-    "2025 Cohort EBITDA @ Close → 120%",
-    "Avg. days from LOI to close → 75 days",
-    "Internally-sourced deals (% of total) → 60%",
-    "Year-1 post-close EBITDA growth → 15%+",
-  ],
-  "Grow new units": [
-    "Gross Adds → 25%",
-    "Tuck-in units closed (annualized) → 300 units",
-    "Units per BD rep per quarter → +25%",
-    "% sales hires above bar → 85%",
-    "MQL-to-signed-owner conversion → +30%",
-    "REA-sourced units (% of new) → 20%",
-  ],
-  "Owner retention": [
-    "Owner Churn (TTM) → <11%",
-    "Owner portal weekly active % → 70%",
-  ],
-  "Margin expansion": [
-    "NOI Margin Impr vs PY (Excl OTA) → +1.0%",
-    "NOI $ Growth vs PY (Base Bus) → +12.5%",
-    "PI bps (Base Business) → 50 bps",
-  ],
-  "TrevPAR expansion": [
-    "TrevPAR YoY → +3.3% & > market",
-    "Guest CSAT (company avg) → ≥4.65",
-  ],
-  "Key Enablers — Talent": [
-    "ENPS (company-wide) → +30 by year-end",
-    "Roles with learning path live → 100%",
-    "% sales hires above bar → 85%",
-  ],
-  "Key Enablers — Technology": [
-    "Brands on shared reporting stack → 100%",
-    "Functions with AI in production → ≥6",
-    "Avg. guest first-response time → <10 min",
-    "Owner portal weekly active % → 70%",
-  ],
-};
-
 const PEOPLE_LIST = "initiative-people";
 
 const dateValue = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
@@ -126,7 +81,8 @@ export function InitiativeForm({
   usedCodes?: string[];
   cimItems?: { code: string; label: string }[];
   cimKpis?: Record<string, string[]>;
-  areas?: { id: string; code: string; name: string; kind: string }[];
+  /** The plan's strategic areas, each with its "KPI → target" labels from the database. */
+  areas?: { id: string; code: string; name: string; kind: string; kpis: string[] }[];
   /** The charter's tables, for editing; omitted for a new initiative. */
   charter?: { risks: RiskRow[]; dependencies: DependencyRow[]; milestones: MilestoneRow[] };
 }) {
@@ -137,6 +93,7 @@ export function InitiativeForm({
   const initialCim = i?.cimDriver ?? CIM_DRIVERS[0];
   const [cim, setCim] = useState(initialCim);
   const [cimItem, setCimItem] = useState(i?.cimItemCode ?? "");
+  const [areaId, setAreaId] = useState(i?.strategicAreaId ?? "");
   const [code, setCode] = useState(() => (isNew ? nextCode(CIM_TO_PREFIX[CIM_DRIVERS[0]] ?? "SI", usedCodes) : i!.code));
   const [codeTouched, setCodeTouched] = useState(false);
 
@@ -197,8 +154,10 @@ export function InitiativeForm({
   };
 
   const ownerOptions = useMemo(() => [...new Set(owners.filter(Boolean))].sort(), [owners]);
-  // KPIs derive from the picked CIM item; fall back to the broad driver's list.
-  const kpiOptions = (cimItem && cimKpis[cimItem]?.length ? cimKpis[cimItem] : CIM_KPIS[cim]) ?? [];
+  // KPI suggestions, all from the database: the scorecard KPIs tied to the
+  // picked CIM item, else the KPIs of the picked strategic area.
+  const cimItemKpis = cimItem ? (cimKpis[cimItem] ?? []) : [];
+  const kpiOptions = cimItemKpis.length ? cimItemKpis : (areas.find((a) => a.id === areaId)?.kpis ?? []);
   // Any team names not in the People directory (legacy free-text) still show as chips.
   const teamChips = useMemo(() => [...new Set([...ownerOptions, ...team])], [ownerOptions, team]);
 
@@ -274,7 +233,7 @@ export function InitiativeForm({
           <Field label="Metric">
             {kpiOptions.length > 0 && (
               <NativeSelect onChange={(e) => onKpiPick(e.target.value)} defaultValue="" className="mb-1.5" aria-label="Pick a KPI">
-                <option value="">— pick a KPI for this driver —</option>
+                <option value="">— pick a KPI —</option>
                 {kpiOptions.map((o) => <option key={o} value={o}>{o}</option>)}
               </NativeSelect>
             )}
@@ -362,8 +321,8 @@ export function InitiativeForm({
             </NativeSelect>
           </Field>
           {areas.length > 0 && (
-            <Field label="Area" hint="Strategic area in this initiative's plan. Initiatives without an area don't appear on the Strategy Review.">
-              <NativeSelect name="strategicAreaId" defaultValue={i?.strategicAreaId ?? ""}>
+            <Field label="Area" hint="Strategic area in this initiative's plan. Initiatives without an area don't appear on the Strategy Review. Its KPIs are offered when the CIM item has none.">
+              <NativeSelect name="strategicAreaId" value={areaId} onChange={(e) => setAreaId(e.target.value)}>
                 <option value="">— none —</option>
                 {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
               </NativeSelect>

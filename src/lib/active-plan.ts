@@ -30,9 +30,14 @@ export async function activePlanInitiativeWhere(extra?: Prisma.InitiativeWhereIn
 // Strategic areas of a plan, in display order, for the initiative form's Area picker.
 export async function getPlanAreas(planId: string | null | undefined) {
   if (!planId) return [];
-  return prisma.strategicArea.findMany({
+  const areas = await prisma.strategicArea.findMany({
     where: { planVersionId: planId },
     orderBy: [{ kind: "asc" }, { order: "asc" }],
-    select: { id: true, code: true, name: true, kind: true },
+    select: { id: true, code: true, name: true, kind: true, kpis: { orderBy: { name: "asc" }, select: { name: true, target: true } } },
   });
+  // "KPI → target", the shape the initiative form's KPI picker splits on.
+  return areas.map(({ kpis, ...area }) => ({
+    ...area,
+    kpis: kpis.map((k) => (k.target ? `${k.name} → ${k.target}` : k.name)),
+  }));
 }
