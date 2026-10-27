@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireSession, canEdit } from "@/lib/session";
-import { activePlanInitiativeWhere } from "@/lib/active-plan";
+import { activePlanInitiativeWhere, getActivePlan } from "@/lib/active-plan";
 import { formatDateDay, formatMoney, pace } from "@/lib/initiatives";
 import { InitiativesTable, type InitiativeRow, NewInitiativeButton } from "@/components/initiatives-table";
 import { PAGE_FRAME, PageHeader, Stat } from "@/components/shell/page-header";
@@ -21,9 +21,11 @@ export async function generateMetadata({ params }: { params: Promise<{ owner: st
 }
 
 export default async function OwnerPage({ params }: { params: Promise<{ owner: string }> }) {
-  const session = await requireSession();
+  // getActivePlan is per-request memoized: starting it here means the
+  // activePlanInitiativeWhere() below doesn't wait on another round trip.
+  const [session, { owner: rawOwner }] = await Promise.all([requireSession(), params, getActivePlan()]);
   const editable = canEdit(session.user.role);
-  const owner = decodeURIComponent((await params).owner);
+  const owner = decodeURIComponent(rawOwner);
 
   const [initiatives, person] = await Promise.all([
     prisma.initiative.findMany({

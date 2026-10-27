@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
 import { canEdit, requireApp } from "@/lib/session";
+import { getActivePlan } from "@/lib/active-plan";
 import { getActiveV2Plan } from "@/lib/v2-data";
 import { ReviewView } from "../../_components/review-view";
 import { getPeriod } from "../../_mock/selectors";
 
 export default async function ReviewPeriodPage({ params }: { params: Promise<{ period: string }> }) {
-  const session = await requireApp("initiatives");
+  // Warm the per-request active-plan lookup alongside the auth check.
+  const [session] = await Promise.all([requireApp("initiatives"), getActivePlan()]);
   const { period: periodId } = await params;
   const period = getPeriod(periodId);
   if (!period) notFound();

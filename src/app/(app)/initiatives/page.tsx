@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { getActivePlan, activePlanInitiativeWhere } from "@/lib/active-plan";
+import { getActivePlan, planInitiativeWhere } from "@/lib/active-plan";
 import { requireSession, canEdit } from "@/lib/session";
 import { formatDateDay, pace } from "@/lib/initiatives";
 import { InitiativesTable, type InitiativeRow, NewInitiativeButton } from "@/components/initiatives-table";
@@ -14,11 +14,10 @@ export default async function InitiativesPage({
 }: {
   searchParams: Promise<{ group?: string }>;
 }) {
-  const session = await requireSession();
+  // The active plan doesn't depend on the session: look both up at once.
+  const [session, { group }, activePlan] = await Promise.all([requireSession(), searchParams, getActivePlan()]);
   const editable = canEdit(session.user.role);
-  const { group } = await searchParams;
-  const activePlan = await getActivePlan();
-  const where = await activePlanInitiativeWhere();
+  const where = planInitiativeWhere(activePlan);
   const [initiatives, groups] = await Promise.all([
     // Project only what the table needs (#34) — avoids pulling the large text
     // columns (problem / objective / deliverables) on every list load.

@@ -1,4 +1,5 @@
 import { requireApp } from "@/lib/session";
+import { getActivePlan } from "@/lib/active-plan";
 import { loadGanttData } from "@/lib/gantt-data";
 import { BoardNarrative } from "@/components/board-narrative";
 import { GanttChart } from "@/components/gantt-chart";
@@ -10,7 +11,8 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Reporting — Awayday" };
 
 export default async function ReportingPage({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
-  await requireApp("initiatives");
+  // Warm the per-request active-plan lookup alongside the auth check.
+  await Promise.all([requireApp("initiatives"), getActivePlan()]);
   const [{ view }, gantt] = await Promise.all([searchParams, loadGanttData()]);
 
   return (

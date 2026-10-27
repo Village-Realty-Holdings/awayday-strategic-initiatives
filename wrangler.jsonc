@@ -28,6 +28,9 @@
 		"enabled": true
 	},
 	"upload_source_maps": true,
+	// Run the Worker near Neon rather than near the user: pages make several
+	// sequential DB round trips, so each one is shorter. Not inherited by env.staging.
+	"placement": { "mode": "smart" },
 	"workers_dev": true,
 	"hyperdrive": [
 		{
@@ -55,6 +58,7 @@
 	"env": {
 		"staging": {
 			"name": "staging-awayday-strategic-initiatives",
+			"placement": { "mode": "smart" },
 			"workers_dev": true,
 			"hyperdrive": [
 				{

@@ -22,6 +22,11 @@ const mfaExempt = cache(async (userId: string): Promise<boolean> => {
   return exemptFromAppTotp(accounts);
 });
 
+// Per-request memoized session lookup. The app layout and the page (and any
+// helper) each call requireSession, so without this every render validated the
+// session more than once. Keyed on nothing: one lookup per request.
+const getSession = cache(async () => auth.api.getSession({ headers: await headers() }));
+
 type RequireOptions = {
   /** Require completed MFA enrollment (default true). Set false only for the MFA setup flow. */
   requireMFA?: boolean;
@@ -56,7 +61,7 @@ export async function requireSession(options: RequireOptions = {}) {
     return devSession!;
   }
 
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
   if (!session) redirect("/login");
   // App TOTP is required unless the account holds no password to enrol it with
   // (Entra SSO, sign-in link); see mfa-policy.ts. The account lookup only runs

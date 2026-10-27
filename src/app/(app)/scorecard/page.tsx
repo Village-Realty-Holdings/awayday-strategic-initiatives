@@ -8,10 +8,10 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Owner Scorecard — Awayday" };
 
 export default async function ScorecardPage() {
-  await requireSession();
+  const [, where] = await Promise.all([requireSession(), activePlanInitiativeWhere()]);
   const [initiatives, people] = await Promise.all([
     prisma.initiative.findMany({
-      where: await activePlanInitiativeWhere(),
+      where,
       select: { teamLead: true, status: true, pctComplete: true, progressActual: true, progressTarget: true },
     }),
     prisma.rosterMember.findMany({

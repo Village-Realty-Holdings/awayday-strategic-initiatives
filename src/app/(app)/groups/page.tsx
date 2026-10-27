@@ -9,14 +9,14 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Groups — Awayday" };
 
 export default async function GroupsPage() {
-  const session = await requireSession();
+  const [session, where] = await Promise.all([requireSession(), activePlanInitiativeWhere()]);
   const editable = canEdit(session.user.role);
   const [groups, initiatives] = await Promise.all([
     prisma.initiativeGroup.findMany({
       orderBy: [{ archived: "asc" }, { name: "asc" }],
       include: { initiatives: { select: { id: true, code: true, name: true }, orderBy: { code: "asc" } } },
     }),
-    prisma.initiative.findMany({ where: await activePlanInitiativeWhere(), orderBy: { code: "asc" }, select: { id: true, code: true, name: true } }),
+    prisma.initiative.findMany({ where, orderBy: { code: "asc" }, select: { id: true, code: true, name: true } }),
   ]);
 
   const data = groups.map((g) => ({
