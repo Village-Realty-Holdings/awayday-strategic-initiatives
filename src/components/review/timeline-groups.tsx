@@ -31,7 +31,12 @@ export function TimelineGroups({
             {items.map((m) => {
               const past = Boolean(m.date && m.date < today && !m.done);
               return (
-                <li key={m.id} className={`flex flex-col gap-1.5 px-4 py-3 ${past ? "bg-warn-soft/60" : ""}`}>
+                <li
+                  key={m.id}
+                  data-timeline-initiative={m.siId}
+                  tabIndex={-1}
+                  className={`flex scroll-mt-24 flex-col gap-1.5 px-4 py-3 focus:outline-2 focus:-outline-offset-2 focus:outline-navy ${past ? "bg-warn-soft/60" : ""}`}
+                >
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="secondary">{areaNames[m.areaCode] ?? m.areaCode}</Badge>
                     {past && <Badge variant="warn">Needs a status</Badge>}

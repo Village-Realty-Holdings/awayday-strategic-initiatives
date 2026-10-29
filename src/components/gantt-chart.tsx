@@ -6,6 +6,7 @@ import { STATUS_META, QUADRANT_META, HEALTH_META, HEALTH_ORDER, type Health } fr
 import type { InitiativeStatus, Quadrant } from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";
 import { FilterSelect } from "@/components/filter-select";
+import { Eye } from "@/components/icons";
 
 export type GanttRow = {
   id: string;
@@ -47,6 +48,19 @@ export function GanttChart({
   const [cim, setCim] = useState("");
   const [status, setStatus] = useState("");
   const [quadrant, setQuadrant] = useState("");
+  const [milestoneNotice, setMilestoneNotice] = useState("");
+
+  function scrollToMilestone(initiativeId: string, code: string) {
+    const milestone = Array.from(document.querySelectorAll<HTMLElement>("[data-timeline-initiative]"))
+      .find((element) => element.dataset.timelineInitiative === initiativeId);
+    if (!milestone) {
+      setMilestoneNotice(`No milestones for ${code} match the milestone filters below.`);
+      return;
+    }
+    setMilestoneNotice("");
+    milestone.focus({ preventScroll: true });
+    milestone.scrollIntoView({ behavior: "instant", block: "center" });
+  }
 
   const filtered = useMemo(
     () =>
@@ -120,13 +134,18 @@ export function GanttChart({
         </div>
         <div>
           {filtered.map((i) => (
-            <Link
+            <div
               key={i.id}
-              href={`/initiatives/${i.id}`}
-              title={`${i.code} · ${i.name}\nLead: ${i.teamLead ?? "Unassigned"}\nStatus: ${STATUS_META[i.status].label} (${Math.round(i.pct * 100)}%)\nHealth: ${HEALTH_META[i.health].label}${i.derived ? "\nDates from milestones (no start/target set)" : ""}`}
-              className="grid grid-cols-[240px_1fr] items-center gap-3 border-t border-border/50 py-2 pr-4 transition-colors hover:bg-surface-2/50"
+              className="relative border-t border-border/50"
             >
-              <div className="min-w-0 pl-4">
+            <button
+              type="button"
+              onClick={() => scrollToMilestone(i.id, i.code)}
+              aria-label={`Jump to first listed milestone for ${i.code} ${i.name}`}
+              title={`${i.code} · ${i.name}\nLead: ${i.teamLead ?? "Unassigned"}\nStatus: ${STATUS_META[i.status].label} (${Math.round(i.pct * 100)}%)\nHealth: ${HEALTH_META[i.health].label}${i.derived ? "\nDates from milestones (no start/target set)" : ""}`}
+              className="grid w-full cursor-pointer grid-cols-[240px_1fr] items-center gap-3 py-2 pr-4 text-left transition-colors hover:bg-surface-2/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-navy"
+            >
+              <div className="min-w-0 pl-4 pr-9">
                 <span className="flex items-baseline gap-1.5">
                   <span className="tabular shrink-0 text-micro text-ink-faint">{i.code}</span>
                   <span className="truncate text-xs text-ink">{i.name}</span>
@@ -146,7 +165,16 @@ export function GanttChart({
                 )}
                 <div className={`absolute top-1/2 h-3 -translate-y-1/2 overflow-hidden rounded-full ${HEALTH_META[i.health].bar}`} style={{ left: `${i.leftPct}%`, width: `${i.widthPct * i.pct}%` }} />
               </div>
+            </button>
+            <Link
+              href={`/initiatives/${i.id}`}
+              aria-label={`View details for ${i.code} ${i.name}`}
+              title="View initiative details"
+              className="absolute left-[208px] top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-ink-muted hover:bg-surface-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-navy"
+            >
+              <Eye size={14} aria-hidden />
             </Link>
+            </div>
           ))}
           {filtered.length === 0 && (
             <p className="px-4 py-10 text-center text-sm text-ink-muted">
@@ -163,6 +191,10 @@ export function GanttChart({
         </div>
         </div>
       </div>
+
+      <p role="status" className={milestoneNotice ? "mt-3 text-sm text-ink-muted" : "sr-only"}>
+        {milestoneNotice}
+      </p>
 
       {unscheduled.length > 0 && (
         <section className="mt-4 rounded-md border border-border bg-surface">
