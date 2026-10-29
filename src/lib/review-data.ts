@@ -216,6 +216,7 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
         objective: i.valueWhenComplete,
         kpi: [i.quantMetric, i.quantTarget].filter(Boolean).join(": ") || null,
         goingFor: [i.quantMetric, i.quantTarget].filter(Boolean).join(": ") || i.valueWhenComplete,
+        initiativeStatus: i.status,
         status: (update?.reviewStatus as SiReviewStatus | null) ?? null,
         latestProgress: update?.update ?? null,
         whatNext: update?.pathForward ?? null,

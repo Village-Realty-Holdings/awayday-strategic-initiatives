@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fmtDay, type ReviewSi } from "@/lib/review-model";
-import { SiStatusBadge } from "./status";
+import { StatusBadge } from "@/components/badges";
 
 /** SI card on the review; opens a short charter with a link to the full record. */
 export function SiCard({ si }: { si: ReviewSi }) {
@@ -21,7 +21,7 @@ export function SiCard({ si }: { si: ReviewSi }) {
             <span className="tabular mr-2 text-micro text-ink-faint">{si.shortCode}</span>
             {si.name}
           </button>
-          <SiStatusBadge status={si.status} />
+          <StatusBadge status={si.initiativeStatus} />
         </div>
         <p className="text-xs text-ink-faint">
           Lead: {si.lead ?? "TBD"}
@@ -51,18 +51,18 @@ export function SiCard({ si }: { si: ReviewSi }) {
       </article>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[min(760px,90vh)] gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <DialogContent className="max-h-[min(760px,90dvh)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-2xl">
           <DialogHeader className="border-b border-border px-6 pb-5 pt-5 pr-14">
             <div className="flex flex-wrap items-center gap-2">
               <span className="tabular text-micro text-ink-faint">{si.shortCode}</span>
               <span className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">{si.areaName}</span>
-              <SiStatusBadge status={si.status} />
+              <StatusBadge status={si.initiativeStatus} />
             </div>
             <DialogTitle className="text-xl">{si.name}</DialogTitle>
             <DialogDescription>Lead: {si.lead ?? "TBD"} · Sponsor: {si.sponsor ?? "TBD"}</DialogDescription>
           </DialogHeader>
           <DialogClose asChild><Button type="button" variant="ghost" size="icon" className="absolute right-3 top-3 h-8 w-8" aria-label="Close charter"><X size={17} aria-hidden /></Button></DialogClose>
-          <div className="grid gap-5 overflow-y-auto px-6 py-5 text-sm">
+          <div className="grid min-h-0 gap-5 overflow-y-auto overscroll-contain px-6 py-5 text-sm [scrollbar-gutter:stable]">
             <div className="grid gap-4 sm:grid-cols-2">
               <div><p className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">Objective</p><p className="mt-1 leading-6 text-ink">{si.objective ?? "Not on the charter yet."}</p></div>
               <div className="rounded-md bg-surface-2 p-3"><p className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">KPI target</p><p className="mt-1 leading-6 text-ink">{si.kpi ?? "Not set yet."}</p></div>

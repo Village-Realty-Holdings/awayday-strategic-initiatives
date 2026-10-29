@@ -4,6 +4,8 @@
 // rules (areas for plans without StrategicArea rows, periods, the financial
 // table, owner matching, pillar status) can be tested without Prisma.
 
+import type { InitiativeStatus } from "@/generated/prisma/client";
+
 export const SI_REVIEW_STATUSES = ["AHEAD", "ON_TRACK", "AT_RISK", "BEHIND"] as const;
 export type SiReviewStatus = (typeof SI_REVIEW_STATUSES)[number];
 
@@ -62,6 +64,7 @@ export type ReviewSi = {
   kpi: string | null;
   /** One-line aim for cards: the KPI, else the objective. */
   goingFor: string | null;
+  initiativeStatus: InitiativeStatus;
   /** Review status from this period's update; null renders "Status TBD". */
   status: SiReviewStatus | null;
   latestProgress: string | null;
