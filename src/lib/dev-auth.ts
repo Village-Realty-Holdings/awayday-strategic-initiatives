@@ -13,7 +13,7 @@
 //      production build, so a deployment cannot enable this even by accident.
 //   2. DEV_AUTH_AS names a user explicitly. Absent it, nothing happens, so
 //      the bypass is opt-in per machine rather than on by default. It belongs
-//      in .env.local only, never in wrangler vars or secrets.
+//      in .env only, never in wrangler vars or secrets.
 //
 // It also grants NOTHING. The email is looked up in the database and that
 // user's real role, entitlements and shop scoping apply. It skips the proof

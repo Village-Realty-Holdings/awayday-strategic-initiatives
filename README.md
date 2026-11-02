@@ -30,7 +30,7 @@ npm install            # also runs `prisma generate` (Worker client + Node clien
 docker compose up -d   # Postgres 18 on localhost:5432
 ```
 
-Local development uses its own Postgres, not a Neon branch. Create `.env.local` (gitignored):
+Local development uses its own Postgres, not a Neon branch. Create `.env` (gitignored), the one development env file for both the app and the `prisma/` scripts:
 
 ```bash
 DIRECT_URL=postgresql://awayday:password@localhost:5432/awayday_strategic_initiatives
@@ -60,7 +60,7 @@ Only after approving the target database and the changes, run `npm run db:migrat
 
 The standalone app includes the original password login, TOTP enrollment and verification, Microsoft Entra SSO, email sign-in links with a scanner-safe confirmation page, password changes, sign-out, and role/app-access guards. Successful sign-in links (and Microsoft sign-in) default to `/`, this app's Initiatives overview (users without the grant see a no-access page with sign-out), never the original Talent module. Magic links are restricted to existing users; Talent employee and reviewer provisioning is not part of this app.
 
-Fill the placeholders in `.env` for local development. `.env.example` documents the same variables without secrets. If `.env.local` exists, its values take precedence. Restart the dev server after changing them.
+Fill the placeholders in `.env` for local development. `.env.example` documents the same variables without secrets. Restart the dev server after changing them. Keep `.env` pointed at local Postgres. To run a `prisma/` script or Prisma command against Neon, use `DOTENV_CONFIG_PATH=.env.staging.local` (or `.env.production.local`), or pass `DIRECT_URL=…` on the command line, which takes priority over any file.
 
 | Variable | Purpose |
 | --- | --- |
