@@ -38,7 +38,7 @@ export async function loadGanttData() {
     if (startT >= endT) startT = endT - 30 * DAY;
     items.push({ ...i, start: new Date(startT), end: new Date(endT), derived: !i.startDate || !i.endDate });
   }
-  items.sort((x, y) => x.start.getTime() - y.start.getTime() || x.code.localeCompare(y.code));
+  items.sort((x, y) => y.start.getTime() - x.start.getTime() || x.code.localeCompare(y.code));
 
   // A plan with no dated initiatives would make Math.min/max return +/-Infinity (Invalid Date).
   const today = new Date().getTime();

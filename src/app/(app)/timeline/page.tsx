@@ -13,7 +13,7 @@ export default async function TimelinePage() {
   const [plan, gantt] = await Promise.all([getReviewPlan(id), loadGanttData()]);
   const milestones = allSis(plan)
     .flatMap((s) => s.milestones)
-    .sort((a, b) => (a.date ?? "9999").localeCompare(b.date ?? "9999"));
+    .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
   const owners = [...new Set(milestones.map((m) => m.owner).filter((o): o is string => Boolean(o)))].sort();
   return (
     <div className="mx-auto flex max-w-review flex-col gap-6">
