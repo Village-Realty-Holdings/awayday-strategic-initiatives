@@ -87,7 +87,7 @@ export function DevTestingDialog({
 
   return (
     <>
-      <Button type="button" size="sm" variant="secondary" onClick={() => setOpen(true)} data-chrome className="no-print fixed bottom-4 right-6 z-40 shadow-lg">
+      <Button type="button" size="sm" variant="secondary" onClick={() => setOpen(true)} data-chrome style={{ left: "auto", right: 24, bottom: 16 }} className="no-print fixed z-40 shadow-lg">
         <FlaskConical size={14} aria-hidden /> Dev testing
         {today && <Badge variant="warn">{today}</Badge>}
       </Button>
