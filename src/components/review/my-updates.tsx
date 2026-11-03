@@ -43,12 +43,13 @@ export type MyMeasure = {
 
 /** Tick-off list; each change is saved straight away. */
 export function ItemChecklist({ title, items }: { title: string; items: MyItem[] }) {
-  const [done, setDone] = useState<Record<string, boolean>>(() => Object.fromEntries(items.map((i) => [i.id, i.done])));
+  // Ticks show straight away; the saved state takes over for anything not touched here.
+  const [ticked, setTicked] = useState<Record<string, boolean>>({});
   const [pending, startTransition] = useTransition();
   if (items.length === 0) return null;
 
   function toggle(item: MyItem, checked: boolean) {
-    setDone((d) => ({ ...d, [item.id]: checked }));
+    setTicked((t) => ({ ...t, [item.id]: checked }));
     const fd = new FormData();
     fd.set("id", item.id);
     startTransition(() => (item.kind === "milestone" ? toggleMilestone(fd) : toggleActionItem(fd)));
@@ -58,17 +59,20 @@ export function ItemChecklist({ title, items }: { title: string; items: MyItem[]
     <div aria-busy={pending}>
       <p className="mb-1.5 text-xs font-semibold text-ink">{title}</p>
       <ul className="flex flex-col gap-1.5">
-        {items.map((i) => (
-          <li key={i.id}>
-            <Label className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-0.5 font-normal text-ink-muted transition-colors hover:bg-surface-2/60">
-              <Checkbox className="mt-px" checked={!!done[i.id]} onCheckedChange={(c) => toggle(i, c === true)} />
-              <span className={`transition-[color,opacity] duration-200 ${done[i.id] ? "text-ink-faint line-through opacity-70" : ""}`}>
-                {i.text} <span className="text-ink-faint">· {i.dueLabel}</span>
-                {i.pastDue && !done[i.id] && <Badge variant="warn" className="ml-1.5">Needs a status</Badge>}
-              </span>
-            </Label>
-          </li>
-        ))}
+        {items.map((i) => {
+          const done = ticked[i.id] ?? i.done;
+          return (
+            <li key={i.id}>
+              <Label className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-0.5 font-normal text-ink-muted transition-colors hover:bg-surface-2/60">
+                <Checkbox className="mt-px" checked={done} onCheckedChange={(c) => toggle(i, c === true)} />
+                <span className={`transition-[color,opacity] duration-200 ${done ? "text-ink-faint line-through opacity-70" : ""}`}>
+                  {i.text} <span className="text-ink-faint">· {i.dueLabel}</span>
+                  {i.pastDue && !done && <Badge variant="warn" className="ml-1.5">Needs a status</Badge>}
+                </span>
+              </Label>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

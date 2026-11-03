@@ -25,15 +25,16 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
   const label = (si: { shortCode: string; name: string }) => `${si.shortCode} ${si.name}`;
 
   // Milestones and action items on my SIs, plus any elsewhere that name me as owner.
+  // Ticked ones stay on the list, after the open ones, so they can be seen and unticked.
   const items: MyItem[] = sis.flatMap((si) => [
     ...si.milestones
-      .filter((m) => !m.done && (myIds.has(si.id) || m.owner === me.name))
-      .map((m) => ({ id: m.id, kind: "milestone" as const, text: `${m.title} (${label(si)})`, dueLabel: fmtDay(m.date), done: false, pastDue: Boolean(m.date && m.date < today) })),
+      .filter((m) => myIds.has(si.id) || m.owner === me.name)
+      .map((m) => ({ id: m.id, kind: "milestone" as const, text: `${m.title} (${label(si)})`, dueLabel: fmtDay(m.date), done: m.done, pastDue: Boolean(!m.done && m.date && m.date < today) })),
     ...si.actions
-      .filter((a) => !a.done && (myIds.has(si.id) || a.owner === me.name))
-      .map((a) => ({ id: a.id, kind: "action" as const, text: `${a.title} (${label(si)})`, dueLabel: fmtDay(a.date), done: false, pastDue: Boolean(a.date && a.date < today) })),
+      .filter((a) => myIds.has(si.id) || a.owner === me.name)
+      .map((a) => ({ id: a.id, kind: "action" as const, text: `${a.title} (${label(si)})`, dueLabel: fmtDay(a.date), done: a.done, pastDue: Boolean(!a.done && a.date && a.date < today) })),
   ]);
-  items.sort((a, b) => Number(b.pastDue) - Number(a.pastDue));
+  items.sort((a, b) => Number(a.done) - Number(b.done) || Number(b.pastDue) - Number(a.pastDue));
 
   const asks: InboxAsk[] = mine.flatMap((si) =>
     si.asks.map((a) => ({ id: a.id, siId: si.id, siLabel: label(si), request: a.request, kind: a.kind, raisedLabel: fmtDay(a.raisedOn), open: a.status === "REQUESTED" })),
