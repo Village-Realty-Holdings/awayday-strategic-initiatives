@@ -29,10 +29,10 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
   const items: MyItem[] = sis.flatMap((si) => [
     ...si.milestones
       .filter((m) => myIds.has(si.id) || m.owner === me.name)
-      .map((m) => ({ id: m.id, kind: "milestone" as const, text: `${m.title} (${label(si)})`, dueLabel: fmtDay(m.date), done: m.done, pastDue: Boolean(!m.done && m.date && m.date < today) })),
+      .map((m) => ({ id: m.id, kind: "milestone" as const, siId: si.id, siCode: si.shortCode, siName: si.name, text: m.title, dueLabel: fmtDay(m.date), done: m.done, pastDue: Boolean(!m.done && m.date && m.date < today) })),
     ...si.actions
       .filter((a) => myIds.has(si.id) || a.owner === me.name)
-      .map((a) => ({ id: a.id, kind: "action" as const, text: `${a.title} (${label(si)})`, dueLabel: fmtDay(a.date), done: a.done, pastDue: Boolean(!a.done && a.date && a.date < today) })),
+      .map((a) => ({ id: a.id, kind: "action" as const, siId: si.id, siCode: si.shortCode, siName: si.name, text: a.title, dueLabel: fmtDay(a.date), done: a.done, pastDue: Boolean(!a.done && a.date && a.date < today) })),
   ]);
   items.sort((a, b) => Number(a.done) - Number(b.done) || Number(b.pastDue) - Number(a.pastDue));
 

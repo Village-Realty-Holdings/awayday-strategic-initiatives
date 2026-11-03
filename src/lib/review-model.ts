@@ -203,6 +203,14 @@ export function homeReviewPeriod(periods: readonly string[], published: readonly
 }
 
 /** The month Inbox opens on: the newest month still open for updates. */
+/** Items under their SI, keeping their order: SIs with past-due items first, then open ones, then finished ones. */
+export function groupItemsBySi<T extends { siId: string; done: boolean; pastDue: boolean }>(items: readonly T[]): { siId: string; items: T[] }[] {
+  const groups = new Map<string, T[]>();
+  for (const item of items) groups.set(item.siId, [...(groups.get(item.siId) ?? []), item]);
+  const rank = (group: T[]) => (group.some((i) => i.pastDue) ? 0 : group.some((i) => !i.done) ? 1 : 2);
+  return [...groups.entries()].map(([siId, group]) => ({ siId, items: group })).sort((a, b) => rank(a.items) - rank(b.items));
+}
+
 /** Whether a month's update is the SI's newest, so its status is the current one. Free-text legacy periods don't count. */
 export function isNewestPeriod(period: string | null, others: readonly (string | null)[]): boolean {
   if (!period) return true;

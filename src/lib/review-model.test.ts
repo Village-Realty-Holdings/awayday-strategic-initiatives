@@ -8,6 +8,7 @@ import {
   parseSoWhats,
   periodLabel,
   previousMonth,
+  groupItemsBySi,
   isNewestPeriod,
   updatePeriods,
   monthAfter,
@@ -221,5 +222,22 @@ describe("updatePeriods", () => {
   it("always includes last month, newest first, so a new month opens by itself", () => {
     expect(updatePeriods(["2026-09"], new Date("2026-11-03T00:00:00Z"))).toEqual(["2026-10", "2026-09"]);
     expect(updatePeriods(["2026-10", "2026-09"], new Date("2026-11-03T00:00:00Z"))).toEqual(["2026-10", "2026-09"]);
+  });
+});
+
+describe("groupItemsBySi", () => {
+  const item = (siId: string, id: string, done = false, pastDue = false) => ({ id, siId, done, pastDue });
+
+  it("keeps each SI's items together and in order", () => {
+    const groups = groupItemsBySi([item("a", "1"), item("b", "2"), item("a", "3", true)]);
+    expect(groups.map((g) => [g.siId, g.items.map((i) => i.id)])).toEqual([
+      ["a", ["1", "3"]],
+      ["b", ["2"]],
+    ]);
+  });
+
+  it("puts SIs with past-due items first and finished SIs last", () => {
+    const groups = groupItemsBySi([item("done", "1", true), item("open", "2"), item("late", "3", false, true)]);
+    expect(groups.map((g) => g.siId)).toEqual(["late", "open", "done"]);
   });
 });

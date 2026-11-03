@@ -17,10 +17,10 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Textarea } from "@/components/ui/textarea";
 import type { InitiativeStatus } from "@/generated/prisma/client";
-import { periodLabel as periodLabelFor } from "@/lib/review-model";
+import { groupItemsBySi, periodLabel as periodLabelFor } from "@/lib/review-model";
 import { SiStatusPicker } from "./status";
 
-export type MyItem = { id: string; kind: "milestone" | "action"; text: string; dueLabel: string; done: boolean; pastDue: boolean };
+export type MyItem = { id: string; kind: "milestone" | "action"; siId: string; siCode: string; siName: string; text: string; dueLabel: string; done: boolean; pastDue: boolean };
 export type MySiRow = {
   id: string;
   shortCode: string;
@@ -43,7 +43,7 @@ export type MyMeasure = {
   updated: boolean;
 };
 
-/** Tick-off list; each change is saved straight away. */
+/** Tick-off list grouped by SI; each change is saved straight away. */
 export function ItemChecklist({ title, items }: { title: string; items: MyItem[] }) {
   // Ticks show straight away; the saved state takes over for anything not touched here.
   const [ticked, setTicked] = useState<Record<string, boolean>>({});
@@ -60,22 +60,39 @@ export function ItemChecklist({ title, items }: { title: string; items: MyItem[]
   return (
     <div aria-busy={pending}>
       <p className="mb-1.5 text-xs font-semibold text-ink">{title}</p>
-      <ul className="flex flex-col gap-1.5">
-        {items.map((i) => {
-          const done = ticked[i.id] ?? i.done;
+      <div className="flex flex-col gap-4">
+        {groupItemsBySi(items).map((group) => {
+          const si = group.items[0];
+          const open = group.items.filter((i) => !(ticked[i.id] ?? i.done)).length;
           return (
-            <li key={i.id}>
-              <Label className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-0.5 font-normal text-ink-muted transition-colors hover:bg-surface-2/60">
-                <Checkbox className="mt-px" checked={done} onCheckedChange={(c) => toggle(i, c === true)} />
-                <span className={`transition-[color,opacity] duration-200 ${done ? "text-ink-faint line-through opacity-70" : ""}`}>
-                  {i.text} <span className="text-ink-faint">· {i.dueLabel}</span>
-                  {i.pastDue && !done && <Badge variant="warn" className="ml-1.5">Needs a status</Badge>}
-                </span>
-              </Label>
-            </li>
+            <section key={group.siId} aria-label={`${si.siCode} ${si.siName}`}>
+              <div className="mb-1 flex flex-wrap items-center gap-2 border-b border-border/70 pb-1 text-xs font-semibold text-ink">
+                <Link href={`/initiatives/${group.siId}`} aria-label={`Open ${si.siCode} ${si.siName}`} className="tabular text-micro text-navy underline underline-offset-2 hover:text-navy-deep">
+                  {si.siCode}
+                </Link>
+                <span className="min-w-0">{si.siName}</span>
+                <span className="ml-auto font-normal text-ink-faint">{open === 0 ? "All done" : `${open} open`}</span>
+              </div>
+              <ul className="flex flex-col gap-1.5">
+                {group.items.map((i) => {
+                  const done = ticked[i.id] ?? i.done;
+                  return (
+                    <li key={i.id}>
+                      <Label className="flex cursor-pointer items-start gap-2 rounded-md px-1 py-0.5 font-normal text-ink-muted transition-colors hover:bg-surface-2/60">
+                        <Checkbox className="mt-px" checked={done} onCheckedChange={(c) => toggle(i, c === true)} />
+                        <span className={`transition-[color,opacity] duration-200 ${done ? "text-ink-faint line-through opacity-70" : ""}`}>
+                          {i.text} <span className="text-ink-faint">· {i.dueLabel}</span>
+                          {i.pastDue && !done && <Badge variant="warn" className="ml-1.5">Needs a status</Badge>}
+                        </span>
+                      </Label>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
           );
         })}
-      </ul>
+      </div>
     </div>
   );
 }
