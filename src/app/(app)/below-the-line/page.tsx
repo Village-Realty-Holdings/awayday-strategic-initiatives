@@ -8,8 +8,8 @@ import { BELOW_LINE_STATUSES, fmtDay, isoDay, shortCode, type BelowLineStatus } 
 
 export const dynamic = "force-dynamic";
 
-export default async function BelowTheLinePage() {
-  const [session, { id }] = await Promise.all([requireApp("initiatives"), resolvePeriod()]);
+export default async function BelowTheLinePage({ searchParams }: { searchParams: Promise<{ area?: string }> }) {
+  const [session, { id }, { area }] = await Promise.all([requireApp("initiatives"), resolvePeriod(), searchParams]);
   const plan = await getReviewPlan(id);
   const areaIds = plan.areas.map((a) => a.id).filter((x): x is string => Boolean(x));
   const projects = areaIds.length
@@ -24,10 +24,20 @@ export default async function BelowTheLinePage() {
     .filter((a) => a.id)
     .map((a) => ({
       areaId: a.id!,
+      areaCode: a.code,
       areaName: a.name,
+      isEnabler: a.kind === "ENABLER",
       kindLabel: a.number ? `Pillar ${a.number}` : "Enabler",
       leads: a.ownerLine,
-      sis: a.sis.map((s) => ({ id: s.id, shortCode: s.shortCode, name: s.name })),
+      sis: a.sis.map((s) => ({
+        id: s.id,
+        shortCode: s.shortCode,
+        name: s.name,
+        goingFor: s.goingFor,
+        lead: s.lead,
+        status: s.status,
+        dueLabel: fmtDay(s.milestones.filter((m) => !m.done && m.date).map((m) => m.date!).sort()[0] ?? null),
+      })),
       rows: projects
         .filter((p) => p.strategicAreaId === a.id)
         .map((p) => ({
@@ -47,10 +57,10 @@ export default async function BelowTheLinePage() {
       <PageHeader
         eyebrow="Below the line"
         title="Below the line"
-        description="The smaller projects teams run in each area that feed the strategic initiatives above the line, each with an owner, a status and the SI it feeds."
+        description="Pick a value creation pillar or enabler to see everything in it: its Awayday SIs and the below the line items teams run alongside them."
       />
       {groups.length > 0 ? (
-        <BelowTheLineView groups={groups} canCreate={canEdit(session.user.role)} />
+        <BelowTheLineView groups={groups} initialArea={area ?? null} canCreate={canEdit(session.user.role)} />
       ) : (
         <NoDataNote>{plan.title ?? "The active plan"} has no strategic areas, so below-the-line projects can&apos;t be filed against it.</NoDataNote>
       )}

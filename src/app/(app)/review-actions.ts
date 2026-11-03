@@ -101,7 +101,7 @@ export async function createBelowLineProject(formData: FormData) {
   const strategicAreaId = String(formData.get("strategicAreaId") ?? "");
   const name = str(formData, "name");
   if (!name) redirect("/below-the-line");
-  const area = await prisma.strategicArea.findUnique({ where: { id: strategicAreaId }, select: { id: true } });
+  const area = await prisma.strategicArea.findUnique({ where: { id: strategicAreaId }, select: { id: true, code: true } });
   if (!area) redirect("/below-the-line");
   const initiativeId = str(formData, "initiativeId");
   if (initiativeId) {
@@ -125,7 +125,7 @@ export async function createBelowLineProject(formData: FormData) {
   });
   await audit(session.user.id, "CREATE", "BelowLineProject", created.id, { after: { strategicAreaId, name, initiativeId } });
   revalidatePath("/below-the-line");
-  redirect("/below-the-line");
+  redirect(`/below-the-line?area=${encodeURIComponent(area.code)}`);
 }
 
 // ---------------------------------------------------------------------------

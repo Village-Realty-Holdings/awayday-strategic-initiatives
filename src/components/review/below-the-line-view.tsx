@@ -11,7 +11,8 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { createBelowLineProject } from "@/app/(app)/review-actions";
-import { BELOW_LINE_STATUSES, type BelowLineStatus } from "@/lib/review-model";
+import { BELOW_LINE_STATUSES, type BelowLineStatus, type SiReviewStatus } from "@/lib/review-model";
+import { SI_STATUS_META, SiStatusBadge } from "./status";
 
 export type BtlRow = {
   id: string;
@@ -24,12 +25,24 @@ export type BtlRow = {
   si: { id: string; shortCode: string; name: string } | null;
 };
 
+export type BtlSi = {
+  id: string;
+  shortCode: string;
+  name: string;
+  goingFor: string | null;
+  lead: string | null;
+  status: SiReviewStatus | null;
+  dueLabel: string;
+};
+
 export type BtlGroup = {
   areaId: string;
+  areaCode: string;
   areaName: string;
+  isEnabler: boolean;
   kindLabel: string;
   leads: string | null;
-  sis: { id: string; shortCode: string; name: string }[];
+  sis: BtlSi[];
   rows: BtlRow[];
 };
 
@@ -41,34 +54,72 @@ const STATUS_META: Record<BelowLineStatus, { label: string; variant: "ok" | "def
   NOT_STARTED: { label: "Not started", variant: "outline" },
 };
 
-const FILTERS: (BelowLineStatus | "ALL")[] = ["ALL", "ON_TRACK", "AT_RISK", "BLOCKED", "NOT_STARTED", "DONE"];
+type StatusKey = BelowLineStatus | SiReviewStatus | "TBD";
 
-function NewProjectForm({ groups }: { groups: BtlGroup[] }) {
-  const [areaId, setAreaId] = useState(groups[0]?.areaId ?? "");
-  const sis = groups.find((g) => g.areaId === areaId)?.sis ?? [];
+const STATUS_FILTERS: { key: StatusKey; label: string }[] = [
+  { key: "AHEAD", label: SI_STATUS_META.AHEAD.label },
+  { key: "ON_TRACK", label: "On track" },
+  { key: "AT_RISK", label: "At risk" },
+  { key: "BEHIND", label: SI_STATUS_META.BEHIND.label },
+  { key: "BLOCKED", label: "Blocked" },
+  { key: "NOT_STARTED", label: "Not started" },
+  { key: "TBD", label: "Status TBD" },
+  { key: "DONE", label: "Done" },
+];
+
+const siStatusKey = (si: BtlSi): StatusKey => si.status ?? "TBD";
+
+function AreaOptions({ groups }: { groups: BtlGroup[] }) {
+  const pillars = groups.filter((g) => !g.isEnabler);
+  const enablers = groups.filter((g) => g.isEnabler);
+  return (
+    <>
+      {pillars.length > 0 && (
+        <optgroup label="Value creation pillars">
+          {pillars.map((g) => <option key={g.areaCode} value={g.areaCode}>{g.areaName}</option>)}
+        </optgroup>
+      )}
+      {enablers.length > 0 && (
+        <optgroup label="Enablers">
+          {enablers.map((g) => <option key={g.areaCode} value={g.areaCode}>{g.areaName}</option>)}
+        </optgroup>
+      )}
+    </>
+  );
+}
+
+/** Files under the selected pillar or enabler; with none selected, asks which. */
+function NewProjectForm({ groups, selected }: { groups: BtlGroup[]; selected: BtlGroup | null }) {
+  const [picked, setPicked] = useState(groups[0]?.areaCode ?? "");
+  const group = selected ?? groups.find((g) => g.areaCode === picked);
   return (
     <details className="rounded-xl border border-border bg-surface p-4">
-      <summary className="cursor-pointer text-sm font-semibold text-ink">Add a project</summary>
+      <summary className="cursor-pointer text-sm font-semibold text-ink">
+        Add a below the line item{selected ? ` to ${selected.areaName}` : ""}
+      </summary>
       <form action={createBelowLineProject} className="mt-4 grid gap-3 sm:grid-cols-2">
-        <Label className="flex flex-col gap-1.5">
-          Area
-          <NativeSelect name="strategicAreaId" value={areaId} onChange={(e) => setAreaId(e.target.value)} required>
-            {groups.map((g) => (
-              <option key={g.areaId} value={g.areaId}>{g.areaName}</option>
-            ))}
-          </NativeSelect>
-        </Label>
+        {selected ? (
+          <input type="hidden" name="strategicAreaId" value={selected.areaId} />
+        ) : (
+          <Label className="flex flex-col gap-1.5">
+            Pillar or enabler
+            <NativeSelect value={picked} onChange={(e) => setPicked(e.target.value)} required>
+              <AreaOptions groups={groups} />
+            </NativeSelect>
+            <input type="hidden" name="strategicAreaId" value={group?.areaId ?? ""} />
+          </Label>
+        )}
         <Label className="flex flex-col gap-1.5">
           Feeds SI
-          <NativeSelect name="initiativeId" defaultValue="">
+          <NativeSelect key={group?.areaCode} name="initiativeId" defaultValue="">
             <option value="">No SI yet</option>
-            {sis.map((s) => (
+            {(group?.sis ?? []).map((s) => (
               <option key={s.id} value={s.id}>{s.shortCode} {s.name}</option>
             ))}
           </NativeSelect>
         </Label>
         <Label className="flex flex-col gap-1.5 sm:col-span-2">
-          Project name
+          Item name
           <Input name="name" required maxLength={200} />
         </Label>
         <Label className="flex flex-col gap-1.5 sm:col-span-2">
@@ -96,29 +147,54 @@ function NewProjectForm({ groups }: { groups: BtlGroup[] }) {
           <Input name="dueAt" type="date" />
         </Label>
         <div className="sm:col-span-2">
-          <Button type="submit" size="sm">Add project</Button>
+          <Button type="submit" size="sm">Add item</Button>
         </div>
       </form>
     </details>
   );
 }
 
-export function BelowTheLineView({ groups, canCreate }: { groups: BtlGroup[]; canCreate: boolean }) {
-  const [filter, setFilter] = useState<BelowLineStatus | "ALL">("ALL");
-  const all = groups.flatMap((g) => g.rows);
-  const count = (f: BelowLineStatus | "ALL") => (f === "ALL" ? all.length : all.filter((r) => r.status === f).length);
-  const visible = groups
-    .map((g) => ({ ...g, rows: g.rows.filter((r) => filter === "ALL" || r.status === filter) }))
-    .filter((g) => g.rows.length > 0);
+export function BelowTheLineView({ groups, initialArea, canCreate }: { groups: BtlGroup[]; initialArea: string | null; canCreate: boolean }) {
+  const [areaCode, setAreaCode] = useState(initialArea ?? "");
+  const [filter, setFilter] = useState<StatusKey | "ALL">("ALL");
+  const selected = groups.find((g) => g.areaCode === areaCode) ?? null;
+  const inScope = selected ? [selected] : groups;
+
+  const statuses: StatusKey[] = [...inScope.flatMap((g) => g.sis.map(siStatusKey)), ...inScope.flatMap((g) => g.rows.map((r) => r.status))];
+  const count = (f: StatusKey | "ALL") => (f === "ALL" ? statuses.length : statuses.filter((s) => s === f).length);
+  const visible = inScope
+    .map((g) => ({
+      ...g,
+      sis: g.sis.filter((s) => filter === "ALL" || siStatusKey(s) === filter),
+      rows: g.rows.filter((r) => filter === "ALL" || r.status === filter),
+    }))
+    .filter((g) => selected || g.sis.length + g.rows.length > 0);
+
+  function onAreaChange(code: string) {
+    setAreaCode(code);
+    setFilter("ALL");
+    // Keeps the choice in the URL, so a link or refresh lands on the same area.
+    window.history.replaceState(null, "", code ? `/below-the-line?area=${encodeURIComponent(code)}` : "/below-the-line");
+  }
 
   return (
     <div className="flex flex-col gap-5">
-      {canCreate && groups.length > 0 && <NewProjectForm groups={groups} />}
-      {all.length > 0 && (
+      <Label className="flex max-w-sm flex-col gap-1.5">
+        Pillar or enabler
+        <NativeSelect value={areaCode} onChange={(e) => onAreaChange(e.target.value)}>
+          <option value="">All pillars and enablers</option>
+          <AreaOptions groups={groups} />
+        </NativeSelect>
+      </Label>
+      {canCreate && <NewProjectForm groups={groups} selected={selected} />}
+      {statuses.length > 0 && (
         <div className="flex flex-wrap gap-1.5 text-xs" role="group" aria-label="Filter by status">
-          {FILTERS.map((f) => (
-            <Button key={f} size="xs" variant={filter === f ? "default" : "outline"} aria-pressed={filter === f} onClick={() => setFilter(f)}>
-              {f === "ALL" ? "All" : STATUS_META[f].label} {count(f)}
+          <Button size="xs" variant={filter === "ALL" ? "default" : "outline"} aria-pressed={filter === "ALL"} onClick={() => setFilter("ALL")}>
+            All {count("ALL")}
+          </Button>
+          {STATUS_FILTERS.filter((f) => count(f.key) > 0).map((f) => (
+            <Button key={f.key} size="xs" variant={filter === f.key ? "default" : "outline"} aria-pressed={filter === f.key} onClick={() => setFilter(f.key)}>
+              {f.label} {count(f.key)}
             </Button>
           ))}
         </div>
@@ -130,61 +206,85 @@ export function BelowTheLineView({ groups, canCreate }: { groups: BtlGroup[]; ca
             <CardTitle className="flex flex-wrap items-center gap-2 text-base">
               {g.areaName}
               <Badge variant="secondary">{g.kindLabel}</Badge>
-              <span className="text-xs font-normal text-ink-muted">{g.rows.length} project{g.rows.length === 1 ? "" : "s"}</span>
+              <span className="text-xs font-normal text-ink-muted">
+                {g.sis.length} Awayday SI{g.sis.length === 1 ? "" : "s"} · {g.rows.length} below the line
+              </span>
             </CardTitle>
             {g.leads && <CardDescription>{g.leads}</CardDescription>}
           </CardHeader>
           <CardContent>
-            <div className="rounded-lg border border-border">
-              <Table className="min-w-[44rem]">
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>Project</TableHead>
-                    <TableHead>Feeds SI</TableHead>
-                    <TableHead>Owner</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Next checkpoint</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {g.rows.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="whitespace-normal">
-                        <p className="font-medium text-ink">{r.name}</p>
-                        {r.description && <p className="mt-0.5 text-note leading-4 text-ink-muted">{r.description}</p>}
-                      </TableCell>
-                      <TableCell className="whitespace-normal">
-                        {r.si ? (
-                          <Link href={`/initiatives/${r.si.id}`} className="text-ink hover:text-navy-deep hover:underline">
-                            <span className="tabular mr-1.5 text-micro text-ink-faint">{r.si.shortCode}</span>
-                            {r.si.name}
-                          </Link>
-                        ) : (
-                          <span className="text-ink-faint">No SI yet</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="whitespace-normal text-ink-muted">
-                        {r.owner ?? "TBD"}
-                        {r.team && <span className="block text-note text-ink-faint">{r.team}</span>}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        <Badge variant={STATUS_META[r.status].variant}>{STATUS_META[r.status].label}</Badge>
-                      </TableCell>
-                      <TableCell className="tabular whitespace-nowrap text-right text-ink-muted">{r.dueLabel}</TableCell>
+            {g.sis.length + g.rows.length === 0 ? (
+              <p className="text-xs text-ink-faint">{filter === "ALL" ? "Nothing filed here yet." : "Nothing with this status."}</p>
+            ) : (
+              <div className="rounded-lg border border-border">
+                <Table className="min-w-[52rem]">
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>Initiative</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Feeds SI</TableHead>
+                      <TableHead>Owner</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Next checkpoint</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {g.sis.map((s) => (
+                      <TableRow key={s.id}>
+                        <TableCell className="whitespace-normal">
+                          <Link href={`/initiatives/${s.id}`} className="font-medium text-ink hover:text-navy-deep hover:underline">
+                            <span className="tabular mr-1.5 text-micro font-normal text-ink-faint">{s.shortCode}</span>
+                            {s.name}
+                          </Link>
+                          {s.goingFor && <p className="mt-0.5 text-note leading-4 text-ink-muted">{s.goingFor}</p>}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap"><Badge variant="default">Awayday SI</Badge></TableCell>
+                        <TableCell className="text-ink-faint">—</TableCell>
+                        <TableCell className="whitespace-normal text-ink-muted">{s.lead ?? "TBD"}</TableCell>
+                        <TableCell className="whitespace-nowrap"><SiStatusBadge status={s.status} /></TableCell>
+                        <TableCell className="tabular whitespace-nowrap text-right text-ink-muted">{s.dueLabel}</TableCell>
+                      </TableRow>
+                    ))}
+                    {g.rows.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="whitespace-normal">
+                          <p className="font-medium text-ink">{r.name}</p>
+                          {r.description && <p className="mt-0.5 text-note leading-4 text-ink-muted">{r.description}</p>}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap"><Badge variant="outline">Below the line</Badge></TableCell>
+                        <TableCell className="whitespace-normal">
+                          {r.si ? (
+                            <Link href={`/initiatives/${r.si.id}`} className="text-ink hover:text-navy-deep hover:underline">
+                              <span className="tabular mr-1.5 text-micro text-ink-faint">{r.si.shortCode}</span>
+                              {r.si.name}
+                            </Link>
+                          ) : (
+                            <span className="text-ink-faint">No SI yet</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="whitespace-normal text-ink-muted">
+                          {r.owner ?? "TBD"}
+                          {r.team && <span className="block text-note text-ink-faint">{r.team}</span>}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <Badge variant={STATUS_META[r.status].variant}>{STATUS_META[r.status].label}</Badge>
+                        </TableCell>
+                        <TableCell className="tabular whitespace-nowrap text-right text-ink-muted">{r.dueLabel}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       ))}
-      {all.length === 0 && (
+      {!selected && statuses.length === 0 && (
         <p className="rounded-xl border border-dashed border-border bg-surface p-6 text-center text-sm text-ink-muted">
-          No below-the-line projects yet.{canCreate && groups.length > 0 ? " Add the first one above." : ""}
+          No initiatives yet.{canCreate ? " Add the first below the line item above." : ""}
         </p>
       )}
-      {all.length > 0 && visible.length === 0 && <p className="text-xs text-ink-faint">No projects with this status.</p>}
+      {!selected && statuses.length > 0 && visible.length === 0 && <p className="text-xs text-ink-faint">Nothing with this status.</p>}
     </div>
   );
 }
