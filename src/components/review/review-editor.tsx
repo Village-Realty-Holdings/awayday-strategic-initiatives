@@ -104,7 +104,7 @@ export function ReviewEditor({
               </Label>
             </div>
             <p className="mt-4 text-xs text-ink-muted">
-              {updated.done} of {updated.total} SIs have an update for {periodLabel}. Publishing locks updates for the month on My SIs.
+              {updated.done} of {updated.total} SIs have an update for {periodLabel}. Publishing locks updates for the month in Inbox.
             </p>
           </Card>
 

@@ -38,7 +38,6 @@ const LABELS: Record<string, string> = {
   "below-the-line": "Below the line",
   definitions: "Definitions",
   inbox: "Inbox",
-  my: "My SIs",
   review: "Review",
   timeline: "Timeline",
   new: "New",

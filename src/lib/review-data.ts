@@ -278,7 +278,7 @@ export function allSis(plan: ReviewPlan): ReviewSi[] {
 /**
  * The requested period when it exists, otherwise the default: for the review
  * (`/` and the pages beside it) the newest published month, for SI updates
- * (My SIs) the newest month still open. `home` is that default, which the
+ * (Inbox) the newest month still open. `home` is that default, which the
  * period switchers link to without a period.
  */
 export async function resolvePeriod(

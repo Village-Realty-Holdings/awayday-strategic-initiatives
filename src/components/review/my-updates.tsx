@@ -21,8 +21,6 @@ export type MySiRow = {
   status: SiReviewStatus | null;
   latestProgress: string;
   whatNext: string;
-  milestones: MyItem[];
-  actions: MyItem[];
 };
 
 /** Tick-off list; each change is saved straight away. */
@@ -77,48 +75,41 @@ function SiUpdateCard({ row, period, locked }: { row: MySiRow; period: string; l
         <UpdatedBadge updated={row.updated} />
       </div>
 
-      <div className="mt-4 grid gap-5 lg:grid-cols-[3fr_2fr]">
-        <form
-          action={saveInitiativeUpdate}
-          className="flex flex-col gap-3"
-          onSubmit={(e) => {
-            const fd = new FormData(e.currentTarget);
-            if (!status || !String(fd.get("update") ?? "").trim() || !String(fd.get("pathForward") ?? "").trim()) {
-              e.preventDefault();
-              setError("Pick a status and fill in both latest progress and what next.");
-            } else setError(null);
-          }}
-        >
-          <input type="hidden" name="initiativeId" value={row.id} />
-          <input type="hidden" name="reportingPeriod" value={period} />
-          <input type="hidden" name="reviewStatus" value={status ?? ""} />
-          <fieldset className="flex flex-col gap-3" disabled={locked}>
-            <legend className="mb-1 text-xs font-medium text-ink-muted">Status</legend>
-            <SiStatusPicker label={`Status for ${row.name}`} value={status} onChange={setStatus} disabled={locked} />
-            <Label className="flex flex-col gap-1.5">
-              Latest progress
-              <Textarea name="update" rows={3} defaultValue={row.latestProgress} placeholder="What moved since last month?" />
-            </Label>
-            <Label className="flex flex-col gap-1.5">
-              What next
-              <Textarea name="pathForward" rows={2} defaultValue={row.whatNext} placeholder="What happens before the next review?" />
-            </Label>
-          </fieldset>
-          {error && <p role="alert" className="text-xs text-risk">{error}</p>}
-          <div className="flex flex-wrap items-center gap-2">
-            {locked ? (
-              <p className="text-xs text-ink-faint">The {periodLabelFor(period)} review is published, so its updates are final.</p>
-            ) : (
-              <Button type="submit" size="sm">{row.updated ? "Save a new update" : "Save update"}</Button>
-            )}
-          </div>
-        </form>
-        <div className="flex flex-col gap-4 lg:border-l lg:border-border/70 lg:pl-5">
-          <ItemChecklist title="Milestones" items={row.milestones} />
-          <ItemChecklist title="Action items" items={row.actions} />
-          {row.milestones.length === 0 && row.actions.length === 0 && <p className="text-xs text-ink-faint">No open milestones or action items.</p>}
+      <form
+        action={saveInitiativeUpdate}
+        className="mt-4 flex flex-col gap-3"
+        onSubmit={(e) => {
+          const fd = new FormData(e.currentTarget);
+          if (!status || !String(fd.get("update") ?? "").trim() || !String(fd.get("pathForward") ?? "").trim()) {
+            e.preventDefault();
+            setError("Pick a status and fill in both latest progress and what next.");
+          } else setError(null);
+        }}
+      >
+        <input type="hidden" name="initiativeId" value={row.id} />
+        <input type="hidden" name="reportingPeriod" value={period} />
+        <input type="hidden" name="reviewStatus" value={status ?? ""} />
+        <fieldset className="flex flex-col gap-3" disabled={locked}>
+          <legend className="mb-1 text-xs font-medium text-ink-muted">Status</legend>
+          <SiStatusPicker label={`Status for ${row.name}`} value={status} onChange={setStatus} disabled={locked} />
+          <Label className="flex flex-col gap-1.5">
+            Latest progress
+            <Textarea name="update" rows={3} defaultValue={row.latestProgress} placeholder="What moved since last month?" />
+          </Label>
+          <Label className="flex flex-col gap-1.5">
+            What next
+            <Textarea name="pathForward" rows={2} defaultValue={row.whatNext} placeholder="What happens before the next review?" />
+          </Label>
+        </fieldset>
+        {error && <p role="alert" className="text-xs text-risk">{error}</p>}
+        <div className="flex flex-wrap items-center gap-2">
+          {locked ? (
+            <p className="text-xs text-ink-faint">The {periodLabelFor(period)} review is published, so its updates are final.</p>
+          ) : (
+            <Button type="submit" size="sm">{row.updated ? "Save a new update" : "Save update"}</Button>
+          )}
         </div>
-      </div>
+      </form>
     </article>
   );
 }

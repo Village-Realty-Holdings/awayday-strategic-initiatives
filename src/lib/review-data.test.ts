@@ -120,7 +120,7 @@ describe("getReviewPlan", () => {
 });
 
 describe("review periods", () => {
-  it("includes stored months, opens the review on the newest published one and My SIs on the newest open one", async () => {
+  it("includes stored months, opens the review on the newest published one and Inbox on the newest open one", async () => {
     observationFindMany.mockResolvedValue([{ reportingPeriod: "2026-09" }]);
     updateFindMany.mockResolvedValue([{ reportingPeriod: "2026-08" }]);
     periodFindMany.mockResolvedValue([

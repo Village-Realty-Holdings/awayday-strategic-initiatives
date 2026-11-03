@@ -23,16 +23,21 @@ export function InboxView({
   items,
   asks,
   periodLabel,
+  locked,
 }: {
   needUpdate: InboxSi[];
   items: MyItem[];
   asks: InboxAsk[];
   periodLabel: string;
+  /** The month's review is published: updates are read-only. */
+  locked: boolean;
 }) {
   return (
     <div className="grid gap-5 xl:grid-cols-2">
-      <Panel title={`SIs needing a ${periodLabel} update`} count={needUpdate.length}>
-        {needUpdate.length === 0 ? (
+      <Panel title={`SIs needing a ${periodLabel} update`} count={locked ? 0 : needUpdate.length}>
+        {locked ? (
+          <p className="text-xs text-ink-faint">The {periodLabel} review is published, so its updates are final.</p>
+        ) : needUpdate.length === 0 ? (
           <p className="text-xs text-ink-faint">All caught up.</p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -42,7 +47,7 @@ export function InboxView({
                   <span className="tabular mr-2 text-micro text-ink-faint">{s.shortCode}</span>
                   {s.name}
                 </Link>
-                <Button asChild size="xs" variant="secondary"><Link href={`/my#si-${s.id}`}>Update</Link></Button>
+                <Button asChild size="xs" variant="secondary"><a href={`#si-${s.id}`}>Update</a></Button>
               </li>
             ))}
           </ul>

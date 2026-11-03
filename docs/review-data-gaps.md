@@ -1,6 +1,6 @@
 # Strategy Review: data the database doesn't hold yet
 
-The Strategy Review at `/` (with My SIs, Inbox, Asks by leader, Timeline, Below
+The Strategy Review at `/` (with Inbox, Asks by leader, Timeline, Below
 the line and Metric definitions) reads only from the database. Where a figure or
 note has nowhere to live yet, the section shows an empty state or is left out.
 This is the list of what's missing and what each gap leaves empty.
@@ -18,7 +18,7 @@ Strategy (admins) writes them on `/review/[period]/edit`.
 | **Update state** (draft / submitted) on `InitiativeUpdate` | Every saved update counts as final; there's no "x of 31 submitted" tracking. The status scale itself (`reviewStatus`: Ahead / On track / At risk / Behind) now exists. |
 | **Non-SI milestones** (`InitiativeMilestone.initiativeId` is required) | SI-process steps and company events (Summit, Vrbo change, board update) in Next 60 days and the timeline. |
 | **ELT ask details** ("raised by" and due date on `InitiativeEltRequest`) | Who raised an ask and when it's due, on Inbox and Asks by leader. |
-| **Area owners as people** (`StrategicArea.owner` is one string mixing ELT owners and SI leads); no link between `user` and `RosterMember` | ELT owner vs SI lead can't be told apart per area. Asks by leader groups by each SI's sponsor and lead instead. "My SIs" matches the signed-in user by the lead's name, because no SI has `ownerUserId` set (0 of 31). |
+| **Area owners as people** (`StrategicArea.owner` is one string mixing ELT owners and SI leads); no link between `user` and `RosterMember` | ELT owner vs SI lead can't be told apart per area. Asks by leader groups by each SI's sponsor and lead instead. Inbox matches the signed-in user by the lead's name, because no SI has `ownerUserId` set (0 of 31). |
 
 ## Missing data (rows, not schema)
 

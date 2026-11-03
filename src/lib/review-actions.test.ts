@@ -73,7 +73,7 @@ describe("saveInitiativeUpdate", () => {
 
     await expect(
       saveInitiativeUpdate(form({ initiativeId: "i1", reviewStatus: "AT_RISK", update: " Waves 2 and 3 live ", pathForward: "All shops by April", reportingPeriod: "2026-09" })),
-    ).rejects.toThrow("REDIRECT /my?period=2026-09#si-i1");
+    ).rejects.toThrow("REDIRECT /inbox?period=2026-09#si-i1");
 
     expect(m.updateCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({ initiativeId: "i1", status: "IN_PROGRESS", reviewStatus: "AT_RISK", update: "Waves 2 and 3 live", pathForward: "All shops by April", reportingPeriod: "2026-09", updatedBy: "Kyle Sullivan" }),
@@ -93,14 +93,14 @@ describe("saveInitiativeUpdate", () => {
     m.session.user.role = "editor";
     m.initiativeFindUnique.mockResolvedValue({ id: "i1", status: "IN_PROGRESS", ownerUserId: null, teamLead: "Kyle Sullivan" });
     m.periodFindUnique.mockResolvedValue({ status: "PUBLISHED" });
-    await expect(saveInitiativeUpdate(form({ initiativeId: "i1", reviewStatus: "AHEAD", reportingPeriod: "2026-09" }))).rejects.toThrow("REDIRECT /my?period=2026-09");
+    await expect(saveInitiativeUpdate(form({ initiativeId: "i1", reviewStatus: "AHEAD", reportingPeriod: "2026-09" }))).rejects.toThrow("REDIRECT /inbox?period=2026-09");
     expect(m.periodFindUnique).toHaveBeenCalledWith({ where: { id: "2026-09" }, select: { status: true } });
     expect(m.updateCreate).not.toHaveBeenCalled();
   });
 
   it("refuses someone who isn't the lead and can't edit", async () => {
     m.initiativeFindUnique.mockResolvedValue({ id: "i2", status: "IN_PROGRESS", ownerUserId: null, teamLead: "Curt Stark" });
-    await expect(saveInitiativeUpdate(form({ initiativeId: "i2", reviewStatus: "AHEAD" }))).rejects.toThrow("REDIRECT /my");
+    await expect(saveInitiativeUpdate(form({ initiativeId: "i2", reviewStatus: "AHEAD" }))).rejects.toThrow("REDIRECT /inbox");
     expect(m.updateCreate).not.toHaveBeenCalled();
   });
 });

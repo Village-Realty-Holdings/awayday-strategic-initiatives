@@ -153,7 +153,7 @@ describe("homeReviewPeriod / openUpdatePeriod", () => {
     expect(homeReviewPeriod(periods, [])).toBe("2026-10");
   });
 
-  it("opens My SIs on the newest month still taking updates, or the newest when all are published", () => {
+  it("opens Inbox on the newest month still taking updates, or the newest when all are published", () => {
     expect(openUpdatePeriod(periods, ["2026-10"])).toBe("2026-09");
     expect(openUpdatePeriod(periods, periods)).toBe("2026-10");
   });

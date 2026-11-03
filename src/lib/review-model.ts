@@ -189,7 +189,7 @@ export function homeReviewPeriod(periods: readonly string[], published: readonly
   return periods.find((p) => published.includes(p)) ?? periods[0];
 }
 
-/** The month My SIs opens on: the newest month still open for updates. */
+/** The month Inbox opens on: the newest month still open for updates. */
 export function openUpdatePeriod(periods: readonly string[], published: readonly string[]): string {
   return periods.find((p) => !published.includes(p)) ?? periods[0];
 }

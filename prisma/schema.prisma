@@ -495,7 +495,7 @@ model InitiativeUpdate {
 
 // ---- Monthly Strategy Review --------------------------------------------
 // One row per review month, written by Strategy (admins) on
-// /review/[period]/edit. Publishing locks that month's SI updates on My SIs.
+// /review/[period]/edit. Publishing locks that month's SI updates in Inbox.
 enum ReviewPeriodStatus {
   DRAFT
   PUBLISHED

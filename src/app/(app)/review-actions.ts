@@ -39,10 +39,10 @@ export async function saveInitiativeUpdate(formData: FormData) {
     }),
     period ? prisma.reviewPeriod.findUnique({ where: { id: period }, select: { status: true } }) : null,
   ]);
-  if (!initiative) redirect("/my");
-  if (!canEdit(session.user.role) && !initiativeOwnerMatches(initiative, session.user)) redirect("/my");
+  if (!initiative) redirect("/inbox");
+  if (!canEdit(session.user.role) && !initiativeOwnerMatches(initiative, session.user)) redirect("/inbox");
   // A published review is final: its month takes no more updates, for anyone.
-  if (review?.status === "PUBLISHED") redirect(`/my?period=${period}`);
+  if (review?.status === "PUBLISHED") redirect(`/inbox?period=${period}`);
 
   const rawStatus = str(formData, "reviewStatus");
   const reviewStatus = SI_REVIEW_STATUSES.includes(rawStatus as SiReviewStatus) ? (rawStatus as SiReviewStatus) : null;
@@ -62,7 +62,7 @@ export async function saveInitiativeUpdate(formData: FormData) {
   });
   await audit(session.user.id, "CREATE", "InitiativeUpdate", created.id, { after: { initiativeId, reviewStatus, reportingPeriod: created.reportingPeriod } });
   revalidateReview();
-  redirect(`/my${period ? `?period=${period}` : ""}#si-${initiativeId}`);
+  redirect(`/inbox${period ? `?period=${period}` : ""}#si-${initiativeId}`);
 }
 
 export async function toggleActionItem(formData: FormData) {

@@ -64,6 +64,7 @@ const nextConfig: NextConfig = {
       { source: "/v2/:path*", destination: "/:path*", permanent: false },
       { source: "/narrative", destination: "/reporting", permanent: false },
       { source: "/gantt", destination: "/reporting?view=gantt", permanent: false },
+      { source: "/my", destination: "/inbox", permanent: false },
     ];
   },
   async headers() {

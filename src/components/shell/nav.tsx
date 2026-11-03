@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Inbox, Target, Layers, CalendarDays, FileText, type AppIcon } from "@/components/icons";
+import { LayoutDashboard, Inbox, Layers, CalendarDays, FileText, type AppIcon } from "@/components/icons";
 
 /** Text and active-state classes shared by sidebar nav and footer links. */
 export function navLinkState(active: boolean) {
@@ -18,7 +18,6 @@ type Item = { label: string; href: string; icon: AppIcon };
 const NAV: Item[] = [
   { label: "Strategy Review", href: "/", icon: LayoutDashboard },
   { label: "Inbox", href: "/inbox", icon: Inbox },
-  { label: "My SIs", href: "/my", icon: Target },
   { label: "Below the line", href: "/below-the-line", icon: Layers },
   { label: "Timeline", href: "/timeline", icon: CalendarDays },
   { label: "Reporting", href: "/reporting", icon: FileText },

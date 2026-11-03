@@ -124,7 +124,7 @@ export async function editStrategicArea(fd: FormData): Promise<EditResult> {
 
 /**
  * An SI's update for the month (status, latest progress, what next), stored as
- * a new InitiativeUpdate like the ones leads save on My SIs. The month's
+ * a new InitiativeUpdate like the ones leads save in Inbox. The month's
  * next-milestone fields carry over from its latest update.
  */
 export async function editSiUpdate(fd: FormData): Promise<EditResult> {
