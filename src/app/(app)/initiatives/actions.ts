@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { appNow } from "@/lib/clock";
 import { prisma } from "@/lib/prisma";
 import { str, date, pick } from "@/lib/form";
 import { flash } from "@/lib/flash";
@@ -372,7 +373,7 @@ export async function addInitiativeMeasureReading(formData: FormData) {
     await flash("Enter the latest value as a number, e.g. 18, 12.5% or $1.5M", "error");
     redirect(returnPath);
   }
-  const now = new Date();
+  const now = appNow();
   const asOf = date(formData, "asOf") ?? now;
   // A day's grace: the picker's "today" can be ahead of the server's in some time zones.
   if (asOf.getTime() > now.getTime() + 24 * 60 * 60 * 1000) {

@@ -1,3 +1,4 @@
+import { appNow } from "@/lib/clock";
 import { prisma } from "@/lib/prisma";
 import { getActivePlan, planInitiativeWhere } from "@/lib/active-plan";
 import { requireAdmin, canEdit } from "@/lib/session";
@@ -34,7 +35,7 @@ export default async function InitiativesPage({
     prisma.initiativeGroup.findMany({ where: { archived: false }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 
-  const now = new Date();
+  const now = appNow();
   const avg = initiatives.reduce((s, i) => s + i.pctComplete, 0) / Math.max(initiatives.length, 1);
   let behind = 0;
 

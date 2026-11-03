@@ -5,6 +5,7 @@
 // table, owner matching, pillar status) can be tested without Prisma.
 
 import type { InitiativeStatus } from "@/generated/prisma/client";
+import { appNow } from "@/lib/clock";
 
 export const BELOW_LINE_STATUSES = ["NOT_STARTED", "ON_TRACK", "AT_RISK", "BLOCKED", "DONE"] as const;
 export type BelowLineStatus = (typeof BELOW_LINE_STATUSES)[number];
@@ -119,7 +120,7 @@ export function isoDay(date: Date | null | undefined): string | null {
   return date ? date.toISOString().slice(0, 10) : null;
 }
 
-export function todayIso(now: Date = new Date()): string {
+export function todayIso(now: Date = appNow()): string {
   return now.toISOString().slice(0, 10);
 }
 
@@ -165,7 +166,7 @@ export function periodMonthName(period: string): string {
 }
 
 /** The month before `now`, as YYYY-MM: the review discusses last month's results. */
-export function previousMonth(now: Date = new Date()): string {
+export function previousMonth(now: Date = appNow()): string {
   const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
   return d.toISOString().slice(0, 7);
 }
@@ -181,14 +182,14 @@ export function monthAfter(period: string): string {
  * updates or a stored ReviewPeriod row. With none, last month, so the page
  * always has a period.
  */
-export function reviewPeriods(candidates: readonly (string | null | undefined)[], now: Date = new Date()): string[] {
+export function reviewPeriods(candidates: readonly (string | null | undefined)[], now: Date = appNow()): string[] {
   const set = new Set(candidates.filter((p): p is string => typeof p === "string" && PERIOD_PATTERN.test(p)));
   if (set.size === 0) set.add(previousMonth(now));
   return [...set].sort((a, b) => b.localeCompare(a));
 }
 
 /** Periods Inbox offers: last month is always there, so a new month opens without anyone creating it. */
-export function updatePeriods(periods: readonly string[], now: Date = new Date()): string[] {
+export function updatePeriods(periods: readonly string[], now: Date = appNow()): string[] {
   return reviewPeriods([...periods, previousMonth(now)], now);
 }
 

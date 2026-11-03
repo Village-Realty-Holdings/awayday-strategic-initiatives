@@ -1,3 +1,4 @@
+import { appNow } from "@/lib/clock";
 import { prisma } from "@/lib/prisma";
 import { activePlanInitiativeWhere } from "@/lib/active-plan";
 import type { GanttRow } from "@/components/gantt-chart";
@@ -40,7 +41,7 @@ export async function loadGanttData() {
   items.sort((x, y) => y.start.getTime() - x.start.getTime() || x.code.localeCompare(y.code));
 
   // A plan with no dated initiatives would make Math.min/max return +/-Infinity (Invalid Date).
-  const today = new Date().getTime();
+  const today = appNow().getTime();
   const minStart = new Date(items.length ? Math.min(...items.map((i) => i.start.getTime())) : today);
   const maxEnd = new Date(items.length ? Math.max(...items.map((i) => i.end.getTime())) : today);
   const domainStart = quarterStart(minStart);
@@ -60,7 +61,7 @@ export async function loadGanttData() {
     });
   }
 
-  const now = new Date();
+  const now = appNow();
   const todayPct = now >= domainStart && now <= domainEnd ? pos(now) : null;
 
   const rows: GanttRow[] = items.map((i) => {

@@ -206,3 +206,6 @@ next-env.d.ts
 src/generated/
 prisma/generated/
 .neon
+
+# Local testing tool: database backups (contain user data)
+.dev-testing/

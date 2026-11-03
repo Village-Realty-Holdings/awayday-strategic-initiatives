@@ -1,3 +1,4 @@
+import { appNow } from "@/lib/clock";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -84,7 +85,7 @@ export default async function InitiativeDetail({
   const roster = await prisma.rosterMember.findMany({ select: { name: true }, orderBy: { name: "asc" } });
   const people = [...new Set(roster.map((r) => r.name).filter(Boolean))] as string[];
 
-  const now = new Date();
+  const now = appNow();
   const p = pace(i.startDate, i.endDate, i.pctComplete, now);
   const behind = i.status !== "COMPLETE" && p && p.lag < -0.15;
   const days = durationDays(i.startDate, i.endDate);

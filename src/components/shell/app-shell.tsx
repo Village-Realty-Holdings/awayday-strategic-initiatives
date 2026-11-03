@@ -8,6 +8,7 @@ import { InsetScrollReset } from "@/components/shell/inset-scroll-reset";
 import { AskPanel } from "@/components/ask-panel";
 import { FlashToaster } from "@/components/flash-toaster";
 import { SessionKeepalive } from "@/components/shell/session-keepalive";
+import { DevTestingTool } from "@/components/dev-testing/dev-testing-tool";
 import { isDevAuthEnabled } from "@/lib/dev-auth";
 
 function initials(name: string): string {
@@ -85,6 +86,7 @@ export function AppShell({
         </div>
       </div>
       <FlashToaster />
+      <DevTestingTool role={user.role} />
       {/* The local DEV_AUTH_AS bypass has no real session to keep alive. */}
       {!isDevAuthEnabled() && <SessionKeepalive />}
     </div>

@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { todayISO } from "@/lib/calendar";
+import { todayIso } from "@/lib/review-model";
 import { formatDateDay } from "@/lib/initiatives";
 import {
   formatMeasureValue,
@@ -157,7 +157,7 @@ function MeasureRow({
             <form action={addInitiativeMeasureReading} className="flex flex-wrap items-end gap-2">
               <input type="hidden" name="measureId" value={m.id} />
               <Input size="sm" name="value" required inputMode="decimal" aria-label={`Latest value of ${m.name}`} placeholder="Latest value" className="tabular w-32" />
-              <div className="w-44"><DatePicker name="asOf" label="As of" defaultValue={todayISO()} align="start" /></div>
+              <div className="w-44"><DatePicker name="asOf" label="As of" defaultValue={todayIso()} align="start" /></div>
               <Input size="sm" name="note" aria-label="Note" placeholder="Note (optional)" className="min-w-48 flex-1" />
               <SubmitButton variant="secondary" size="sm">Save update</SubmitButton>
             </form>

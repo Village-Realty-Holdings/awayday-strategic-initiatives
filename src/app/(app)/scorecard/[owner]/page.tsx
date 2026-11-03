@@ -1,3 +1,4 @@
+import { appNow } from "@/lib/clock";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireSession, canEdit } from "@/lib/session";
@@ -48,7 +49,7 @@ export default async function OwnerPage({ params }: { params: Promise<{ owner: s
   // Unknown owner with no work: nothing to show.
   if (!person && initiatives.length === 0) notFound();
 
-  const now = new Date();
+  const now = appNow();
   let behind = 0;
   const rows: InitiativeRow[] = initiatives.map((i) => {
     const p = pace(i.startDate, i.endDate, i.pctComplete, now);
