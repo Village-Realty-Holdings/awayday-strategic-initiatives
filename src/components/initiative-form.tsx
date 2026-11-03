@@ -174,7 +174,7 @@ export function InitiativeForm({
         <FormSection title="2. Value">
           <Field label="Metric">
             {kpiOptions.length > 0 && (
-              <NativeSelect onChange={(e) => onKpiPick(e.target.value)} defaultValue="" className="mb-1.5" aria-label="Pick a KPI">
+              <NativeSelect onChange={(e) => onKpiPick(e.target.value)} defaultValue="" className="mb-1.5 w-full min-w-0" aria-label="Pick a KPI">
                 <option value="">— pick a KPI —</option>
                 {kpiOptions.map((o) => <option key={o} value={o}>{o}</option>)}
               </NativeSelect>
@@ -305,8 +305,9 @@ function FormSection({
   action?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  // grid-cols-1 keeps a select with long options from widening the card.
   return (
-    <section className="grid gap-4 rounded-md border border-border bg-surface px-4 py-4 sm:px-5">
+    <section className="grid min-w-0 grid-cols-1 gap-4 rounded-md border border-border bg-surface px-4 py-4 sm:px-5">
       <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-ink">{title}</h2>
@@ -343,7 +344,7 @@ function Field({
   // as the old plain <label>; the caption span below carries the caption look.
   const Wrap = asDiv ? "div" : Label;
   return (
-    <Wrap className={asDiv ? "flex flex-col gap-1.5" : "flex flex-col gap-1.5 text-base font-normal text-ink"}>
+    <Wrap className={asDiv ? "flex min-w-0 flex-col gap-1.5" : "flex min-w-0 flex-col gap-1.5 text-base font-normal text-ink"}>
       <span className="text-xs font-medium text-ink-muted">
         {label}
         {required && <span className="text-risk"> *</span>}
