@@ -305,7 +305,7 @@ export function InitiativeForm({
         />
       </FormSection>
 
-      <FormSection title="Other details" description="Not on the charter page: where the SI sits, who else works on it, deliverables, scoring and dates.">
+      <section className="grid gap-4 rounded-md border border-border bg-surface px-4 py-4 sm:px-5">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="CIM driver / theme" required={isNew} hint={isNew ? "Broad strategic driver. Sets the suggested code prefix." : "Broad strategic driver, used for grouping."}>
             <NativeSelect value={cim} onChange={(e) => onCimChange(e.target.value)} name="cimDriver">
@@ -394,7 +394,7 @@ export function InitiativeForm({
             </Field>
           </div>
         )}
-      </FormSection>
+      </section>
 
       {/* Sticky save bar: stays in reach at the bottom of the scrolling inset. */}
       <div className="sticky bottom-0 z-10 -mx-2 flex flex-wrap items-center gap-3 border-t border-border bg-bg/95 px-2 py-3 backdrop-blur supports-[backdrop-filter]:bg-bg/80">
