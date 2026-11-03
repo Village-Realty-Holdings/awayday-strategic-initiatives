@@ -2,11 +2,8 @@ import Link from "next/link";
 import { ProgressBar, StatusBadge } from "@/components/badges";
 import { Check, X } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import type { InitiativeStatus } from "@/generated/prisma/client";
-import { ItemChecklist, type MyItem } from "./my-updates";
+import { ItemChecklist, SiUpdateDialog, type MyItem, type MySiRow } from "./my-updates";
 
-export type InboxSi = { id: string; shortCode: string; name: string; updated: boolean; status: InitiativeStatus | null };
 export type InboxAsk = { id: string; siId: string; siLabel: string; request: string; kind: string; raisedLabel: string; open: boolean };
 
 function Panel({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
@@ -31,7 +28,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "wa
 }
 
 /** How the signed-in lead is doing on this month's asks. */
-function Tracker({ sis, kpis, openAsks, pastDue, periodLabel, dueLabel, locked }: { sis: InboxSi[]; kpis: { updated: number; total: number }; openAsks: number; pastDue: number; periodLabel: string; dueLabel: string | null; locked: boolean }) {
+function Tracker({ sis, kpis, openAsks, pastDue, periodLabel, dueLabel, locked }: { sis: MySiRow[]; kpis: { updated: number; total: number }; openAsks: number; pastDue: number; periodLabel: string; dueLabel: string | null; locked: boolean }) {
   const updated = sis.filter((s) => s.updated).length;
   const allDone = updated === sis.length;
   return (
@@ -56,7 +53,7 @@ function Tracker({ sis, kpis, openAsks, pastDue, periodLabel, dueLabel, locked }
 }
 
 /** One row per SI: a red x until the month's update is saved, then a green check. */
-function UpdateChecklist({ sis, locked }: { sis: InboxSi[]; locked: boolean }) {
+function UpdateChecklist({ sis, period, asOf, locked }: { sis: MySiRow[]; period: string; asOf: string; locked: boolean }) {
   return (
     <ul className="flex flex-col gap-2">
       {sis.map((s) => (
@@ -74,7 +71,7 @@ function UpdateChecklist({ sis, locked }: { sis: InboxSi[]; locked: boolean }) {
             <p className={`text-note ${s.updated ? "text-ok" : "text-risk"}`}>{s.updated ? "Updated" : "Needs an update"}</p>
           </div>
           {s.updated && <StatusBadge status={s.status} />}
-          {!locked && <Button asChild size="xs" variant={s.updated ? "outline" : "secondary"}><a href={`#si-${s.id}`}>{s.updated ? "Edit" : "Update"}</a></Button>}
+          <SiUpdateDialog row={s} period={period} asOf={asOf} locked={locked} />
         </li>
       ))}
     </ul>
@@ -86,14 +83,19 @@ export function InboxView({
   kpis,
   items,
   asks,
+  period,
+  asOf,
   periodLabel,
   dueLabel,
   locked,
 }: {
-  sis: InboxSi[];
+  sis: MySiRow[];
   kpis: { updated: number; total: number };
   items: MyItem[];
   asks: InboxAsk[];
+  period: string;
+  /** The as-of date offered when entering a KPI value. */
+  asOf: string;
   periodLabel: string;
   dueLabel: string | null;
   /** The month's review is published: updates are read-only. */
@@ -109,7 +111,7 @@ export function InboxView({
       )}
 
       <Panel title={`My SIs for ${periodLabel}`} count={locked ? 0 : sis.filter((s) => !s.updated).length}>
-        {sis.length === 0 ? <p className="text-xs text-ink-faint">You don&apos;t lead any SIs.</p> : <UpdateChecklist sis={sis} locked={locked} />}
+        {sis.length === 0 ? <p className="text-xs text-ink-faint">You don&apos;t lead any SIs.</p> : <UpdateChecklist sis={sis} period={period} asOf={asOf} locked={locked} />}
       </Panel>
 
       <Panel title="ELT asks on my SIs" count={openAsks}>

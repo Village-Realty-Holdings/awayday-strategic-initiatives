@@ -55,11 +55,11 @@ export async function saveInitiativeUpdate(formData: FormData) {
   });
   await audit(session.user.id, "CREATE", "InitiativeUpdate", created.id, { after: { initiativeId, status, reportingPeriod: created.reportingPeriod } });
   revalidateReview();
+  // Inbox saves from a dialog, which closes itself; the SI page goes back to the SI.
   if (str(formData, "returnTo") === "initiative") {
     await flash("Status update saved");
     redirect(`/initiatives/${initiativeId}`);
   }
-  redirect(`/inbox${period ? `?period=${period}` : ""}#si-${initiativeId}`);
 }
 
 export async function toggleActionItem(formData: FormData) {

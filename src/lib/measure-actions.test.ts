@@ -108,10 +108,11 @@ describe("addInitiativeMeasureReading", () => {
     expect(m.flash).toHaveBeenCalledWith(expect.any(String), "error");
   });
 
-  it("lets the SI's own lead update, and returns to their Inbox month", async () => {
+  it("lets the SI's own lead update, and stays in Inbox's dialog", async () => {
     m.session.user = { id: "u-kyle", name: "Kyle Sullivan", role: "user" };
     m.initiativeFindUnique.mockResolvedValue(initiative({ ownerUserId: null, teamLead: "Kyle Sullivan" }));
-    await expect(addInitiativeMeasureReading(form({ measureId: "m1", value: "75", returnTo: "inbox", period: "2026-10" }))).rejects.toThrow("REDIRECT /inbox?period=2026-10#si-i1");
+    await addInitiativeMeasureReading(form({ measureId: "m1", value: "75", returnTo: "inbox" }));
+    expect(m.redirect).not.toHaveBeenCalled();
     expect(m.readingCreate).toHaveBeenCalledOnce();
   });
 

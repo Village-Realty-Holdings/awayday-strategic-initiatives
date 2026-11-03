@@ -1,5 +1,5 @@
 import { InboxView, type InboxAsk } from "@/components/review/inbox-view";
-import { MyUpdates, type MyItem, type MySiRow } from "@/components/review/my-updates";
+import type { MyItem, MySiRow } from "@/components/review/my-updates";
 import { PeriodSwitcherQuery } from "@/components/review/period-query";
 import { PageHeader } from "@/components/shell/page-header";
 import { formatDateDay } from "@/lib/initiatives";
@@ -87,12 +87,13 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
         periodLabel={periodMonthName(id)}
         locked={locked}
         dueLabel={period.updatesDueDate ? fmtLong(period.updatesDueDate) : null}
-        sis={mine.map((s) => ({ id: s.id, shortCode: s.shortCode, name: s.name, updated: s.updatedThisPeriod, status: s.status }))}
+        sis={rows}
+        period={id}
+        asOf={defaultAsOf(id, today)}
         kpis={{ updated: kpisUpdated, total: measures.length }}
         items={items}
         asks={asks}
       />
-      {rows.length > 0 && <MyUpdates rows={rows} period={id} asOf={defaultAsOf(id, today)} locked={locked} />}
     </div>
   );
 }

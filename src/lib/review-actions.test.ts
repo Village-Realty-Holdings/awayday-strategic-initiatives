@@ -70,9 +70,8 @@ describe("saveInitiativeUpdate", () => {
     m.initiativeFindUnique.mockResolvedValue({ id: "i1", ownerUserId: null, teamLead: "Kyle Sullivan" });
     m.recordSiUpdate.mockResolvedValue({ id: "upd1", reportingPeriod: "2026-09" });
 
-    await expect(
-      saveInitiativeUpdate(form({ initiativeId: "i1", status: "AT_RISK", update: " Waves 2 and 3 live ", pathForward: "All shops by April", reportingPeriod: "2026-09" })),
-    ).rejects.toThrow("REDIRECT /inbox?period=2026-09#si-i1");
+    await saveInitiativeUpdate(form({ initiativeId: "i1", status: "AT_RISK", update: " Waves 2 and 3 live ", pathForward: "All shops by April", reportingPeriod: "2026-09" }));
+    expect(m.redirect).not.toHaveBeenCalled();
 
     expect(m.recordSiUpdate).toHaveBeenCalledWith({ initiativeId: "i1", status: "AT_RISK", update: "Waves 2 and 3 live", pathForward: "All shops by April", reportingPeriod: "2026-09", updatedBy: "Kyle Sullivan" });
     expect(m.audit).toHaveBeenCalledWith("u-kyle", "CREATE", "InitiativeUpdate", "upd1", expect.anything());
@@ -81,7 +80,7 @@ describe("saveInitiativeUpdate", () => {
   it("drops an unknown status and a free-text period", async () => {
     m.initiativeFindUnique.mockResolvedValue({ id: "i1", ownerUserId: null, teamLead: "Kyle Sullivan" });
     m.recordSiUpdate.mockResolvedValue({ id: "upd2", reportingPeriod: null });
-    await expect(saveInitiativeUpdate(form({ initiativeId: "i1", status: "GREAT", reportingPeriod: "October 2026" }))).rejects.toThrow(/REDIRECT/);
+    await saveInitiativeUpdate(form({ initiativeId: "i1", status: "GREAT", reportingPeriod: "October 2026" }));
     expect(m.recordSiUpdate.mock.calls[0][0]).toMatchObject({ status: null, reportingPeriod: null });
   });
 

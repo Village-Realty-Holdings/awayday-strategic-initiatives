@@ -11,7 +11,7 @@ import { audit } from "@/lib/audit";
 import { getActivePlan } from "@/lib/active-plan";
 import { deleteAttachment } from "@/lib/storage";
 import { quadrantFor, valueFromDollars, effortToLift, parseDollars } from "@/lib/initiatives";
-import { initiativeOwnerMatches, PERIOD_PATTERN } from "@/lib/review-model";
+import { initiativeOwnerMatches } from "@/lib/review-model";
 import { diffRows, parseDependencyRows, parseMilestoneRows, parseRiskRows, splitByWhen } from "@/lib/charter-rows";
 import { derivedPct, MEASURE_KINDS, MEASURE_UNITS, parseMeasureValue } from "@/lib/measures";
 
@@ -278,13 +278,6 @@ async function requireMeasureEditor(initiativeId: string) {
   return session;
 }
 
-// Back to where the update was typed: the SI page, or the month in Inbox.
-function readingReturnPath(fd: FormData, initiativeId: string): string {
-  if (str(fd, "returnTo") !== "inbox") return `/initiatives/${initiativeId}`;
-  const period = str(fd, "period");
-  return `/inbox${period && PERIOD_PATTERN.test(period) ? `?period=${period}` : ""}#si-${initiativeId}`;
-}
-
 // Name, kind, unit, baseline and target, shared by add + edit. A blank baseline or
 // target is allowed (progress just can't be worked out yet); an unreadable one isn't.
 async function parseMeasureFields(fd: FormData, initiativeId: string) {
@@ -367,18 +360,19 @@ export async function addInitiativeMeasureReading(formData: FormData) {
   const measure = await prisma.initiativeMeasure.findUnique({ where: { id: measureId }, select: { initiativeId: true } });
   if (!measure) redirect("/admin/initiatives");
   const session = await requireMeasureEditor(measure.initiativeId);
-  const returnPath = readingReturnPath(formData, measure.initiativeId);
+  // Inbox enters values from a dialog, which stays open; the SI page reloads itself.
+  const leave = () => (str(formData, "returnTo") === "inbox" ? undefined : redirect(`/initiatives/${measure.initiativeId}`));
   const value = parseMeasureValue(str(formData, "value"));
   if (value === null) {
     await flash("Enter the latest value as a number, e.g. 18, 12.5% or $1.5M", "error");
-    redirect(returnPath);
+    return leave();
   }
   const now = appNow();
   const asOf = date(formData, "asOf") ?? now;
   // A day's grace: the picker's "today" can be ahead of the server's in some time zones.
   if (asOf.getTime() > now.getTime() + 24 * 60 * 60 * 1000) {
     await flash("The as-of date can't be in the future", "error");
-    redirect(returnPath);
+    return leave();
   }
   const note = str(formData, "note");
   const created = await prisma.initiativeMeasureReading.create({
@@ -388,7 +382,7 @@ export async function addInitiativeMeasureReading(formData: FormData) {
   await audit(session.user.id, "CREATE", "InitiativeMeasureReading", created.id, { after: { measureId, value, asOf, note, pctComplete } });
   revalidateMeasurePaths(measure.initiativeId);
   await flash("Measure updated");
-  redirect(returnPath);
+  return leave();
 }
 
 export async function removeInitiativeMeasureReading(formData: FormData) {

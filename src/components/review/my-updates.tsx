@@ -5,10 +5,12 @@ import Link from "next/link";
 import { addInitiativeMeasureReading } from "@/app/(app)/initiatives/actions";
 import { saveInitiativeUpdate, toggleActionItem, toggleMilestone } from "@/app/(app)/review-actions";
 import { ProgressBar } from "@/components/badges";
+import { X } from "@/components/icons";
 import { DatePicker } from "@/components/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -16,7 +18,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Textarea } from "@/components/ui/textarea";
 import type { InitiativeStatus } from "@/generated/prisma/client";
 import { periodLabel as periodLabelFor } from "@/lib/review-model";
-import { SiStatusPicker, UpdatedBadge } from "./status";
+import { SiStatusPicker } from "./status";
 
 export type MyItem = { id: string; kind: "milestone" | "action"; text: string; dueLabel: string; done: boolean; pastDue: boolean };
 export type MySiRow = {
@@ -90,6 +92,7 @@ export function SiUpdateForm({
   locked = false,
   returnTo,
   submitLabel = "Save update",
+  onSaved,
 }: {
   initiativeId: string;
   name: string;
@@ -102,13 +105,17 @@ export function SiUpdateForm({
   locked?: boolean;
   returnTo?: "initiative";
   submitLabel?: string;
+  onSaved?: () => void;
 }) {
   const [status, setStatus] = useState<InitiativeStatus | null>(initialStatus);
   const [error, setError] = useState<string | null>(null);
 
   return (
     <form
-      action={saveInitiativeUpdate}
+      action={async (fd) => {
+        await saveInitiativeUpdate(fd);
+        onSaved?.();
+      }}
       className="flex flex-col gap-3"
       onSubmit={(e) => {
         const fd = new FormData(e.currentTarget);
@@ -147,7 +154,7 @@ export function SiUpdateForm({
         {locked ? (
           <p className="text-xs text-ink-faint">The {periodLabelFor(period)} review is published, so its updates are final.</p>
         ) : (
-          <Button type="submit" size="sm">{submitLabel}</Button>
+          <SubmitButton size="sm">{submitLabel}</SubmitButton>
         )}
       </div>
     </form>
@@ -155,7 +162,7 @@ export function SiUpdateForm({
 }
 
 /** Latest value against target for each measure, with a quick way to enter this month's. */
-function MeasureUpdates({ row, period, asOf, locked }: { row: MySiRow; period: string; asOf: string; locked: boolean }) {
+function MeasureUpdates({ row, asOf, locked }: { row: MySiRow; asOf: string; locked: boolean }) {
   return (
     <section className="mt-5 border-t border-border/70 pt-4" aria-label={`KPIs and leading measures for ${row.name}`}>
       <p className="mb-2 text-xs font-semibold text-ink">KPIs &amp; leading measures</p>
@@ -182,7 +189,6 @@ function MeasureUpdates({ row, period, asOf, locked }: { row: MySiRow; period: s
                 <form action={addInitiativeMeasureReading} className="mt-2 flex flex-wrap items-end gap-2">
                   <input type="hidden" name="measureId" value={m.id} />
                   <input type="hidden" name="returnTo" value="inbox" />
-                  <input type="hidden" name="period" value={period} />
                   <Input size="sm" name="value" required inputMode="decimal" aria-label={`Latest value of ${m.name}`} placeholder="Latest value" className="tabular w-32" />
                   <div className="w-44"><DatePicker name="asOf" label="As of" defaultValue={asOf} align="start" /></div>
                   <SubmitButton variant="secondary" size="sm">Save value</SubmitButton>
@@ -196,44 +202,40 @@ function MeasureUpdates({ row, period, asOf, locked }: { row: MySiRow; period: s
   );
 }
 
-function SiUpdateCard({ row, period, asOf, locked }: { row: MySiRow; period: string; asOf: string; locked: boolean }) {
+/** Opens an SI's monthly update and KPI values in a dialog. */
+export function SiUpdateDialog({ row, period, asOf, locked }: { row: MySiRow; period: string; asOf: string; locked: boolean }) {
+  const [open, setOpen] = useState(false);
   return (
-    <article id={`si-${row.id}`} className="scroll-mt-20 rounded-xl border border-border bg-surface p-5">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">{row.areaName}</p>
-          <h3 className="mt-0.5 text-base font-semibold text-ink">
-            <Link href={`/initiatives/${row.id}`} className="hover:text-navy-deep">
-              <span className="tabular mr-2 text-xs text-ink-faint">{row.shortCode}</span>
+    <>
+      <Button type="button" size="xs" variant={row.updated || locked ? "outline" : "secondary"} onClick={() => setOpen(true)}>
+        {locked ? "View" : row.updated ? "Edit" : "Update"}
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader className="pr-8">
+            <DialogTitle>
+              <span className="tabular mr-2 text-xs font-normal text-ink-faint">{row.shortCode}</span>
               {row.name}
-            </Link>
-          </h3>
-        </div>
-        <UpdatedBadge updated={row.updated} />
-      </div>
-      <div className="mt-4">
-        <SiUpdateForm
-          initiativeId={row.id}
-          name={row.name}
-          status={row.status}
-          latestProgress={row.latestProgress}
-          whatNext={row.whatNext}
-          period={period}
-          locked={locked}
-          submitLabel={row.updated ? "Save a new update" : "Save update"}
-        />
-      </div>
-      <MeasureUpdates row={row} period={period} asOf={asOf} locked={locked} />
-    </article>
-  );
-}
-
-export function MyUpdates({ rows, period, asOf, locked = false }: { rows: MySiRow[]; period: string; asOf: string; locked?: boolean }) {
-  return (
-    <div className="flex flex-col gap-5">
-      {rows.map((r) => (
-        <SiUpdateCard key={r.id} row={r} period={period} asOf={asOf} locked={locked} />
-      ))}
-    </div>
+            </DialogTitle>
+            <DialogDescription>{row.areaName} · {periodLabelFor(period)} update</DialogDescription>
+          </DialogHeader>
+          <DialogClose asChild>
+            <Button type="button" variant="ghost" size="icon" className="absolute right-3 top-3 h-8 w-8" aria-label="Close"><X size={17} aria-hidden /></Button>
+          </DialogClose>
+          <SiUpdateForm
+            initiativeId={row.id}
+            name={row.name}
+            status={row.status}
+            latestProgress={row.latestProgress}
+            whatNext={row.whatNext}
+            period={period}
+            locked={locked}
+            submitLabel={row.updated ? "Save a new update" : "Save update"}
+            onSaved={() => setOpen(false)}
+          />
+          <MeasureUpdates row={row} asOf={asOf} locked={locked} />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
