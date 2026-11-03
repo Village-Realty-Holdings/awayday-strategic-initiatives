@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { backupName, buildTestData, isBackupName, isDevTestingEnabled, isLocalDatabaseUrl, TEST_MEASURE_PREFIX } from "./dev-testing";
+import { buildTestData, isDevTestingEnabled, isLocalDatabaseUrl, TEST_MEASURE_PREFIX } from "./dev-testing";
 import { appNow, devToday, setDevToday } from "./clock";
 
-// The tool can change roles and overwrite the database, so the guards matter
+// The tool can change roles and delete data, so the guards matter
 // most: it must stay off in a production build, even with .env copied in.
 
 const on = { NODE_ENV: "development", ENABLE_DEV_TESTING: "true", DATABASE_URL: "postgresql://a:b@localhost:5432/db" };
@@ -34,16 +34,6 @@ describe("isLocalDatabaseUrl", () => {
     expect(isLocalDatabaseUrl("postgresql://a:b@127.0.0.1:5432/db")).toBe(true);
     expect(isLocalDatabaseUrl("postgresql://a:b@localhost.evil.com/db")).toBe(false);
     expect(isLocalDatabaseUrl("not a url")).toBe(false);
-  });
-});
-
-describe("backup names", () => {
-  it("accepts only names the tool writes", () => {
-    const name = backupName("manual", new Date("2026-11-03T09:30:05Z"));
-    expect(name).toBe("manual-20261103-093005.sql");
-    expect(isBackupName(name)).toBe(true);
-    expect(isBackupName("../../.env")).toBe(false);
-    expect(isBackupName("manual-20261103-093005.sql/../x")).toBe(false);
   });
 });
 

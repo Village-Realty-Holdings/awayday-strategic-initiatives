@@ -5,7 +5,7 @@ import { audit } from "@/lib/audit";
 import { activePlanInitiativeWhere } from "@/lib/active-plan";
 import { setDevToday } from "@/lib/clock";
 import { buildTestData, isDevTestingEnabled, TEST_MEASURE_PREFIX, TEST_UPDATED_BY } from "@/lib/dev-testing";
-import { createBackup, forgetAccount, readRememberedAccount, rememberAccount, restoreBackup } from "@/lib/dev-testing-files";
+import { forgetAccount, readRememberedAccount, rememberAccount } from "@/lib/dev-testing-files";
 import { defaultAsOf, derivedPct } from "@/lib/measures";
 import { prisma } from "@/lib/prisma";
 import { getReviewPeriodIndex } from "@/lib/review-data";
@@ -44,18 +44,6 @@ async function syncValuePercents() {
   }
 }
 
-export async function devCreateBackup(): Promise<DevResult> {
-  return guarded(async () => `Saved ${await createBackup("manual")}.`);
-}
-
-export async function devRestoreBackup(name: string): Promise<DevResult> {
-  return guarded(async () => {
-    const safety = await createBackup("auto");
-    await restoreBackup(name);
-    return `Restored ${name}. The previous state is saved as ${safety}.`;
-  });
-}
-
 export async function devSetAccount(role: string, actAs: string): Promise<DevResult> {
   return guarded(async (session) => {
     if (!ROLES.includes(role)) throw new Error("Unknown role.");
@@ -82,7 +70,6 @@ export async function devResetAccount(): Promise<DevResult> {
 
 export async function devLoadTestData(): Promise<DevResult> {
   return guarded(async (session) => {
-    const safety = await createBackup("auto");
     const { periods, published } = await getReviewPeriodIndex();
     const period = openUpdatePeriod(updatePeriods(periods), published);
     const asOf = new Date(`${defaultAsOf(period, todayIso())}T00:00:00Z`);
@@ -107,17 +94,16 @@ export async function devLoadTestData(): Promise<DevResult> {
     }
     await syncValuePercents();
     await audit(session.user.id, "CREATE", "DevTesting", period, { after: { action: "load test data", initiatives: initiatives.length } });
-    return `Loaded test data for ${periodLabel(period)} on ${initiatives.length} SIs. The previous state is saved as ${safety}.`;
+    return `Loaded test data for ${periodLabel(period)} on ${initiatives.length} SIs.`;
   });
 }
 
 export async function devClearUpdates(): Promise<DevResult> {
   return guarded(async (session) => {
-    const safety = await createBackup("auto");
     const [updates, measures] = await Promise.all([prisma.initiativeUpdate.deleteMany({}), prisma.initiativeMeasure.deleteMany({})]);
     await syncValuePercents();
     await audit(session.user.id, "DELETE", "DevTesting", "updates", { before: { updates: updates.count, measures: measures.count } });
-    return `Removed ${updates.count} updates and ${measures.count} measures. The previous state is saved as ${safety}.`;
+    return `Removed ${updates.count} updates and ${measures.count} measures.`;
   });
 }
 

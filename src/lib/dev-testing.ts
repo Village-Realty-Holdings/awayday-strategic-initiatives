@@ -3,8 +3,8 @@ import type { InitiativeStatus } from "@/generated/prisma/client";
 // Rules for the local testing tool. No Node APIs or Prisma here, so the app
 // shell can check the guard and tests can cover the rest directly.
 //
-// THIS MUST NEVER BE REACHABLE ON A DEPLOYMENT. The tool can change anyone's
-// role and overwrite the database, so all three guards have to hold:
+// THIS MUST NEVER BE REACHABLE ON A DEPLOYMENT. The tool can change an account's
+// role and delete data, so all three guards have to hold:
 //
 //   1. NODE_ENV is not "production". `next build` inlines it, so no Worker
 //      bundle can enable this, even though OpenNext copies .env into it.
@@ -43,18 +43,6 @@ export function isDevTestingEnabled(env: DevTestingEnv = readEnv()): boolean {
   if (env.ENABLE_DEV_TESTING !== "true" && env.ENABLE_DEV_TESTING !== "1") return false;
   if (!isLocalDatabaseUrl(env.DATABASE_URL)) return false;
   return !env.HYPERDRIVE_LOCAL || isLocalDatabaseUrl(env.HYPERDRIVE_LOCAL);
-}
-
-const BACKUP_NAME = /^(manual|auto)-\d{8}-\d{6}\.sql$/;
-
-/** Only names this tool wrote can be restored, so a name can't point outside its folder. */
-export function isBackupName(name: string): boolean {
-  return BACKUP_NAME.test(name);
-}
-
-export function backupName(kind: "manual" | "auto", now: Date = new Date()): string {
-  const stamp = now.toISOString().slice(0, 19).replace(/[-:]/g, "").replace("T", "-");
-  return `${kind}-${stamp}.sql`;
 }
 
 export const TEST_MEASURE_PREFIX = "Test: ";

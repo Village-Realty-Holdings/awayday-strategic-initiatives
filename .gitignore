@@ -207,5 +207,5 @@ src/generated/
 prisma/generated/
 .neon
 
-# Local testing tool: database backups (contain user data)
+# Local testing tool: your account as it was before switching
 .dev-testing/

@@ -73,7 +73,7 @@ Fill the placeholders in `.env` for local development. `.env.example` documents 
 | `MICROSOFT_CLIENT_SECRET` | Entra client secret value, not its secret ID. |
 | `MICROSOFT_TENANT_ID` | Your organization tenant ID. All three Microsoft values are required; otherwise SSO stays disabled. |
 | `DEV_AUTH_AS` | Optional local-only bypass for an already-existing user. Leave unset when testing the actual login flow. |
-| `ENABLE_DEV_TESTING` | Set to `true` for the local **Dev testing** button: change your role, act as an SI lead, back up and restore, load or clear test data, publish a month, pretend it's another date. Only works outside a production build and with a local database. Backups go in `.dev-testing/`. |
+| `ENABLE_DEV_TESTING` | Set to `true` for the local **Dev testing** button: change your role, act as an SI lead, load or clear test data, publish a month, pretend it's another date. Only works outside a production build and with a local database. |
 
 For Microsoft sign-in, the Entra web redirect URI is `<BETTER_AUTH_URL>/api/auth/callback/microsoft`, including `http://localhost:3000/api/auth/callback/microsoft` for local testing. Registering redirect URIs, creating credentials, verifying a Resend domain, and configuring Worker secrets/vars are external settings changes requiring approval. Local `.env` values are not automatically deployed to Workers. The deployed origins are set in `wrangler.jsonc`: `https://awayday-strategic-initiatives.tech-dd8.workers.dev` (production) and `https://staging-awayday-strategic-initiatives.tech-dd8.workers.dev` (staging).
 

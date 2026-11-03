@@ -4,10 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   devClearUpdates,
-  devCreateBackup,
   devLoadTestData,
   devResetAccount,
-  devRestoreBackup,
   devSetAccount,
   devSetMonthPublished,
   devSetToday,
@@ -20,7 +18,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
-import type { BackupFile } from "@/lib/dev-testing-files";
 
 const ROLE_LABEL: Record<string, string> = { admin: "Admin", editor: "Editor", user: "Member (user)" };
 
@@ -36,7 +33,7 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
   );
 }
 
-/** Asks for a second click before anything that replaces data. */
+/** Asks for a second click before anything that can't be undone. */
 function ConfirmButton({ label, disabled, onConfirm }: { label: string; disabled: boolean; onConfirm: () => void }) {
   const [armed, setArmed] = useState(false);
   return (
@@ -59,14 +56,12 @@ function ConfirmButton({ label, disabled, onConfirm }: { label: string; disabled
 export function DevTestingDialog({
   role: currentRole,
   accountChanged,
-  backups,
   leads,
   months,
   today,
 }: {
   role: string;
   accountChanged: boolean;
-  backups: BackupFile[];
   leads: string[];
   months: { id: string; label: string; published: boolean }[];
   today: string | null;
@@ -75,13 +70,11 @@ export function DevTestingDialog({
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<DevResult | null>(null);
-  const [backup, setBackup] = useState("");
   const [role, setRole] = useState(currentRole);
   const [actAs, setActAs] = useState("");
   const [month, setMonth] = useState(months[0]?.id ?? "");
   const [day, setDay] = useState(today ?? "");
 
-  const selectedBackup = backups.some((b) => b.name === backup) ? backup : (backups[0]?.name ?? "");
   const selectedMonth = months.find((m) => m.id === month) ?? months[0];
 
   function run(action: () => Promise<DevResult>) {
@@ -135,23 +128,9 @@ export function DevTestingDialog({
               </div>
             </Section>
 
-            <Section title="Backups" hint="Restore, load and clear save an automatic backup first.">
-              <div className="flex flex-wrap items-end gap-2">
-                <Button type="button" size="sm" variant="secondary" disabled={pending} onClick={() => run(devCreateBackup)}>Create backup</Button>
-                {backups.length > 0 && (
-                  <>
-                    <NativeSelect size="sm" aria-label="Backup to restore" value={selectedBackup} onChange={(e) => setBackup(e.target.value)} className="min-w-0 flex-1">
-                      {backups.map((b) => <option key={b.name} value={b.name}>{b.name} · {b.sizeLabel}</option>)}
-                    </NativeSelect>
-                    <ConfirmButton label="Restore" disabled={pending} onConfirm={() => run(() => devRestoreBackup(selectedBackup))} />
-                  </>
-                )}
-              </div>
-            </Section>
-
-            <Section title="Test data" hint="Loading adds a mix of statuses, updates and measures in every colour. Clearing removes all updates and measures, not just test ones, and keeps SI statuses.">
+            <Section title="Test data" hint="Loading adds a mix of statuses, updates and measures in every colour, and overwrites those SIs' statuses. Clearing removes all updates and measures, not just test ones, and keeps SI statuses. Neither can be undone.">
               <div className="flex flex-wrap gap-2">
-                <Button type="button" size="sm" variant="secondary" disabled={pending} onClick={() => run(devLoadTestData)}>Load test data</Button>
+                <ConfirmButton label="Load test data" disabled={pending} onConfirm={() => run(devLoadTestData)} />
                 <ConfirmButton label="Clear updates and measures" disabled={pending} onConfirm={() => run(devClearUpdates)} />
               </div>
             </Section>
