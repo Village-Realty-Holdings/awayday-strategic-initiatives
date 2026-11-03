@@ -1,6 +1,8 @@
 // Pure rules for an initiative's KPIs and leading measures. No Prisma here, so
 // the page, the server actions and the tests all share one definition.
 
+import type { Rag } from "@/lib/review-model";
+
 export const MEASURE_KINDS = ["KPI", "LEADING"] as const;
 export const MEASURE_UNITS = ["PERCENT", "DOLLARS", "NUMBER", "DAYS"] as const;
 export type MeasureUnit = (typeof MEASURE_UNITS)[number];
@@ -95,4 +97,29 @@ export function defaultAsOf(period: string, today: string): string {
   const [year, month] = period.split("-").map(Number);
   const lastDay = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
   return today < lastDay ? today : lastDay;
+}
+
+/** The measure an SI's card leads with: its first KPI, else its first leading measure. */
+export function headlineMeasure<T extends Pick<MeasureLite, "kind" | "order" | "createdAt">>(measures: T[]): T | null {
+  const byOrder = [...measures].sort((a, b) => a.order - b.order || a.createdAt.getTime() - b.createdAt.getTime());
+  return primaryKpi(measures) ?? byOrder[0] ?? null;
+}
+
+/** The newest reading, ignoring any dated after `throughPeriod` ("2026-10") when one is given. */
+export function latestReading<T extends ReadingLite>(readings: T[], throughPeriod: string | null): T | null {
+  const inRange = throughPeriod ? readings.filter((r) => r.asOf.toISOString().slice(0, 7) <= throughPeriod) : readings;
+  return sortReadings(inRange)[0] ?? null;
+}
+
+/**
+ * A value against its target, by the same rule as a pillar's measure: at or past
+ * target is green, within 10% of it amber, otherwise red. A target below the
+ * baseline means lower is better. Grey without both a value and a target.
+ */
+export function measureRag(value: number | null | undefined, m: Pick<MeasureLite, "baseline" | "target">): Rag {
+  if (value == null || m.target == null) return "GREY";
+  const lowerIsBetter = m.baseline != null && m.target < m.baseline;
+  if (lowerIsBetter ? value <= m.target : value >= m.target) return "GREEN";
+  const distance = m.target === 0 ? Infinity : Math.abs(value - m.target) / Math.abs(m.target);
+  return distance <= 0.1 ? "AMBER" : "RED";
 }

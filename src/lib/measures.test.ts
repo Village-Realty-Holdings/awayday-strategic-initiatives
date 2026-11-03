@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  headlineMeasure,
+  latestReading,
+  measureRag,
   defaultAsOf,
   measureUpdatedInPeriod,
   derivedPct,
@@ -142,5 +145,48 @@ describe("defaultAsOf", () => {
     expect(defaultAsOf("2026-10", "2026-11-03")).toBe("2026-10-31");
     expect(defaultAsOf("2026-02", "2026-11-03")).toBe("2026-02-28");
     expect(defaultAsOf("2026-11", "2026-11-03")).toBe("2026-11-03");
+  });
+});
+
+describe("headlineMeasure", () => {
+  const at = new Date("2026-01-01");
+  it("leads with the first KPI, else the first leading measure", () => {
+    const leading = { kind: "LEADING", order: 0, createdAt: at };
+    const kpi = { kind: "KPI", order: 1, createdAt: at };
+    expect(headlineMeasure([leading, kpi])).toBe(kpi);
+    expect(headlineMeasure([leading])).toBe(leading);
+    expect(headlineMeasure([])).toBeNull();
+  });
+});
+
+describe("latestReading", () => {
+  const r = (value: number, asOf: string) => ({ value, asOf: new Date(`${asOf}T00:00:00Z`), createdAt: new Date(`${asOf}T00:00:00Z`) });
+  const readings = [r(1, "2026-09-30"), r(2, "2026-10-31"), r(3, "2026-11-03")];
+  it("takes the newest, or the newest through a month", () => {
+    expect(latestReading(readings, null)?.value).toBe(3);
+    expect(latestReading(readings, "2026-10")?.value).toBe(2);
+    expect(latestReading(readings, "2026-08")).toBeNull();
+  });
+});
+
+describe("measureRag", () => {
+  it("is green at or past target, amber within 10%, otherwise red", () => {
+    const m = { baseline: 2, target: 100 };
+    expect(measureRag(100, m)).toBe("GREEN");
+    expect(measureRag(120, m)).toBe("GREEN");
+    expect(measureRag(90, m)).toBe("AMBER");
+    expect(measureRag(89, m)).toBe("RED");
+  });
+
+  it("treats a target below the baseline as lower is better", () => {
+    const m = { baseline: 120, target: 30 };
+    expect(measureRag(30, m)).toBe("GREEN");
+    expect(measureRag(33, m)).toBe("AMBER");
+    expect(measureRag(60, m)).toBe("RED");
+  });
+
+  it("is grey without a value or a target", () => {
+    expect(measureRag(null, { baseline: 0, target: 10 })).toBe("GREY");
+    expect(measureRag(5, { baseline: 0, target: null })).toBe("GREY");
   });
 });

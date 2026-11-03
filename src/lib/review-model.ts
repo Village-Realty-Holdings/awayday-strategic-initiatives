@@ -63,6 +63,8 @@ export type ReviewSi = {
   goingFor: string | null;
   /** This period's update status, else the SI's current one; null renders "No status". */
   status: InitiativeStatus | null;
+  /** The SI's headline KPI or leading measure against its target; null when it has none. */
+  value: ReviewSiValue | null;
   latestProgress: string | null;
   whatNext: string | null;
   updatedThisPeriod: boolean;
@@ -70,6 +72,15 @@ export type ReviewSi = {
   milestones: ReviewMilestone[];
   actions: ReviewAction[];
   asks: ReviewAsk[];
+};
+
+export type ReviewSiValue = {
+  name: string;
+  /** Formatted latest value; null when none has been entered. */
+  latest: string | null;
+  /** Formatted target; null when none is set. */
+  target: string | null;
+  rag: Rag;
 };
 
 export type ReviewMeasure = {

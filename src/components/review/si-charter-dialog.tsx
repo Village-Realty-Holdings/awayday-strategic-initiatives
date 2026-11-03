@@ -5,8 +5,25 @@ import { ArrowUpRight, ArrowRight, X } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { fmtDay, type ReviewSi } from "@/lib/review-model";
+import { fmtDay, type ReviewSi, type ReviewSiValue } from "@/lib/review-model";
+import { ValueRagBadge } from "./status";
 import { StatusBadge } from "@/components/badges";
+
+/** The SI's headline measure: latest value against target, with its red / yellow / green. */
+function SiValue({ value }: { value: ReviewSiValue }) {
+  return (
+    <div className="grid gap-1 rounded-md border border-border/70 bg-surface px-2.5 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="min-w-0 text-note text-ink-faint">{value.name}</p>
+        <ValueRagBadge rag={value.rag} />
+      </div>
+      <p className="text-xs text-ink-muted">
+        <span className={`tabular ${value.latest ? "text-sm font-semibold text-ink" : ""}`}>{value.latest ?? "No value yet"}</span>
+        {value.target && <> vs target <span className="tabular text-ink">{value.target}</span></>}
+      </p>
+    </div>
+  );
+}
 
 /** SI card on the review; opens a short charter with a link to the full record. */
 export function SiCard({ si }: { si: ReviewSi }) {
@@ -32,6 +49,7 @@ export function SiCard({ si }: { si: ReviewSi }) {
             <span className="font-semibold text-ink">Going for:</span> {si.goingFor}
           </p>
         )}
+        {si.value && <SiValue value={si.value} />}
         {upcoming.length > 0 && (
           <ul className="grid gap-0.5 text-note text-ink-muted">
             {upcoming.map((m) => (
@@ -65,7 +83,7 @@ export function SiCard({ si }: { si: ReviewSi }) {
           <div className="grid min-h-0 gap-5 overflow-y-auto overscroll-contain px-6 py-5 text-sm [scrollbar-gutter:stable]">
             <div className="grid gap-4 sm:grid-cols-2">
               <div><p className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">Objective</p><p className="mt-1 leading-6 text-ink">{si.objective ?? "Not on the charter yet."}</p></div>
-              <div className="rounded-md bg-surface-2 p-3"><p className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">KPI target</p><p className="mt-1 leading-6 text-ink">{si.kpi ?? "Not set yet."}</p></div>
+              <div className="rounded-md bg-surface-2 p-3"><p className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">KPI target</p><p className="mt-1 leading-6 text-ink">{si.kpi ?? "Not set yet."}</p>{si.value && <div className="mt-3"><SiValue value={si.value} /></div>}</div>
             </div>
             <div className="grid gap-1.5">
               <p className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">Latest update</p>

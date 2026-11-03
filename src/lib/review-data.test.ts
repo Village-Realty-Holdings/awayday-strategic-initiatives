@@ -47,6 +47,7 @@ function initiative(over: Record<string, unknown>) {
     milestones: [],
     actionItems: [],
     eltRequests: [],
+    measures: [],
     ...over,
   };
 }
@@ -57,6 +58,25 @@ beforeEach(() => {
 });
 
 describe("getReviewPlan", () => {
+  it("puts the SI's latest value and its red / yellow / green on the card, frozen once published", async () => {
+    getActivePlan.mockResolvedValue({ id: "fy27", code: "FY27", title: "FY27" });
+    areaFindMany.mockResolvedValue([{ id: "a-ma", code: "M&A", name: "M&A", kind: "VALUE_DRIVER", goal: null, owner: null, kpiName: null, kpiTarget: null, kpis: [] }]);
+    const at = new Date("2026-01-01T00:00:00Z");
+    const reading = (value: number, asOf: string) => ({ value, asOf: new Date(`${asOf}T00:00:00Z`), createdAt: at });
+    initiativeFindMany.mockResolvedValue([
+      initiative({ measures: [{ name: "Score", kind: "KPI", unit: "NUMBER", baseline: 2, target: 3, order: 0, createdAt: at, readings: [reading(2, "2026-10-31"), reading(3, "2026-11-03")] }] }),
+      initiative({ id: "i2", code: "FY27-SI-002" }),
+    ]);
+
+    let plan = await getReviewPlan("2026-10");
+    expect(plan.areas[0].sis[0].value).toEqual({ name: "Score", latest: "3", target: "3", rag: "GREEN" });
+    expect(plan.areas[0].sis[1].value).toBeNull();
+
+    periodFindUnique.mockResolvedValueOnce({ status: "PUBLISHED" });
+    plan = await getReviewPlan("2026-10");
+    expect(plan.areas[0].sis[0].value).toEqual({ name: "Score", latest: "2", target: "3", rag: "RED" });
+  });
+
   it("uses StrategicArea rows and numbers the value drivers", async () => {
     getActivePlan.mockResolvedValue({ id: "fy27", code: "FY27", title: "FY27" });
     areaFindMany.mockResolvedValue([

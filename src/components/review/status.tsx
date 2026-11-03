@@ -2,7 +2,25 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { InitiativeStatus } from "@/generated/prisma/client";
 import { STATUS_META, STATUS_ORDER } from "@/lib/initiatives";
-import type { PillarTone, ReviewPeriodStatus } from "@/lib/review-model";
+import type { PillarTone, Rag, ReviewPeriodStatus } from "@/lib/review-model";
+
+const VALUE_RAG: Record<Exclude<Rag, "GREY">, { label: string; variant: "ok" | "warn" | "risk"; glyph: string }> = {
+  GREEN: { label: "At target", variant: "ok", glyph: "●" },
+  AMBER: { label: "Near target", variant: "warn", glyph: "◆" },
+  RED: { label: "Off target", variant: "risk", glyph: "▼" },
+};
+
+/** Red / yellow / green for a value against its target. Grey shows nothing: there's nothing to judge. */
+export function ValueRagBadge({ rag }: { rag: Rag }) {
+  if (rag === "GREY") return null;
+  const m = VALUE_RAG[rag];
+  return (
+    <Badge variant={m.variant}>
+      <span aria-hidden className="text-nano leading-none">{m.glyph}</span>
+      {m.label}
+    </Badge>
+  );
+}
 
 /** Whether the SI lead has posted an update for the review month. */
 export function UpdatedBadge({ updated }: { updated: boolean }) {

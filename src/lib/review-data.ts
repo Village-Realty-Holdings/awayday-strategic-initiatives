@@ -1,4 +1,6 @@
 import { cache } from "react";
+import type { InitiativeMeasure, InitiativeMeasureReading } from "@/generated/prisma/client";
+import { formatMeasureValue, headlineMeasure, latestReading, measureRag } from "@/lib/measures";
 import { prisma } from "@/lib/prisma";
 import { getActivePlan } from "@/lib/active-plan";
 import { PUBLICATION_APPROVED } from "@/lib/kpi";
@@ -17,6 +19,7 @@ import {
   SUMMARY_SCOPE,
   updatePeriods,
   type ReviewArea,
+  type ReviewSiValue,
   type ReviewPeriodStatus,
   type ReviewSi,
   type SoWhat,
@@ -60,6 +63,8 @@ export type ReviewPeriod = {
   areaSoWhats: Record<string, SoWhat[]>;
 };
 
+type InitiativeMeasureWithReadings = InitiativeMeasure & { readings: InitiativeMeasureReading[] };
+
 const OBSERVATION_SELECT = {
   kpiId: true,
   value: true,
@@ -83,6 +88,18 @@ const currentObservationWhere = {
   publicationState: PUBLICATION_APPROVED,
   quality: { notIn: ["INVALID", "UNAVAILABLE"] },
 };
+
+function siValue(measures: InitiativeMeasureWithReadings[], through: string | null): ReviewSiValue | null {
+  const measure = headlineMeasure(measures);
+  if (!measure) return null;
+  const latest = latestReading(measure.readings, through);
+  return {
+    name: measure.name,
+    latest: latest ? formatMeasureValue(latest.value, measure.unit) : null,
+    target: measure.target != null ? formatMeasureValue(measure.target, measure.unit) : null,
+    rag: measureRag(latest?.value, measure),
+  };
+}
 
 /** Every review period, newest first, and which of them are published. */
 export const getReviewPeriodIndex = cache(async (): Promise<{ periods: string[]; published: string[] }> => {
@@ -143,7 +160,7 @@ export const getReviewPeriod = cache(async (id: string): Promise<ReviewPeriod> =
 export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> => {
   const plan = await getActivePlan();
   const planWhere = plan ? { planVersionId: plan.id } : {};
-  const [version, areaRows, initiatives] = await Promise.all([
+  const [version, areaRows, initiatives, review] = await Promise.all([
     plan ? prisma.planVersion.findUnique({ where: { id: plan.id }, select: { sourceFileName: true, mission: true, goal: true, values: true } }) : null,
     plan
       ? prisma.strategicArea.findMany({
@@ -161,9 +178,13 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
         milestones: { orderBy: [{ dueAt: "asc" }, { order: "asc" }] },
         actionItems: { orderBy: [{ dueAt: "asc" }, { order: "asc" }] },
         eltRequests: { orderBy: { order: "asc" } },
+        measures: { include: { readings: true } },
       },
     }),
+    prisma.reviewPeriod.findUnique({ where: { id: period }, select: { status: true } }),
   ]);
+  // A published month is final, so later values don't change it. A draft shows the latest.
+  const valuesThrough = review?.status === "PUBLISHED" ? period : null;
 
   const synthesised = areaRows.length === 0;
   type AreaSeed = Omit<ReviewArea, "sis" | "number"> & { match: (i: (typeof initiatives)[number]) => boolean };
@@ -217,6 +238,7 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
         kpi: [i.quantMetric, i.quantTarget].filter(Boolean).join(": ") || null,
         goingFor: [i.quantMetric, i.quantTarget].filter(Boolean).join(": ") || i.valueWhenComplete,
         status: update?.status ?? i.status,
+        value: siValue(i.measures, valuesThrough),
         latestProgress: update?.update ?? null,
         whatNext: update?.pathForward ?? null,
         updatedThisPeriod: Boolean(update),
