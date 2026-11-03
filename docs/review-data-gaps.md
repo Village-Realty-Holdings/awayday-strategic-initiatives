@@ -15,7 +15,7 @@ Strategy (admins) writes them on `/review/[period]/edit`.
 | Missing | Leaves empty or hidden |
 | --- | --- |
 | **So-what tone** (up / down / flag on `ReviewSoWhat`) | The MVP colours each so-what by direction; stored so-whats render in one neutral style. |
-| **Update state** (draft / submitted) on `InitiativeUpdate` | Every saved update counts as final; there's no "x of 31 submitted" tracking. The status scale itself (`reviewStatus`: Ahead / On track / At risk / Behind) now exists. |
+| **Update state** (draft / submitted) on `InitiativeUpdate` | Every saved update counts as final; there's no "x of 31 submitted" tracking. The status scale itself (`InitiativeStatus`: Complete / On-track / At-risk / Off-track) exists. |
 | **Non-SI milestones** (`InitiativeMilestone.initiativeId` is required) | SI-process steps and company events (Summit, Vrbo change, board update) in Next 60 days and the timeline. |
 | **ELT ask details** ("raised by" and due date on `InitiativeEltRequest`) | Who raised an ask and when it's due, on Inbox and Asks by leader. |
 | **Area owners as people** (`StrategicArea.owner` is one string mixing ELT owners and SI leads); no link between `user` and `RosterMember` | ELT owner vs SI lead can't be told apart per area. Asks by leader groups by each SI's sponsor and lead instead. Inbox matches the signed-in user by the lead's name, because no SI has `ownerUserId` set (0 of 31). |

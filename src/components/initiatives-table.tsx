@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { StatusBadge, QuadrantBadge, ProgressBar } from "@/components/badges";
-import { STATUS_META, QUADRANT_META, formatMoney, formatTeam } from "@/lib/initiatives";
+import { QUADRANT_META, STATUS_FILTERS, formatMoney, formatTeam, matchesStatusFilter, statusFilterLabel } from "@/lib/initiatives";
 import type { InitiativeStatus, Quadrant } from "@/generated/prisma/client";
 import { TriangleAlert, ChevronRight, Plus, ChevronUp, ChevronDown, ChevronsUpDown } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +27,7 @@ export type InitiativeRow = {
   lift: number;
   valueTargeted: number | null;
   valueType: string;
-  status: InitiativeStatus;
+  status: InitiativeStatus | null;
   pct: number;
   endLabel: string;
   endTime: number | null;
@@ -35,7 +35,6 @@ export type InitiativeRow = {
   isBehind: boolean;
 };
 
-const STATUSES = Object.keys(STATUS_META) as InitiativeStatus[];
 const QUADRANTS = Object.keys(QUADRANT_META) as Quadrant[];
 type SortKey = "code" | "name" | "cimDriver" | "teamLead" | "valueTargeted" | "quadrant" | "status" | "pct" | "endTime";
 
@@ -81,7 +80,7 @@ export function InitiativesTable({
     const out = rows.filter((r) => {
       if (needle && !`${r.code} ${r.name} ${r.teamLead ?? ""} ${r.cimDriver ?? ""} ${formatTeam(r.supports)}`.toLowerCase().includes(needle)) return false;
       if (owner && r.teamLead !== owner) return false;
-      if (status && r.status !== status) return false;
+      if (!matchesStatusFilter(r.status, status)) return false;
       if (quadrant && r.quadrant !== quadrant) return false;
       if (cim && r.cimDriver !== cim) return false;
       if (group && !r.groupIds.includes(group)) return false;
@@ -120,7 +119,7 @@ export function InitiativesTable({
           </NativeSelect>
         )}
         <FilterSelect value={cim} onChange={setCim} label="Pillar / enabler" options={cims} />
-        <FilterSelect value={status} onChange={setStatus} label="Status" options={STATUSES} render={(s) => STATUS_META[s as InitiativeStatus].label} />
+        <FilterSelect value={status} onChange={setStatus} label="Status" options={STATUS_FILTERS} render={statusFilterLabel} />
         <FilterSelect value={quadrant} onChange={setQuadrant} label="Priority" options={QUADRANTS} render={(qd) => QUADRANT_META[qd as Quadrant].label} />
         <FilterSelect value={owner} onChange={setOwner} label="Owner" options={owners} />
         {active && <Button variant="outline" size="sm" onClick={reset} className="px-2.5">Reset</Button>}

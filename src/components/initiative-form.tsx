@@ -2,39 +2,18 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Sparkles, Loader2, Check, TriangleAlert } from "@/components/icons";
+import { Sparkles, Loader2, TriangleAlert } from "@/components/icons";
 import { Alert } from "@/components/ui/alert";
-import { DatePicker } from "@/components/date-picker";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Textarea } from "@/components/ui/textarea";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { Initiative } from "@/generated/prisma/client";
-import {
-  QUADRANT_META,
-  quadrantFor,
-  valueFromDollars,
-  effortToLift,
-  liftToEffort,
-  EFFORT_OPTS,
-  formatMoney,
-  formatDollarsInput,
-  parseDollars,
-  parseTeam,
-  serializeTeam,
-  STATUS_META,
-  type Effort,
-} from "@/lib/initiatives";
-import type { InitiativeStatus } from "@/generated/prisma/client";
 import { draftFromName } from "@/app/(app)/ai-actions";
 import { CharterRowsEditor } from "@/components/charter-rows-editor";
 import type { DependencyRow, MilestoneRow, RiskRow } from "@/lib/charter-rows";
-
-const STATUSES: InitiativeStatus[] = ["NOT_STARTED", "PLANNING", "IN_PROGRESS", "AT_RISK", "DONE"];
 
 // CIM driver → ID prefix (source: Tracker). Drives auto-generated codes.
 const CIM_TO_PREFIX: Record<string, string> = {
@@ -49,8 +28,6 @@ const CIM_TO_PREFIX: Record<string, string> = {
 const CIM_DRIVERS = Object.keys(CIM_TO_PREFIX);
 
 const PEOPLE_LIST = "initiative-people";
-
-const dateValue = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
 
 // Parse a money-ish string ("$2.5M", "400k", "750000") into a number.
 function nextCode(prefix: string, used: string[]): string {
@@ -68,7 +45,6 @@ export function InitiativeForm({
   cancelHref,
   owners = [],
   usedCodes = [],
-  cimItems = [],
   cimKpis = {},
   areas = [],
   charter,
@@ -79,7 +55,6 @@ export function InitiativeForm({
   cancelHref: string;
   owners?: string[];
   usedCodes?: string[];
-  cimItems?: { code: string; label: string }[];
   cimKpis?: Record<string, string[]>;
   /** The plan's strategic areas, each with its "KPI → target" labels from the database. */
   areas?: { id: string; code: string; name: string; kind: string; kpis: string[] }[];
@@ -92,30 +67,9 @@ export function InitiativeForm({
   // CIM + auto-code (new only)
   const initialCim = i?.cimDriver ?? CIM_DRIVERS[0];
   const [cim, setCim] = useState(initialCim);
-  const [cimItem, setCimItem] = useState(i?.cimItemCode ?? "");
   const [areaId, setAreaId] = useState(i?.strategicAreaId ?? "");
   const [code, setCode] = useState(() => (isNew ? nextCode(CIM_TO_PREFIX[CIM_DRIVERS[0]] ?? "SI", usedCodes) : i!.code));
   const [codeTouched, setCodeTouched] = useState(false);
-
-  // Working team: People multi-select (Jakob). Stored as a comma list of names.
-  const initialTeam = parseTeam(i?.supports);
-  const [team, setTeam] = useState<string[]>(initialTeam);
-
-  // Simplified scoring: Targeted Value ($) drives the Value score; Effort drives Lift.
-  const [targetedRaw, setTargetedRaw] = useState(i?.progressTarget != null ? formatDollarsInput(String(i.progressTarget)) : "");
-  const [realizedRaw, setRealizedRaw] = useState(i?.progressActual != null ? formatDollarsInput(String(i.progressActual)) : "");
-  const [effort, setEffort] = useState<Effort>(i ? liftToEffort(i.lift) : "M");
-  // Value vs non-value (enabler/milestone). Non-value hides the dollar fields.
-  const [valueType, setValueType] = useState(i?.valueType ?? "VALUE");
-  const isValue = valueType === "VALUE";
-
-  const targeted = targetedRaw.trim() ? parseDollars(targetedRaw) : null;
-  const realized = realizedRaw.trim() ? parseDollars(realizedRaw) : null;
-  // % complete is purely value realized ÷ targeted (can exceed 100%). No manual entry.
-  const pctCalc = targeted && targeted > 0 && realized != null ? realized / targeted : null;
-  const value = valueFromDollars(targeted);
-  const lift = effortToLift(effort);
-  const quadrant = quadrantFor(value, lift);
 
   // KPI helper -> fills metric/target
   const [metric, setMetric] = useState(i?.quantMetric ?? "");
@@ -124,7 +78,6 @@ export function InitiativeForm({
   // Charter fields (controlled so the Claude draft can fill them)
   const [name2, setName] = useState(i?.name ?? "");
   const [objective, setObjective] = useState(i?.valueWhenComplete ?? "");
-  const [deliverables, setDeliverables] = useState(i?.workRequired ?? "");
   const [drafting, setDrafting] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
 
@@ -137,7 +90,6 @@ export function InitiativeForm({
     try {
       const json = JSON.parse(r.text.replace(/^```(?:json)?|```$/g, "").trim());
       if (json.objective) setObjective(String(json.objective));
-      if (json.deliverables) setDeliverables(String(json.deliverables));
       if (json.kpi) {
         const [m, t] = String(json.kpi).split(/->|→/).map((s: string) => s.trim());
         if (m) setMetric(m);
@@ -156,10 +108,8 @@ export function InitiativeForm({
   const ownerOptions = useMemo(() => [...new Set(owners.filter(Boolean))].sort(), [owners]);
   // KPI suggestions, all from the database: the scorecard KPIs tied to the
   // picked CIM item, else the KPIs of the picked strategic area.
-  const cimItemKpis = cimItem ? (cimKpis[cimItem] ?? []) : [];
+  const cimItemKpis = i?.cimItemCode ? (cimKpis[i.cimItemCode] ?? []) : [];
   const kpiOptions = cimItemKpis.length ? cimItemKpis : (areas.find((a) => a.id === areaId)?.kpis ?? []);
-  // Any team names not in the People directory (legacy free-text) still show as chips.
-  const teamChips = useMemo(() => [...new Set([...ownerOptions, ...team])], [ownerOptions, team]);
 
   const onKpiPick = (v: string) => {
     if (!v) return;
@@ -172,15 +122,12 @@ export function InitiativeForm({
     <form action={action} className="grid gap-4">
       {i && <input type="hidden" name="id" value={i.id} />}
       {i && <input type="hidden" name="updatedAt" value={i.updatedAt.toISOString()} />}
-      <input type="hidden" name="effort" value={effort} />
-      <input type="hidden" name="supports" value={serializeTeam(team)} />
-      <input type="hidden" name="valueType" value={valueType} />
       <datalist id={PEOPLE_LIST}>
         {ownerOptions.map((o) => <option key={o} value={o} />)}
       </datalist>
 
       {/* Laid out like the one-page SI charter: header strip, then sections 1-5. */}
-      <section className="grid gap-4 rounded-md border border-border bg-surface px-4 py-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+      <section className="grid gap-4 rounded-md border border-border bg-surface px-4 py-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
         <Field label="Initiative name / ID" required>
           <div className="flex gap-2">
             {isNew ? (
@@ -206,11 +153,6 @@ export function InitiativeForm({
         </Field>
         <Field label="SI lead">
           <PersonSelect name="teamLead" value={i?.teamLead} options={ownerOptions} empty="— unassigned —" />
-        </Field>
-        <Field label="Status">
-          <NativeSelect name="status" defaultValue={i?.status ?? "IN_PROGRESS"}>
-            {STATUSES.map((s) => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
-          </NativeSelect>
         </Field>
       </section>
 
@@ -305,96 +247,24 @@ export function InitiativeForm({
         />
       </FormSection>
 
-      <section className="grid gap-4 rounded-md border border-border bg-surface px-4 py-4 sm:px-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="CIM driver / theme" required={isNew} hint={isNew ? "Broad strategic driver. Sets the suggested code prefix." : "Broad strategic driver, used for grouping."}>
+      {/* Where a new SI sits: the driver sets its code prefix, and without an area it never appears on the Strategy Review. */}
+      {isNew && (
+        <section className="grid gap-4 rounded-md border border-border bg-surface px-4 py-4 sm:grid-cols-2 sm:px-5">
+          <Field label="CIM driver / theme" required hint="Broad strategic driver. Sets the suggested code prefix.">
             <NativeSelect value={cim} onChange={(e) => onCimChange(e.target.value)} name="cimDriver">
-              {!CIM_DRIVERS.includes(cim) && <option value={cim}>{cim}</option>}
               {CIM_DRIVERS.map((c) => <option key={c} value={c}>{c}</option>)}
             </NativeSelect>
           </Field>
-          <Field label="CIM item" hint="The CIM register item this ties back to. Sets the KPI options.">
-            <NativeSelect value={cimItem} onChange={(e) => setCimItem(e.target.value)} name="cimItemCode">
-              <option value="">— none —</option>
-              {cimItem && !cimItems.some((c) => c.code === cimItem) && <option value={cimItem}>{cimItem}</option>}
-              {cimItems.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
-            </NativeSelect>
-          </Field>
           {areas.length > 0 && (
-            <Field label="Area" hint="Strategic area in this initiative's plan. Initiatives without an area don't appear on the Strategy Review. Its KPIs are offered when the CIM item has none.">
+            <Field label="Area" hint="Strategic area in the active plan. Initiatives without an area don't appear on the Strategy Review. Its KPIs are offered as metrics.">
               <NativeSelect name="strategicAreaId" value={areaId} onChange={(e) => setAreaId(e.target.value)}>
                 <option value="">— none —</option>
                 {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
               </NativeSelect>
             </Field>
           )}
-          <Field label="Start date" asDiv>
-            <DatePicker name="startDate" label="Start date" defaultValue={dateValue(i?.startDate ?? null)} clearable />
-          </Field>
-          <Field label="Target date" asDiv>
-            <DatePicker name="endDate" label="Target date" defaultValue={dateValue(i?.endDate ?? null)} clearable align="end" />
-          </Field>
-        </div>
-        <Field label="Working team" hint="Supporting contributors beyond the SI lead and ELT sponsor." asDiv>
-          {teamChips.length === 0 ? (
-            <p className="text-note text-ink-faint">No people in the directory yet.</p>
-          ) : (
-            <TeamPicker options={teamChips} value={team} onChange={setTeam} />
-          )}
-        </Field>
-        <Field label="Deliverables">
-          <Textarea name="workRequired" rows={3} placeholder="Concrete outputs: a doc, tool, dashboard, recommendation." value={deliverables} onChange={(e) => setDeliverables(e.target.value)} />
-        </Field>
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
-          <div>
-            <h3 className="text-xs font-medium text-ink-muted">Type and priority</h3>
-            <p className="text-micro text-ink-faint">
-              {isValue ? "Creates measurable dollar value. Scored on the Lift × Value map." : "Enabler or milestone: tracked by status, not on the Lift × Value map."}
-            </p>
-          </div>
-          <ValueTypeSwitch value={valueType} onChange={setValueType} />
-        </div>
-        {isValue && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Targeted value ($/yr)" hint="Annualized value created when complete. Sets the Value score.">
-              <Input
-                name="targetedValue"
-                value={targetedRaw}
-                onChange={(e) => setTargetedRaw(e.target.value)}
-                onBlur={() => setTargetedRaw(formatDollarsInput(targetedRaw))}
-                placeholder="e.g. 1,500,000 or 1.5M"
-                className="tabular"
-              />
-            </Field>
-            <Field label="Value realized ($)" hint="Value captured so far. Drives % complete when both are set.">
-              <Input
-                name="valueRealized"
-                value={realizedRaw}
-                onChange={(e) => setRealizedRaw(e.target.value)}
-                onBlur={() => setRealizedRaw(formatDollarsInput(realizedRaw))}
-                placeholder="e.g. 500,000 or 500K"
-                className="tabular"
-              />
-            </Field>
-            <Field label="Effort" hint={EFFORT_OPTS.find((o) => o.v === effort)?.hint}>
-              <NativeSelect value={effort} onChange={(e) => setEffort(e.target.value as Effort)}>
-                {EFFORT_OPTS.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
-              </NativeSelect>
-            </Field>
-            <Field label="Priority (derived)" asDiv>
-              <ReadOnlyValue className="flex items-center gap-2">
-                <Badge variant="custom" className={`rounded ${QUADRANT_META[quadrant].bg} ${QUADRANT_META[quadrant].fg}`}>
-                  {QUADRANT_META[quadrant].label}
-                </Badge>
-                <span className="text-note text-ink-faint">
-                  Value {value} · {targeted != null ? formatMoney(targeted) : "set $"}
-                  {pctCalc != null && ` · ${Math.round(pctCalc * 100)}% complete`}
-                </span>
-              </ReadOnlyValue>
-            </Field>
-          </div>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* Sticky save bar: stays in reach at the bottom of the scrolling inset. */}
       <div className="sticky bottom-0 z-10 -mx-2 flex flex-wrap items-center gap-3 border-t border-border bg-bg/95 px-2 py-3 backdrop-blur supports-[backdrop-filter]:bg-bg/80">
@@ -481,34 +351,5 @@ function Field({
       {children}
       {hint && <span className="text-micro leading-snug text-ink-faint">{hint}</span>}
     </Wrap>
-  );
-}
-
-/** Working-team chips: multi-select people; selected chips carry a check, not colour alone. */
-export function TeamPicker({ options, value, onChange }: { options: string[]; value: string[]; onChange: (v: string[]) => void }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <ToggleGroup type="multiple" variant="chip" size="xs" value={value} onValueChange={onChange} aria-label="Working team">
-        {options.map((name) => (
-          <ToggleGroupItem key={name} value={name} className="group px-2.5 py-1 text-note font-normal">
-            <Check size={11} strokeWidth={2.5} className="hidden group-data-[state=on]:block" aria-hidden />
-            {name}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
-      <p className="text-micro text-ink-faint" aria-live="polite">
-        {value.length === 0 ? "No one selected" : `${value.length} selected: ${value.join(", ")}`}
-      </p>
-    </div>
-  );
-}
-
-/** Value / Non-value switch (single choice, never empty). */
-export function ValueTypeSwitch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <ToggleGroup type="single" size="xs" value={value} onValueChange={(v) => v && onChange(v)} aria-label="Initiative type" className="[&>button]:px-2.5 [&>button]:py-1 [&>button]:text-note">
-      <ToggleGroupItem value="VALUE">Value</ToggleGroupItem>
-      <ToggleGroupItem value="NON_VALUE">Non-value</ToggleGroupItem>
-    </ToggleGroup>
   );
 }

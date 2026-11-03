@@ -9,7 +9,9 @@ import { PUBLICATION_APPROVED, PUBLICATION_SUPERSEDED } from "@/lib/kpi";
 import { getReviewPlan } from "@/lib/review-data";
 import { MANUAL_MEASURE_IDENTITY, MANUAL_SOURCE_CATEGORY } from "@/lib/review-kpi";
 import { requireEditor } from "@/lib/session";
-import { isoDay, parseIsoDay, parseSoWhats, PERIOD_PATTERN, SI_REVIEW_STATUSES, SUMMARY_SCOPE, type SiReviewStatus } from "@/lib/review-model";
+import { parseStatus } from "@/lib/initiatives";
+import { isoDay, parseIsoDay, parseSoWhats, PERIOD_PATTERN, SUMMARY_SCOPE } from "@/lib/review-model";
+import { recordSiUpdate } from "@/lib/si-updates";
 
 // ---------------------------------------------------------------------------
 // Edit Mode on the Strategy Review (admins and editors). Each dialog saves one
@@ -133,28 +135,18 @@ export async function editSiUpdate(fd: FormData): Promise<EditResult> {
   const initiativeId = str(fd, "initiativeId") ?? "";
   if (!id) return { ok: false, error: "Unknown review month." };
   if (await isPublished(id)) return LOCKED;
-  const initiative = await prisma.initiative.findUnique({
-    where: { id: initiativeId },
-    select: { id: true, status: true, updates: { where: { reportingPeriod: id }, orderBy: { createdAt: "desc" }, take: 1, select: { nextMilestone: true, milestoneDueAt: true } } },
-  });
+  const initiative = await prisma.initiative.findUnique({ where: { id: initiativeId }, select: { id: true } });
   if (!initiative) return { ok: false, error: "That SI no longer exists." };
-  const rawStatus = str(fd, "reviewStatus");
-  const reviewStatus = SI_REVIEW_STATUSES.includes(rawStatus as SiReviewStatus) ? (rawStatus as SiReviewStatus) : null;
-  const previous = initiative.updates[0];
-  const created = await prisma.initiativeUpdate.create({
-    data: {
-      initiativeId,
-      status: initiative.status,
-      reviewStatus,
-      update: str(fd, "update"),
-      pathForward: str(fd, "pathForward"),
-      nextMilestone: previous?.nextMilestone ?? null,
-      milestoneDueAt: previous?.milestoneDueAt ?? null,
-      reportingPeriod: id,
-      updatedBy: session.user.name,
-    },
+  const status = parseStatus(str(fd, "status"));
+  const created = await recordSiUpdate({
+    initiativeId,
+    status,
+    update: str(fd, "update"),
+    pathForward: str(fd, "pathForward"),
+    reportingPeriod: id,
+    updatedBy: session.user.name,
   });
-  await audit(session.user.id, "CREATE", "InitiativeUpdate", created.id, { after: { initiativeId, reviewStatus, reportingPeriod: id } });
+  await audit(session.user.id, "CREATE", "InitiativeUpdate", created.id, { after: { initiativeId, status, reportingPeriod: id } });
   revalidateReview();
   return { ok: true };
 }

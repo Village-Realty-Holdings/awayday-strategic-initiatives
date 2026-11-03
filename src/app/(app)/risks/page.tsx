@@ -14,11 +14,11 @@ export const dynamic = "force-dynamic";
 
 export const metadata = { title: "CIM Risks — Awayday" };
 
-type LinkedSI = { id: string; code: string; name: string; status: string; pctComplete: number };
+type LinkedSI = { id: string; code: string; name: string; status: string | null; pctComplete: number };
 
 function coverageOf(sis: LinkedSI[]) {
   if (sis.length === 0) return 0;
-  return sis.reduce((a, i) => a + (i.status === "DONE" ? 1 : i.pctComplete), 0) / sis.length;
+  return sis.reduce((a, i) => a + (i.status === "COMPLETE" ? 1 : i.pctComplete), 0) / sis.length;
 }
 
 function covTone(cov: number): string {
@@ -28,9 +28,9 @@ function covTone(cov: number): string {
 }
 
 function siColor(si: LinkedSI): string {
-  const p = si.status === "DONE" ? 1 : si.pctComplete;
-  if (si.status === "AT_RISK" || p < 0.25) return "bg-risk-soft text-risk";
-  if (p < 0.6) return "bg-warn-soft text-warn";
+  const p = si.status === "COMPLETE" ? 1 : si.pctComplete;
+  if (si.status === "OFF_TRACK" || p < 0.25) return "bg-risk-soft text-risk";
+  if (si.status === "AT_RISK" || p < 0.6) return "bg-warn-soft text-warn";
   if (p >= 0.99) return "bg-ok-soft text-ok";
   return "bg-navy/10 text-navy-deep";
 }
@@ -156,7 +156,7 @@ export default async function RisksPage() {
                       >
                         <Link
                           href={`/initiatives/${si.id}`}
-                          title={`${si.name} · ${Math.round((si.status === "DONE" ? 1 : si.pctComplete) * 100)}%`}
+                          title={`${si.name} · ${Math.round((si.status === "COMPLETE" ? 1 : si.pctComplete) * 100)}%`}
                         >
                           {si.code}
                         </Link>

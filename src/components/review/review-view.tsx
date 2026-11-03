@@ -235,7 +235,7 @@ export function ReviewView({
         ))}
       </nav>
 
-      {statusTbd && <p className="-mt-4 text-xs text-ink-faint">SI status is TBD until owners enter it in Inbox.</p>}
+      {statusTbd && <p className="-mt-4 text-xs text-ink-faint">No SI has a status yet. Owners set it in Inbox.</p>}
 
       <section className="strategy-house" aria-label="Strategy house">
         {houseEditor ? <Editable label="strategy house" editor={houseEditor}>{roof}</Editable> : roof}

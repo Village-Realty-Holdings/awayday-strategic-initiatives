@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { STATUS_META, QUADRANT_META, HEALTH_META, HEALTH_ORDER, type Health } from "@/lib/initiatives";
+import { QUADRANT_META, STATUS_FILTERS, STATUS_ORDER, matchesStatusFilter, statusDisplay, statusFilterLabel } from "@/lib/initiatives";
 import type { InitiativeStatus, Quadrant } from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";
 import { FilterSelect } from "@/components/filter-select";
@@ -15,8 +15,7 @@ export type GanttRow = {
   teamLead: string | null;
   cimDriver: string | null;
   quadrant: Quadrant;
-  status: InitiativeStatus;
-  health: Health;
+  status: InitiativeStatus | null;
   leftPct: number;
   widthPct: number;
   pct: number;
@@ -26,7 +25,6 @@ export type GanttRow = {
 
 export type UnscheduledInitiative = { id: string; code: string; name: string; teamLead: string | null };
 
-const STATUSES = Object.keys(STATUS_META) as InitiativeStatus[];
 const QUADRANTS = Object.keys(QUADRANT_META) as Quadrant[];
 
 export function GanttChart({
@@ -68,7 +66,7 @@ export function GanttChart({
         (r) =>
           (!owner || r.teamLead === owner) &&
           (!cim || r.cimDriver === cim) &&
-          (!status || r.status === status) &&
+          matchesStatusFilter(r.status, status) &&
           (!quadrant || r.quadrant === quadrant),
       ),
     [rows, owner, cim, status, quadrant],
@@ -83,7 +81,7 @@ export function GanttChart({
       <div className="no-print mb-3 flex flex-wrap items-center gap-2">
         <FilterSelect value={owner} onChange={setOwner} label="Owner" options={owners} />
         <FilterSelect value={cim} onChange={setCim} label="CIM driver" options={cims} />
-        <FilterSelect value={status} onChange={setStatus} label="Status" options={STATUSES} render={(s) => STATUS_META[s as InitiativeStatus].label} />
+        <FilterSelect value={status} onChange={setStatus} label="Status" options={STATUS_FILTERS} render={statusFilterLabel} />
         <FilterSelect value={quadrant} onChange={setQuadrant} label="Priority" options={QUADRANTS} render={(q) => QUADRANT_META[q as Quadrant].label} />
         {active && (
           <Button variant="outline" size="sm" onClick={reset} className="px-2.5">
@@ -93,11 +91,11 @@ export function GanttChart({
         <span className="text-xs text-ink-faint">{filtered.length} of {rows.length}</span>
       </div>
 
-      {/* Legend — bar color = delivery health */}
+      {/* Legend — bar color = status */}
       <div className="mb-3 flex flex-wrap items-center gap-4 text-note text-ink-muted">
-        {HEALTH_ORDER.map((h) => (
-          <span key={h} className="inline-flex items-center gap-1.5">
-            <span className={`h-2 w-3 rounded-sm ${HEALTH_META[h].bar}`} aria-hidden /> {HEALTH_META[h].label}
+        {[...STATUS_ORDER, null].map((s) => (
+          <span key={s ?? "none"} className="inline-flex items-center gap-1.5">
+            <span className={`h-2 w-3 rounded-sm ${statusDisplay(s).dot}`} aria-hidden /> {statusDisplay(s).label}
           </span>
         ))}
         {todayPct !== null && (
@@ -142,7 +140,7 @@ export function GanttChart({
               type="button"
               onClick={() => scrollToMilestone(i.id, i.code)}
               aria-label={`Jump to first listed milestone for ${i.code} ${i.name}`}
-              title={`${i.code} · ${i.name}\nLead: ${i.teamLead ?? "Unassigned"}\nStatus: ${STATUS_META[i.status].label} (${Math.round(i.pct * 100)}%)\nHealth: ${HEALTH_META[i.health].label}${i.derived ? "\nDates from milestones (no start/target set)" : ""}`}
+              title={`${i.code} · ${i.name}\nLead: ${i.teamLead ?? "Unassigned"}\nStatus: ${statusDisplay(i.status).label} (${Math.round(i.pct * 100)}%)${i.derived ? "\nDates from milestones (no start/target set)" : ""}`}
               className="grid w-full cursor-pointer grid-cols-[240px_1fr] items-center gap-3 py-2 pr-4 text-left transition-colors hover:bg-surface-2/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-navy"
             >
               <div className="min-w-0 pl-4 pr-9">
@@ -159,11 +157,11 @@ export function GanttChart({
                 {todayPct !== null && (
                   <span className="absolute top-0 bottom-0 z-10 border-l border-dashed border-risk" style={{ left: `${todayPct}%` }} aria-hidden />
                 )}
-<div className={`absolute top-1/2 h-3 -translate-y-1/2 overflow-hidden rounded-full ${HEALTH_META[i.health].bar} opacity-25`} style={{ left: `${i.leftPct}%`, width: `${i.widthPct}%` }} />
+<div className={`absolute top-1/2 h-3 -translate-y-1/2 overflow-hidden rounded-full ${statusDisplay(i.status).dot} opacity-25`} style={{ left: `${i.leftPct}%`, width: `${i.widthPct}%` }} />
                 {i.derived && (
                   <div className="absolute top-1/2 h-3 -translate-y-1/2 rounded-full border border-dashed border-ink-muted" style={{ left: `${i.leftPct}%`, width: `${i.widthPct}%` }} aria-hidden />
                 )}
-                <div className={`absolute top-1/2 h-3 -translate-y-1/2 overflow-hidden rounded-full ${HEALTH_META[i.health].bar}`} style={{ left: `${i.leftPct}%`, width: `${i.widthPct * i.pct}%` }} />
+                <div className={`absolute top-1/2 h-3 -translate-y-1/2 overflow-hidden rounded-full ${statusDisplay(i.status).dot}`} style={{ left: `${i.leftPct}%`, width: `${i.widthPct * i.pct}%` }} />
               </div>
             </button>
             <Link
@@ -202,7 +200,7 @@ export function GanttChart({
             <h3 className="text-sm font-semibold text-ink">
               Unscheduled <span className="tabular font-normal text-ink-faint">({unscheduled.length})</span>
             </h3>
-            <p className="mt-0.5 text-xs text-ink-muted">No start/target date and no dated milestones, so these can&apos;t be placed on the timeline.</p>
+            <p className="mt-0.5 text-xs text-ink-muted">No dated milestones, so these can&apos;t be placed on the timeline.</p>
           </div>
           <ul className="grid divide-y divide-border sm:grid-cols-2 sm:divide-y-0">
             {unscheduled.map((u) => (
@@ -213,7 +211,7 @@ export function GanttChart({
                   {u.teamLead && <span className="text-ink-faint"> · {u.teamLead}</span>}
                 </Link>
                 <Button asChild variant="link" size="xs" className="no-print shrink-0">
-                  <Link href={`/admin/initiatives/${u.id}/edit`}>Set dates</Link>
+                  <Link href={`/initiatives/${u.id}`}>Add milestones</Link>
                 </Button>
               </li>
             ))}

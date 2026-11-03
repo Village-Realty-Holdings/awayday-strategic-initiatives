@@ -8,6 +8,8 @@ import {
   parseSoWhats,
   periodLabel,
   previousMonth,
+  isNewestPeriod,
+  updatePeriods,
   monthAfter,
   ragFor,
   reviewPeriods,
@@ -200,5 +202,24 @@ describe("parseIsoDay", () => {
     expect(parseIsoDay("2026-02-30")).toBeNull();
     expect(parseIsoDay("15/10/2026")).toBeNull();
     expect(parseIsoDay("")).toBeNull();
+  });
+});
+
+describe("isNewestPeriod", () => {
+  it("is false only when a newer month already has an update", () => {
+    expect(isNewestPeriod("2026-10", ["2026-09", "2026-10"])).toBe(true);
+    expect(isNewestPeriod("2026-09", ["2026-10"])).toBe(false);
+    expect(isNewestPeriod(null, ["2026-10"])).toBe(true);
+  });
+
+  it("ignores legacy free-text periods", () => {
+    expect(isNewestPeriod("2026-10", ["October 2026", null])).toBe(true);
+  });
+});
+
+describe("updatePeriods", () => {
+  it("always includes last month, newest first, so a new month opens by itself", () => {
+    expect(updatePeriods(["2026-09"], new Date("2026-11-03T00:00:00Z"))).toEqual(["2026-10", "2026-09"]);
+    expect(updatePeriods(["2026-10", "2026-09"], new Date("2026-11-03T00:00:00Z"))).toEqual(["2026-10", "2026-09"]);
   });
 });

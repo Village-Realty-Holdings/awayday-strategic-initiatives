@@ -40,7 +40,7 @@ export default async function InitiativesPage({
 
   const rows: InitiativeRow[] = initiatives.map((i) => {
     const p = pace(i.startDate, i.endDate, i.pctComplete, now);
-    const isBehind = i.status !== "DONE" && p !== null && p.lag < -0.15;
+    const isBehind = i.status !== "COMPLETE" && p !== null && p.lag < -0.15;
     if (isBehind) behind++;
     return {
       id: i.id,

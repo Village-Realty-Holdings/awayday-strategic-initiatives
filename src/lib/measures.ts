@@ -84,3 +84,15 @@ export function derivedPct(actual: number | null, target: number | null, measure
   const kpi = primaryKpi(measures);
   return kpi ? measureProgress(kpi) : null;
 }
+
+/** Whether a measure has a value dated within a review month ("2026-10"). */
+export function measureUpdatedInPeriod(m: { readings: { asOf: Date }[] }, period: string): boolean {
+  return m.readings.some((r) => r.asOf.toISOString().slice(0, 7) === period);
+}
+
+/** The as-of date to offer for a month's value: today, or the month's last day once it has passed. */
+export function defaultAsOf(period: string, today: string): string {
+  const [year, month] = period.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+  return today < lastDay ? today : lastDay;
+}

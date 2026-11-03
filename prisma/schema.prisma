@@ -23,21 +23,12 @@ datasource db {
   provider = "postgresql"
 }
 
+// An SI's one status, set through its monthly update. Null means none set yet.
 enum InitiativeStatus {
-  NOT_STARTED
-  PLANNING
-  IN_PROGRESS
-  AT_RISK
-  DONE
-}
-
-// Monthly review status an SI lead sets on an update (Ahead / On track / At
-// risk / Behind). Separate from InitiativeStatus, which is the lifecycle.
-enum SiReviewStatus {
-  AHEAD
   ON_TRACK
   AT_RISK
-  BEHIND
+  OFF_TRACK
+  COMPLETE
 }
 
 enum ImpactLevel {
@@ -100,7 +91,7 @@ model Initiative {
   quadrant           Quadrant
   startDate          DateTime?
   endDate            DateTime?
-  status             InitiativeStatus    @default(NOT_STARTED)
+  status             InitiativeStatus?
   stage              DmaicStage? // Six Sigma DMAIC delivery stage (Jakob's framework)
   pctComplete        Float               @default(0) // 0..1
   qualImpact         ImpactLevel?
@@ -144,7 +135,7 @@ model SubInitiative {
   initiativeId String
   title        String
   owner        String? // person name / role
-  status       InitiativeStatus @default(NOT_STARTED)
+  status       InitiativeStatus?
   pctComplete  Float            @default(0) // 0..1
   order        Int              @default(0)
   createdAt    DateTime         @default(now())
@@ -516,12 +507,11 @@ model InitiativeUpdate {
   id             String           @id @default(cuid())
   initiativeId   String
   initiative     Initiative       @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
-  status         InitiativeStatus
-  reviewStatus   SiReviewStatus?
+  status         InitiativeStatus?
   update         String?          @db.Text
   pathForward    String?          @db.Text
-  nextMilestone  String?
-  milestoneDueAt DateTime?
+  nextMilestone  String? // deprecated (milestones live on InitiativeMilestone); retained for legacy data
+  milestoneDueAt DateTime? // deprecated, as nextMilestone
   reportingPeriod String?
   updatedBy      String?
   createdAt      DateTime         @default(now())

@@ -3,7 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fmtDay, splitNames, type ReviewSi } from "@/lib/review-model";
-import { SiStatusBadge, UpdatedBadge } from "./status";
+import { StatusBadge } from "@/components/badges";
+import { UpdatedBadge } from "./status";
 
 type Grouping = "elt" | "lead";
 type LeaderGroup = { leader: string; sis: ReviewSi[] };
@@ -54,7 +55,7 @@ function AsksByLeader({ sis, compact, groupBy, today }: { sis: ReviewSi[]; compa
                         {si.name}
                       </Link>
                       <span className="flex flex-wrap items-center gap-1.5">
-                        <SiStatusBadge status={si.status} />
+                        <StatusBadge status={si.status} />
                         <UpdatedBadge updated={si.updatedThisPeriod} />
                       </span>
                     </div>

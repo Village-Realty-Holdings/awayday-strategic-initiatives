@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  defaultAsOf,
+  measureUpdatedInPeriod,
   derivedPct,
   formatMeasureValue,
   measureProgress,
@@ -123,5 +125,22 @@ describe("derivedPct", () => {
   it("is null when neither gives a percent", () => {
     expect(derivedPct(null, null, [])).toBeNull();
     expect(derivedPct(null, null, [measure()])).toBeNull();
+  });
+});
+
+describe("measureUpdatedInPeriod", () => {
+  it("counts only a value dated in that month", () => {
+    const m = { readings: [{ asOf: new Date("2026-10-31T00:00:00Z") }] };
+    expect(measureUpdatedInPeriod(m, "2026-10")).toBe(true);
+    expect(measureUpdatedInPeriod(m, "2026-11")).toBe(false);
+    expect(measureUpdatedInPeriod({ readings: [] }, "2026-10")).toBe(false);
+  });
+});
+
+describe("defaultAsOf", () => {
+  it("offers the month's last day once it has passed, otherwise today", () => {
+    expect(defaultAsOf("2026-10", "2026-11-03")).toBe("2026-10-31");
+    expect(defaultAsOf("2026-02", "2026-11-03")).toBe("2026-02-28");
+    expect(defaultAsOf("2026-11", "2026-11-03")).toBe("2026-11-03");
   });
 });

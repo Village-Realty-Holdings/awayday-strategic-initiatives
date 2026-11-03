@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { editMeasureValue, editPlanHeader, editReviewDetails, editSiUpdate, editSoWhats, editStrategicArea, type EditResult } from "@/app/(app)/review-edit-actions";
-import { fmtLong, type ReviewSi, type SiReviewStatus, type SoWhat } from "@/lib/review-model";
+import type { InitiativeStatus } from "@/generated/prisma/client";
+import { fmtLong, type ReviewSi, type SoWhat } from "@/lib/review-model";
 import { useCloseEditor } from "./edit-mode";
 import { type EditorSoWhat, SoWhatEditor } from "./so-what-editor";
 import { SiStatusPicker } from "./status";
@@ -217,7 +218,7 @@ export function MeasureValueEditor({
 }
 
 export function SiUpdateEditor({ periodId, periodLabel, si }: { periodId: string; periodLabel: string; si: ReviewSi }) {
-  const [status, setStatus] = useState<SiReviewStatus | null>(si.status);
+  const [status, setStatus] = useState<InitiativeStatus | null>(si.status);
   return (
     <EditForm
       title={`Edit ${si.shortCode} update`}
@@ -233,7 +234,7 @@ export function SiUpdateEditor({ periodId, periodLabel, si }: { periodId: string
         </>
       }
       action={editSiUpdate}
-      hidden={{ periodId, initiativeId: si.id, reviewStatus: status ?? "" }}
+      hidden={{ periodId, initiativeId: si.id, status: status ?? "" }}
     >
       <div className="flex flex-col gap-1.5">
         <span className="text-sm font-medium text-ink">Status</span>

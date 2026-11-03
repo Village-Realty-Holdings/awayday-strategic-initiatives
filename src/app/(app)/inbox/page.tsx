@@ -2,9 +2,12 @@ import { InboxView, type InboxAsk } from "@/components/review/inbox-view";
 import { MyUpdates, type MyItem, type MySiRow } from "@/components/review/my-updates";
 import { PeriodSwitcherQuery } from "@/components/review/period-query";
 import { PageHeader } from "@/components/shell/page-header";
+import { formatDateDay } from "@/lib/initiatives";
+import { defaultAsOf, formatMeasureValue, MEASURE_KIND_LABEL, measureProgress, measureUpdatedInPeriod, sortReadings } from "@/lib/measures";
+import { prisma } from "@/lib/prisma";
 import { requireApp } from "@/lib/session";
 import { allSis, getReviewPeriod, getReviewPlan, resolvePeriod } from "@/lib/review-data";
-import { fmtDay, fmtLong, initiativeOwnerMatches, periodLabel, periodMonthName, todayIso } from "@/lib/review-model";
+import { fmtDay, fmtLong, initiativeOwnerMatches, periodMonthName, todayIso } from "@/lib/review-model";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +39,15 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
     si.asks.map((a) => ({ id: a.id, siId: si.id, siLabel: label(si), request: a.request, kind: a.kind, raisedLabel: fmtDay(a.raisedOn), open: a.status === "REQUESTED" })),
   );
 
+  const measures = mine.length
+    ? await prisma.initiativeMeasure.findMany({
+        where: { initiativeId: { in: mine.map((s) => s.id) } },
+        orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+        include: { readings: true },
+      })
+    : [];
+  const kpisUpdated = measures.filter((m) => measureUpdatedInPeriod(m, id)).length;
+
   const rows: MySiRow[] = mine.map((si) => ({
     id: si.id,
     shortCode: si.shortCode,
@@ -45,6 +57,21 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
     status: si.status,
     latestProgress: si.latestProgress ?? "",
     whatNext: si.whatNext ?? "",
+    measures: measures
+      .filter((m) => m.initiativeId === si.id)
+      .map((m) => {
+        const latest = sortReadings(m.readings)[0];
+        return {
+          id: m.id,
+          name: m.name,
+          kindLabel: MEASURE_KIND_LABEL[m.kind] ?? m.kind,
+          latestLabel: formatMeasureValue(latest?.value, m.unit),
+          latestAsOf: latest ? formatDateDay(latest.asOf) : null,
+          targetLabel: formatMeasureValue(m.target, m.unit),
+          progress: measureProgress(m),
+          updated: measureUpdatedInPeriod(m, id),
+        };
+      }),
   }));
 
   return (
@@ -52,19 +79,19 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
       <PageHeader
         eyebrow="Inbox"
         title={`Inbox · ${me.name}`}
-        description="Your monthly update for each SI you lead, the milestones and action items you own, and ELT asks on your SIs. Updates feed the review and Asks by leader. Ticking an item off saves it."
+        description="Your monthly update and KPI values for each SI you lead, the milestones and action items you own, and ELT asks on your SIs. Updates feed the review and Asks by leader. Ticking an item off saves it."
         actions={<PeriodSwitcherQuery periods={periods} current={id} home={home} basePath="/inbox" />}
       />
       <InboxView
         periodLabel={periodMonthName(id)}
         locked={locked}
-        needUpdate={mine.filter((s) => !s.updatedThisPeriod).map((s) => ({ id: s.id, shortCode: s.shortCode, name: s.name }))}
+        dueLabel={period.updatesDueDate ? fmtLong(period.updatesDueDate) : null}
+        sis={mine.map((s) => ({ id: s.id, shortCode: s.shortCode, name: s.name, updated: s.updatedThisPeriod, status: s.status }))}
+        kpis={{ updated: kpisUpdated, total: measures.length }}
         items={items}
         asks={asks}
       />
-      {rows.length > 0 && (
-        <MyUpdates rows={rows} period={id} periodLabel={periodLabel(id)} locked={locked} dueLabel={period.updatesDueDate ? fmtLong(period.updatesDueDate) : null} />
-      )}
+      {rows.length > 0 && <MyUpdates rows={rows} period={id} asOf={defaultAsOf(id, today)} locked={locked} />}
     </div>
   );
 }

@@ -1,23 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { InitiativeStatus } from "@/generated/prisma/enums";
 import { ProgressForm, ProgressSummary } from "@/components/progress-editor";
 import {
   formatDateDay,
-  QUADRANT_META,
-  STATUS_META,
   pace,
   formatMoney,
-  effortBadge,
   durationDays,
   formatTeam,
 } from "@/lib/initiatives";
 import { hasDollarProgress } from "@/lib/measures";
+import { resolvePeriod } from "@/lib/review-data";
+import { initiativeOwnerMatches, periodLabel } from "@/lib/review-model";
+import { SiUpdateForm } from "@/components/review/my-updates";
 import { canEdit, requireSession } from "@/lib/session";
 import { DeleteInitiativeButton } from "@/components/delete-initiative-button";
 import {
-  addInitiativeUpdate,
   addInitiativeMilestone,
   toggleInitiativeMilestone,
   removeInitiativeMilestone,
@@ -31,7 +29,7 @@ import {
 import { CharterAssistButton } from "@/components/charter-assist";
 import { CompletionToggle } from "@/components/completion-toggle";
 import { DatePicker } from "@/components/date-picker";
-import { StatusBadge, QuadrantBadge } from "@/components/badges";
+import { StatusBadge } from "@/components/badges";
 import { DetailList, DetailSection, RemoveButton } from "@/components/initiative-section";
 import { InitiativeMeasures } from "@/components/initiative-measures";
 import { Badge } from "@/components/ui/badge";
@@ -39,7 +37,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Pencil,
   CalendarCheck,
@@ -51,8 +48,6 @@ import {
 } from "@/components/icons";
 import { BreadcrumbTitle } from "@/components/shell/breadcrumbs";
 import { PAGE_FRAME, PageHeader } from "@/components/shell/page-header";
-
-const STATUSES = Object.values(InitiativeStatus);
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +75,10 @@ export default async function InitiativeDetail({
     },
   });
   if (!i) notFound();
+  // An SI's own lead also keeps its measures and monthly status up to date.
+  const canUpdate = editable || initiativeOwnerMatches(i, session.user);
+  const { periods, home, published } = await resolvePeriod(null, "updates");
+  const openPeriods = periods.filter((period) => !published.includes(period));
 
   // People directory, for the owner fields (Jakob: "pull from People").
   const roster = await prisma.rosterMember.findMany({ select: { name: true }, orderBy: { name: "asc" } });
@@ -87,7 +86,7 @@ export default async function InitiativeDetail({
 
   const now = new Date();
   const p = pace(i.startDate, i.endDate, i.pctComplete, now);
-  const behind = i.status !== "DONE" && p && p.lag < -0.15;
+  const behind = i.status !== "COMPLETE" && p && p.lag < -0.15;
   const days = durationDays(i.startDate, i.endDate);
   const isValue = i.valueType === "VALUE";
   const nextMilestone = i.milestones.find((m) => !m.completedAt && m.dueAt);
@@ -116,11 +115,8 @@ export default async function InitiativeDetail({
         title={i.name}
         badges={
           <>
-            <Badge variant="outline" className="bg-surface">
-              <StatusBadge status={i.status} />
-            </Badge>
-            {isValue ? <QuadrantBadge quadrant={i.quadrant} /> : <Badge variant="secondary">Non-value</Badge>}
-            {behind && <Badge variant="warn">Behind pace</Badge>}
+            <StatusBadge status={i.status} />
+            {!isValue && <Badge variant="secondary">Non-value</Badge>}
             {i.cimItemCode && <Badge variant="outline" className="tabular">{i.cimItemCode}</Badge>}
           </>
         }
@@ -193,8 +189,6 @@ export default async function InitiativeDetail({
                 <dl className="grid gap-2">
                   <RailRow label="Targeted value" value={formatMoney(i.progressTarget)} tabular />
                   <RailRow label="Value realized" value={formatMoney(i.progressActual)} tabular />
-                  <RailRow label="Effort" value={effortBadge(i.lift)} />
-                  <RailRow label="Priority" value={QUADRANT_META[i.quadrant].label} />
                 </dl>
               </RailGroup>
             )}
@@ -247,7 +241,7 @@ export default async function InitiativeDetail({
           <InitiativeMeasures
             initiativeId={i.id}
             measures={i.measures}
-            editable={editable}
+            editable={canUpdate}
             isValue={isValue}
             dollarsDrivePct={hasDollarProgress(i.progressActual, i.progressTarget)}
             suggestedName={i.quantMetric}
@@ -436,21 +430,17 @@ export default async function InitiativeDetail({
             count={i.updates.length > 0 && String(i.updates.length)}
             isEmpty={i.updates.length === 0}
             emptyText="No status updates yet."
-            addLabel={editable ? "Add status update" : undefined}
+            addLabel={canUpdate && openPeriods.length > 0 ? "Add status update" : undefined}
             addForm={
-              editable && (
-                <form action={addInitiativeUpdate} className="grid gap-2 sm:grid-cols-2">
-                  <input type="hidden" name="initiativeId" value={i.id} />
-                  <NativeSelect size="sm" name="status" defaultValue={i.status} aria-label="Status">
-                    {STATUSES.map((status) => <option key={status} value={status}>{STATUS_META[status].label}</option>)}
-                  </NativeSelect>
-                  <Input size="sm" name="reportingPeriod" placeholder="Reporting period (e.g. October 2026)" />
-                  <Textarea name="update" rows={2} placeholder="Latest meaningful update" className="sm:col-span-2" />
-                  <Textarea name="pathForward" rows={2} placeholder="Path forward / next priorities" className="sm:col-span-2" />
-                  <Input size="sm" name="nextMilestone" placeholder="Next milestone" />
-                  <DatePicker name="milestoneDueAt" label="Milestone due date" clearable align="end" />
-                  <SubmitButton size="sm" className="w-fit sm:col-span-2">Save status update</SubmitButton>
-                </form>
+              canUpdate && openPeriods.length > 0 && (
+                <SiUpdateForm
+                  initiativeId={i.id}
+                  name={i.name}
+                  status={i.status}
+                  period={openPeriods.includes(home) ? home : openPeriods[0]}
+                  months={openPeriods.map((period) => ({ value: period, label: periodLabel(period) }))}
+                  returnTo="initiative"
+                />
               )
             }
           >
@@ -462,7 +452,7 @@ export default async function InitiativeDetail({
                     <span className="text-note text-ink-faint">{u.reportingPeriod ?? "Unspecified period"} · {formatDateDay(u.createdAt)}</span>
                   </div>
                   {u.update && <p className="mt-1 text-sm text-ink-muted">{u.update}</p>}
-                  <p className="mt-1 text-note text-ink-faint">Path forward: {u.pathForward ?? "TBD"} · Next milestone: {u.nextMilestone ?? "TBD"}{u.milestoneDueAt ? ` (${formatDateDay(u.milestoneDueAt)})` : ""}</p>
+                  <p className="mt-1 text-note text-ink-faint">Path forward: {u.pathForward ?? "TBD"}</p>
                 </li>
               ))}
             </DetailList>

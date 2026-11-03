@@ -21,7 +21,7 @@ export function SiCard({ si }: { si: ReviewSi }) {
             <span className="tabular mr-2 text-micro text-ink-faint">{si.shortCode}</span>
             {si.name}
           </button>
-          <StatusBadge status={si.initiativeStatus} />
+          <StatusBadge status={si.status} />
         </div>
         <p className="text-xs text-ink-faint">
           Lead: {si.lead ?? "TBD"}
@@ -56,7 +56,7 @@ export function SiCard({ si }: { si: ReviewSi }) {
             <div className="flex flex-wrap items-center gap-2">
               <span className="tabular text-micro text-ink-faint">{si.shortCode}</span>
               <span className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">{si.areaName}</span>
-              <StatusBadge status={si.initiativeStatus} />
+              <StatusBadge status={si.status} />
             </div>
             <DialogTitle className="text-xl">{si.name}</DialogTitle>
             <DialogDescription>Lead: {si.lead ?? "TBD"} · Sponsor: {si.sponsor ?? "TBD"}</DialogDescription>

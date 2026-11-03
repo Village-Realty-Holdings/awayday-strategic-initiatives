@@ -1,16 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // The review's server actions with Prisma, the session and Next mocked: an SI
-// lead's update stores the review status without touching the lifecycle
-// status, only the lead (or an editor) may write, a published month takes no
-// updates, and every write is audited. Review authoring (period, so-whats,
+// lead's update goes through recordSiUpdate, only the lead (or an editor) may
+// write, a published month takes no updates, and every write is audited. Review authoring (period, so-whats,
 // publish) is admin-only.
 
 const m = vi.hoisted(() => ({
   session: { user: { id: "u-kyle", name: "Kyle Sullivan", role: "viewer" } },
   initiativeFindUnique: vi.fn(),
   initiativeUpdate: vi.fn(),
-  updateCreate: vi.fn(),
+  recordSiUpdate: vi.fn(),
   milestoneFindUnique: vi.fn(),
   milestoneUpdate: vi.fn(),
   periodFindUnique: vi.fn(),
@@ -33,6 +32,7 @@ vi.mock("next/navigation", () => ({ redirect: m.redirect }));
 vi.mock("@/lib/audit", () => ({ audit: m.audit }));
 vi.mock("@/lib/flash", () => ({ flash: m.flash }));
 vi.mock("@/lib/review-data", () => ({ getReviewPlan: m.getReviewPlan }));
+vi.mock("@/lib/si-updates", () => ({ recordSiUpdate: m.recordSiUpdate }));
 vi.mock("@/lib/session", () => ({
   requireSession: vi.fn(async () => m.session),
   requireAdmin: vi.fn(async () => {
@@ -44,7 +44,6 @@ vi.mock("@/lib/session", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     initiative: { findUnique: m.initiativeFindUnique, update: m.initiativeUpdate },
-    initiativeUpdate: { create: m.updateCreate },
     initiativeMilestone: { findUnique: m.milestoneFindUnique, update: m.milestoneUpdate },
     reviewPeriod: { findUnique: m.periodFindUnique, create: m.periodCreate, upsert: m.periodUpsert, update: m.periodUpdate },
     reviewSoWhat: { deleteMany: m.soWhatDeleteMany, createMany: m.soWhatCreateMany },
@@ -67,41 +66,44 @@ beforeEach(() => {
 });
 
 describe("saveInitiativeUpdate", () => {
-  it("stores the review status and text, keeps the lifecycle status, and audits", async () => {
-    m.initiativeFindUnique.mockResolvedValue({ id: "i1", status: "IN_PROGRESS", ownerUserId: null, teamLead: "Kyle Sullivan" });
-    m.updateCreate.mockResolvedValue({ id: "upd1", reportingPeriod: "2026-09" });
+  it("saves the status and text through the one write path, and audits", async () => {
+    m.initiativeFindUnique.mockResolvedValue({ id: "i1", ownerUserId: null, teamLead: "Kyle Sullivan" });
+    m.recordSiUpdate.mockResolvedValue({ id: "upd1", reportingPeriod: "2026-09" });
 
     await expect(
-      saveInitiativeUpdate(form({ initiativeId: "i1", reviewStatus: "AT_RISK", update: " Waves 2 and 3 live ", pathForward: "All shops by April", reportingPeriod: "2026-09" })),
+      saveInitiativeUpdate(form({ initiativeId: "i1", status: "AT_RISK", update: " Waves 2 and 3 live ", pathForward: "All shops by April", reportingPeriod: "2026-09" })),
     ).rejects.toThrow("REDIRECT /inbox?period=2026-09#si-i1");
 
-    expect(m.updateCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({ initiativeId: "i1", status: "IN_PROGRESS", reviewStatus: "AT_RISK", update: "Waves 2 and 3 live", pathForward: "All shops by April", reportingPeriod: "2026-09", updatedBy: "Kyle Sullivan" }),
-    });
-    expect(m.initiativeUpdate).not.toHaveBeenCalled();
+    expect(m.recordSiUpdate).toHaveBeenCalledWith({ initiativeId: "i1", status: "AT_RISK", update: "Waves 2 and 3 live", pathForward: "All shops by April", reportingPeriod: "2026-09", updatedBy: "Kyle Sullivan" });
     expect(m.audit).toHaveBeenCalledWith("u-kyle", "CREATE", "InitiativeUpdate", "upd1", expect.anything());
   });
 
-  it("drops an unknown review status and a free-text period", async () => {
-    m.initiativeFindUnique.mockResolvedValue({ id: "i1", status: "PLANNING", ownerUserId: null, teamLead: "Kyle Sullivan" });
-    m.updateCreate.mockResolvedValue({ id: "upd2", reportingPeriod: null });
-    await expect(saveInitiativeUpdate(form({ initiativeId: "i1", reviewStatus: "GREAT", reportingPeriod: "October 2026" }))).rejects.toThrow(/REDIRECT/);
-    expect(m.updateCreate.mock.calls[0][0].data).toMatchObject({ reviewStatus: null, reportingPeriod: null });
+  it("drops an unknown status and a free-text period", async () => {
+    m.initiativeFindUnique.mockResolvedValue({ id: "i1", ownerUserId: null, teamLead: "Kyle Sullivan" });
+    m.recordSiUpdate.mockResolvedValue({ id: "upd2", reportingPeriod: null });
+    await expect(saveInitiativeUpdate(form({ initiativeId: "i1", status: "GREAT", reportingPeriod: "October 2026" }))).rejects.toThrow(/REDIRECT/);
+    expect(m.recordSiUpdate.mock.calls[0][0]).toMatchObject({ status: null, reportingPeriod: null });
+  });
+
+  it("goes back to the SI page when saved from there", async () => {
+    m.initiativeFindUnique.mockResolvedValue({ id: "i1", ownerUserId: null, teamLead: "Kyle Sullivan" });
+    m.recordSiUpdate.mockResolvedValue({ id: "upd3", reportingPeriod: "2026-09" });
+    await expect(saveInitiativeUpdate(form({ initiativeId: "i1", status: "ON_TRACK", reportingPeriod: "2026-09", returnTo: "initiative" }))).rejects.toThrow("REDIRECT /initiatives/i1");
   });
 
   it("refuses an update for a month whose review is published, even from an editor", async () => {
     m.session.user.role = "editor";
-    m.initiativeFindUnique.mockResolvedValue({ id: "i1", status: "IN_PROGRESS", ownerUserId: null, teamLead: "Kyle Sullivan" });
+    m.initiativeFindUnique.mockResolvedValue({ id: "i1", ownerUserId: null, teamLead: "Kyle Sullivan" });
     m.periodFindUnique.mockResolvedValue({ status: "PUBLISHED" });
-    await expect(saveInitiativeUpdate(form({ initiativeId: "i1", reviewStatus: "AHEAD", reportingPeriod: "2026-09" }))).rejects.toThrow("REDIRECT /inbox?period=2026-09");
+    await expect(saveInitiativeUpdate(form({ initiativeId: "i1", status: "ON_TRACK", reportingPeriod: "2026-09" }))).rejects.toThrow("REDIRECT /inbox?period=2026-09");
     expect(m.periodFindUnique).toHaveBeenCalledWith({ where: { id: "2026-09" }, select: { status: true } });
-    expect(m.updateCreate).not.toHaveBeenCalled();
+    expect(m.recordSiUpdate).not.toHaveBeenCalled();
   });
 
   it("refuses someone who isn't the lead and can't edit", async () => {
-    m.initiativeFindUnique.mockResolvedValue({ id: "i2", status: "IN_PROGRESS", ownerUserId: null, teamLead: "Curt Stark" });
-    await expect(saveInitiativeUpdate(form({ initiativeId: "i2", reviewStatus: "AHEAD" }))).rejects.toThrow("REDIRECT /inbox");
-    expect(m.updateCreate).not.toHaveBeenCalled();
+    m.initiativeFindUnique.mockResolvedValue({ id: "i2", ownerUserId: null, teamLead: "Curt Stark" });
+    await expect(saveInitiativeUpdate(form({ initiativeId: "i2", status: "ON_TRACK" }))).rejects.toThrow("REDIRECT /inbox");
+    expect(m.recordSiUpdate).not.toHaveBeenCalled();
   });
 });
 

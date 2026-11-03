@@ -35,7 +35,7 @@ export default async function ScorecardPage() {
     // Owners not in the directory (legacy/unassigned) still show, flagged below.
     if (!r) { r = blank(owner, null, null, false); map.set(owner, r); }
     r.count++;
-    const done = i.status === "DONE" || i.pctComplete >= 0.999;
+    const done = i.status === "COMPLETE" || i.pctComplete >= 0.999;
     if (done) r.complete++;
     else r.inFlight++;
     // Value created = dollars done; to-create = dollar goal. Percent can come from a

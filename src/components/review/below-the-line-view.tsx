@@ -11,8 +11,9 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { createBelowLineProject } from "@/app/(app)/review-actions";
-import { BELOW_LINE_STATUSES, type BelowLineStatus, type SiReviewStatus } from "@/lib/review-model";
-import { SI_STATUS_META, SiStatusBadge } from "./status";
+import { StatusBadge } from "@/components/badges";
+import type { InitiativeStatus } from "@/generated/prisma/client";
+import { BELOW_LINE_STATUSES, type BelowLineStatus } from "@/lib/review-model";
 
 export type BtlRow = {
   id: string;
@@ -31,7 +32,7 @@ export type BtlSi = {
   name: string;
   goingFor: string | null;
   lead: string | null;
-  status: SiReviewStatus | null;
+  status: InitiativeStatus | null;
   dueLabel: string;
 };
 
@@ -48,22 +49,22 @@ export type BtlGroup = {
 
 const STATUS_META: Record<BelowLineStatus, { label: string; variant: "ok" | "default" | "warn" | "risk" | "outline" | "secondary" }> = {
   DONE: { label: "Done", variant: "ok" },
-  ON_TRACK: { label: "On track", variant: "default" },
-  AT_RISK: { label: "At risk", variant: "warn" },
+  ON_TRACK: { label: "On-track", variant: "ok" },
+  AT_RISK: { label: "At-risk", variant: "warn" },
   BLOCKED: { label: "Blocked", variant: "risk" },
   NOT_STARTED: { label: "Not started", variant: "outline" },
 };
 
-type StatusKey = BelowLineStatus | SiReviewStatus | "TBD";
+type StatusKey = BelowLineStatus | InitiativeStatus | "TBD";
 
 const STATUS_FILTERS: { key: StatusKey; label: string }[] = [
-  { key: "AHEAD", label: SI_STATUS_META.AHEAD.label },
-  { key: "ON_TRACK", label: "On track" },
-  { key: "AT_RISK", label: "At risk" },
-  { key: "BEHIND", label: SI_STATUS_META.BEHIND.label },
+  { key: "COMPLETE", label: "Complete" },
+  { key: "ON_TRACK", label: "On-track" },
+  { key: "AT_RISK", label: "At-risk" },
+  { key: "OFF_TRACK", label: "Off-track" },
   { key: "BLOCKED", label: "Blocked" },
   { key: "NOT_STARTED", label: "Not started" },
-  { key: "TBD", label: "Status TBD" },
+  { key: "TBD", label: "No status" },
   { key: "DONE", label: "Done" },
 ];
 
@@ -241,7 +242,7 @@ export function BelowTheLineView({ groups, initialArea, canCreate }: { groups: B
                         <TableCell className="whitespace-nowrap"><Badge variant="default">Awayday SI</Badge></TableCell>
                         <TableCell className="text-ink-faint">—</TableCell>
                         <TableCell className="whitespace-normal text-ink-muted">{s.lead ?? "TBD"}</TableCell>
-                        <TableCell className="whitespace-nowrap"><SiStatusBadge status={s.status} /></TableCell>
+                        <TableCell className="whitespace-nowrap"><StatusBadge status={s.status} /></TableCell>
                         <TableCell className="tabular whitespace-nowrap text-right text-ink-muted">{s.dueLabel}</TableCell>
                       </TableRow>
                     ))}

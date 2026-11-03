@@ -39,7 +39,7 @@ function initiative(over: Record<string, unknown>) {
     teamLead: "Curt Stark",
     secondaryLead: "Ryan McKendry",
     ownerUserId: null,
-    status: "IN_PROGRESS",
+    status: "ON_TRACK",
     quantMetric: "Analysis-to-close days",
     quantTarget: "30 days",
     valueWhenComplete: "Close tuck-ins faster.",
@@ -66,12 +66,12 @@ describe("getReviewPlan", () => {
     initiativeFindMany.mockResolvedValue([
       initiative({
         updates: [
-          { reportingPeriod: "2026-10", reviewStatus: "BEHIND", update: "October text", pathForward: null, updatedBy: "Curt Stark" },
-          { reportingPeriod: "2026-09", reviewStatus: "AT_RISK", update: "Pre-LOI module in test", pathForward: "Run first deals", updatedBy: "Curt Stark" },
+          { reportingPeriod: "2026-10", status: "OFF_TRACK", update: "October text", pathForward: null, updatedBy: "Curt Stark" },
+          { reportingPeriod: "2026-09", status: "AT_RISK", update: "Pre-LOI module in test", pathForward: "Run first deals", updatedBy: "Curt Stark" },
         ],
         milestones: [{ id: "m1", title: "Pre-LOI module live", owner: "Curt Stark", dueAt: new Date("2026-10-30T00:00:00Z"), completedAt: null }],
       }),
-      initiative({ id: "i2", code: "FY27-SI-029", name: "Tuck-In Machine", strategicAreaId: "a-tech", teamLead: "Mohan Chandolu", status: "PLANNING" }),
+      initiative({ id: "i2", code: "FY27-SI-029", name: "Tuck-In Machine", strategicAreaId: "a-tech", teamLead: "Mohan Chandolu", status: "ON_TRACK" }),
     ]);
 
     const plan = await getReviewPlan("2026-09");
@@ -83,7 +83,6 @@ describe("getReviewPlan", () => {
     const si = plan.areas[0].sis[0];
     expect(si).toMatchObject({
       shortCode: "SI-001",
-      initiativeStatus: "IN_PROGRESS",
       status: "AT_RISK",
       latestProgress: "Pre-LOI module in test",
       whatNext: "Run first deals",
@@ -94,8 +93,8 @@ describe("getReviewPlan", () => {
     });
     expect(si.milestones[0]).toMatchObject({ date: "2026-10-30", done: false, areaCode: "M&A" });
     expect(plan.areas[0].measure).toMatchObject({ name: "Acquired EBITDA closed", value: null, target: "$26M total", rag: "GREY" });
-    // No update for the period means "Status TBD".
-    expect(plan.areas[1].sis[0]).toMatchObject({ initiativeStatus: "PLANNING", status: null, latestProgress: null, updatedThisPeriod: false });
+    // No update for the period falls back to the SI's current status.
+    expect(plan.areas[1].sis[0]).toMatchObject({ status: "ON_TRACK", latestProgress: null, updatedThisPeriod: false });
   });
 
   it("synthesises areas from cimDriver when the plan has none", async () => {

@@ -6,9 +6,6 @@
 
 import type { InitiativeStatus } from "@/generated/prisma/client";
 
-export const SI_REVIEW_STATUSES = ["AHEAD", "ON_TRACK", "AT_RISK", "BEHIND"] as const;
-export type SiReviewStatus = (typeof SI_REVIEW_STATUSES)[number];
-
 export const BELOW_LINE_STATUSES = ["NOT_STARTED", "ON_TRACK", "AT_RISK", "BLOCKED", "DONE"] as const;
 export type BelowLineStatus = (typeof BELOW_LINE_STATUSES)[number];
 
@@ -64,9 +61,8 @@ export type ReviewSi = {
   kpi: string | null;
   /** One-line aim for cards: the KPI, else the objective. */
   goingFor: string | null;
-  initiativeStatus: InitiativeStatus;
-  /** Review status from this period's update; null renders "Status TBD". */
-  status: SiReviewStatus | null;
+  /** This period's update status, else the SI's current one; null renders "No status". */
+  status: InitiativeStatus | null;
   latestProgress: string | null;
   whatNext: string | null;
   updatedThisPeriod: boolean;
@@ -180,6 +176,11 @@ export function reviewPeriods(candidates: readonly (string | null | undefined)[]
   return [...set].sort((a, b) => b.localeCompare(a));
 }
 
+/** Periods Inbox offers: last month is always there, so a new month opens without anyone creating it. */
+export function updatePeriods(periods: readonly string[], now: Date = new Date()): string[] {
+  return reviewPeriods([...periods, previousMonth(now)], now);
+}
+
 /**
  * The month `/` opens on: the newest published review, or the newest period
  * when nothing is published yet (so a fresh draft month doesn't replace a
@@ -190,6 +191,12 @@ export function homeReviewPeriod(periods: readonly string[], published: readonly
 }
 
 /** The month Inbox opens on: the newest month still open for updates. */
+/** Whether a month's update is the SI's newest, so its status is the current one. Free-text legacy periods don't count. */
+export function isNewestPeriod(period: string | null, others: readonly (string | null)[]): boolean {
+  if (!period) return true;
+  return !others.some((p) => p && PERIOD_PATTERN.test(p) && p > period);
+}
+
 export function openUpdatePeriod(periods: readonly string[], published: readonly string[]): string {
   return periods.find((p) => !published.includes(p)) ?? periods[0];
 }

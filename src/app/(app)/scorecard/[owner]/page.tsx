@@ -52,7 +52,7 @@ export default async function OwnerPage({ params }: { params: Promise<{ owner: s
   let behind = 0;
   const rows: InitiativeRow[] = initiatives.map((i) => {
     const p = pace(i.startDate, i.endDate, i.pctComplete, now);
-    const isBehind = i.status !== "DONE" && p !== null && p.lag < -0.15;
+    const isBehind = i.status !== "COMPLETE" && p !== null && p.lag < -0.15;
     if (isBehind) behind++;
     return {
       id: i.id,
@@ -75,7 +75,7 @@ export default async function OwnerPage({ params }: { params: Promise<{ owner: s
     };
   });
 
-  const complete = initiatives.filter((i) => i.status === "DONE" || i.pctComplete >= 0.999).length;
+  const complete = initiatives.filter((i) => i.status === "COMPLETE" || i.pctComplete >= 0.999).length;
   const avg = initiatives.reduce((s, i) => s + i.pctComplete, 0) / Math.max(initiatives.length, 1);
   const toCreate = initiatives.reduce((s, i) => s + (i.progressTarget ?? 0), 0);
   const created = initiatives.reduce((s, i) => s + (i.progressActual ?? 0), 0);

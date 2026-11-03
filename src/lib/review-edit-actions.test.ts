@@ -17,7 +17,7 @@ const m = vi.hoisted(() => ({
   areaFindUnique: vi.fn(),
   areaUpdate: vi.fn(),
   initiativeFindUnique: vi.fn(),
-  updateCreate: vi.fn(),
+  recordSiUpdate: vi.fn(),
   obsFindFirst: vi.fn(),
   obsUpdate: vi.fn(),
   obsCreate: vi.fn(),
@@ -36,6 +36,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/audit", () => ({ audit: m.audit }));
 vi.mock("@/lib/active-plan", () => ({ getActivePlan: vi.fn(async () => m.activePlan) }));
 vi.mock("@/lib/review-data", () => ({ getReviewPlan: m.getReviewPlan }));
+vi.mock("@/lib/si-updates", () => ({ recordSiUpdate: m.recordSiUpdate }));
 vi.mock("@/lib/session", () => ({
   requireEditor: vi.fn(async () => {
     if (m.session.user.role !== "admin" && m.session.user.role !== "editor") m.redirect("/");
@@ -49,7 +50,6 @@ vi.mock("@/lib/prisma", () => {
     reviewSoWhat: { deleteMany: m.soWhatDeleteMany, createMany: m.soWhatCreateMany },
     strategicArea: { findUnique: m.areaFindUnique, update: m.areaUpdate },
     initiative: { findUnique: m.initiativeFindUnique },
-    initiativeUpdate: { create: m.updateCreate },
     kpiObservation: { findFirst: m.obsFindFirst, update: m.obsUpdate, create: m.obsCreate },
     kpiObservationRevision: { create: m.revisionCreate },
     $transaction: m.transaction,
@@ -72,7 +72,6 @@ beforeEach(() => {
   m.activePlan = { id: "fy27", code: "FY27", title: "FY27" };
   m.periodFindUnique.mockResolvedValue(null);
   m.getReviewPlan.mockResolvedValue({ areas: [{ code: "GROW" }, { code: "MARGIN" }] });
-  m.updateCreate.mockResolvedValue({ id: "upd1" });
 });
 
 describe("access", () => {
@@ -159,31 +158,23 @@ describe("editStrategicArea", () => {
 });
 
 describe("editSiUpdate", () => {
-  it("stores a new update for the month, keeping its next milestone", async () => {
-    const due = new Date("2026-11-30T00:00:00Z");
-    m.initiativeFindUnique.mockResolvedValue({ id: "i1", status: "IN_PROGRESS", updates: [{ nextMilestone: "Board pack", milestoneDueAt: due }] });
-    const result = await editSiUpdate(form({ periodId: "2026-10", initiativeId: "i1", reviewStatus: "AT_RISK", update: "Slipped", pathForward: "Recover" }));
+  it("stores a new update for the month through the one write path", async () => {
+    m.initiativeFindUnique.mockResolvedValue({ id: "i1" });
+    m.recordSiUpdate.mockResolvedValue({ id: "upd1" });
+    const result = await editSiUpdate(form({ periodId: "2026-10", initiativeId: "i1", status: "AT_RISK", update: "Slipped", pathForward: "Recover" }));
     expect(result).toEqual({ ok: true });
-    expect(m.updateCreate.mock.calls[0][0].data).toMatchObject({
-      status: "IN_PROGRESS",
-      reviewStatus: "AT_RISK",
-      update: "Slipped",
-      pathForward: "Recover",
-      nextMilestone: "Board pack",
-      milestoneDueAt: due,
-      reportingPeriod: "2026-10",
-      updatedBy: "Erin Editor",
-    });
+    expect(m.recordSiUpdate).toHaveBeenCalledWith({ initiativeId: "i1", status: "AT_RISK", update: "Slipped", pathForward: "Recover", reportingPeriod: "2026-10", updatedBy: "Erin Editor" });
   });
 
   it("ignores an unknown status and is locked once published", async () => {
-    m.initiativeFindUnique.mockResolvedValue({ id: "i1", status: "IN_PROGRESS", updates: [] });
-    await editSiUpdate(form({ periodId: "2026-10", initiativeId: "i1", reviewStatus: "GREAT" }));
-    expect(m.updateCreate.mock.calls[0][0].data.reviewStatus).toBeNull();
-    m.updateCreate.mockClear();
+    m.initiativeFindUnique.mockResolvedValue({ id: "i1" });
+    m.recordSiUpdate.mockResolvedValue({ id: "upd2" });
+    await editSiUpdate(form({ periodId: "2026-10", initiativeId: "i1", status: "GREAT" }));
+    expect(m.recordSiUpdate.mock.calls[0][0].status).toBeNull();
+    m.recordSiUpdate.mockClear();
     m.periodFindUnique.mockResolvedValue({ status: "PUBLISHED" });
     expect((await editSiUpdate(form({ periodId: "2026-10", initiativeId: "i1" }))).ok).toBe(false);
-    expect(m.updateCreate).not.toHaveBeenCalled();
+    expect(m.recordSiUpdate).not.toHaveBeenCalled();
   });
 });
 

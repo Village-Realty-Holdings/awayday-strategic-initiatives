@@ -5,29 +5,19 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { str, date, pick } from "@/lib/form";
 import { flash } from "@/lib/flash";
-import { requireAdmin, requireEditor } from "@/lib/session";
+import { canEdit, requireAdmin, requireEditor, requireSession } from "@/lib/session";
 import { audit } from "@/lib/audit";
 import { getActivePlan } from "@/lib/active-plan";
 import { deleteAttachment } from "@/lib/storage";
-import { quadrantFor, valueFromDollars, effortToLift, parseDollars, type Effort } from "@/lib/initiatives";
-import { InitiativeStatus } from "@/generated/prisma/enums";
+import { quadrantFor, valueFromDollars, effortToLift, parseDollars } from "@/lib/initiatives";
+import { initiativeOwnerMatches, PERIOD_PATTERN } from "@/lib/review-model";
 import { diffRows, parseDependencyRows, parseMilestoneRows, parseRiskRows, splitByWhen } from "@/lib/charter-rows";
 import { derivedPct, MEASURE_KINDS, MEASURE_UNITS, parseMeasureValue } from "@/lib/measures";
 
-const STATUSES: string[] = Object.values(InitiativeStatus);
-const EFFORTS = ["S", "M", "L"];
 
 // Money inputs may carry "$", commas, "M"/"K" — normalize to a plain number.
 function money(fd: FormData, key: string): number | null {
   return parseDollars(str(fd, key));
-}
-
-// Only persist a cimItemCode that matches a real CIM risk; otherwise drop it.
-// (The form constrains the picker, but the server must not trust the client.)
-async function validCimItemCode(code: string | null): Promise<string | null> {
-  if (!code) return null;
-  const r = await prisma.cimRisk.findUnique({ where: { code }, select: { code: true } });
-  return r ? code : null;
 }
 
 // The Area picker is optional, but the server must not trust the client: the
@@ -39,59 +29,20 @@ async function validAreaId(areaId: string | null, planId: string | null): Promis
   return a ? a.id : null;
 }
 
-// Editable fields shared by create + update. Scoring is derived: Value from the
-// Targeted Value ($) band, Lift from the Small/Medium/Large effort picker. The
-// CIM driver is the organizing link (board theme retired). Removed inputs
-// (DMAIC stage, quality impact, out-of-scope, problem) are intentionally NOT
-// written here so legacy column data is preserved untouched.
+// The charter fields on the form, shared by create + update. Everything else
+// (dates, team, deliverables, dollars, scoring, status) isn't on the form, so it
+// is intentionally NOT written here and keeps its saved value.
 function parseFields(fd: FormData) {
-  const statusRaw = String(fd.get("status") ?? "");
-  const status = (STATUSES.includes(statusRaw) ? statusRaw : "NOT_STARTED") as InitiativeStatus;
-  const effortRaw = String(fd.get("effort") ?? "M");
-  const effort = (EFFORTS.includes(effortRaw) ? effortRaw : "M") as Effort;
-
-  const valueType = String(fd.get("valueType") ?? "VALUE") === "NON_VALUE" ? "NON_VALUE" : "VALUE";
-  const isValue = valueType === "VALUE";
-
-  // Non-value initiatives carry no dollars; completion is driven by status.
-  const targetedValue = isValue ? money(fd, "targetedValue") : null; // annualized $ value created when complete
-  const valueRealized = isValue ? money(fd, "valueRealized") : null; // $ value realized so far
-  const value = valueFromDollars(targetedValue); // 3 (neutral) when no targeted $
-  const lift = effortToLift(effort);
-
-  // % complete: for value initiatives it's value realized ÷ targeted (may exceed
-  // 100%); for non-value it's status-driven (Done = 100%, else 0%).
-  let pct = 0;
-  if (isValue) {
-    if (targetedValue && targetedValue > 0 && valueRealized != null) pct = Math.max(0, valueRealized / targetedValue);
-  } else {
-    pct = status === "DONE" ? 1 : 0;
-  }
-
   return {
     name: str(fd, "name") ?? "Untitled initiative",
-    cimDriver: str(fd, "cimDriver"),
-    cimItemCode: str(fd, "cimItemCode"),
-    valueType,
     teamLead: str(fd, "teamLead"),
     secondaryLead: str(fd, "secondaryLead"),
-    supports: str(fd, "supports"),
     valueWhenComplete: str(fd, "valueWhenComplete"),
-    workRequired: str(fd, "workRequired"),
-    value,
-    lift,
-    quadrant: quadrantFor(value, lift),
-    status,
-    pctComplete: pct,
-    progressTarget: targetedValue,
-    progressActual: valueRealized,
     quantMetric: str(fd, "quantMetric"),
     quantTarget: str(fd, "quantTarget"),
     baseline: str(fd, "baseline"),
     ebitdaValue: str(fd, "ebitdaValue"),
     investmentCost: str(fd, "investmentCost"),
-    startDate: date(fd, "startDate"),
-    endDate: date(fd, "endDate"),
   };
 }
 
@@ -156,24 +107,7 @@ export async function updateInitiative(formData: FormData) {
     redirect(`/admin/initiatives/${id}/edit?conflict=1`);
   }
 
-  const data: ReturnType<typeof parseFields> & { strategicAreaId?: string | null; planVersionId?: string } = parseFields(formData);
-  data.cimItemCode = await validCimItemCode(data.cimItemCode);
-  // Area: validated against the initiative's own plan (or the active plan for a
-  // legacy initiative with none, which then joins that plan). An empty choice
-  // clears the area. Skipped entirely when the form didn't submit the field.
-  if (formData.has("strategicAreaId")) {
-    const planId = before.planVersionId ?? (await getActivePlan())?.id ?? null;
-    const chosenArea = str(formData, "strategicAreaId");
-    const areaId = await validAreaId(chosenArea, planId);
-    if (chosenArea && !areaId) redirect(`/admin/initiatives/${id}/edit?error=area`);
-    data.strategicAreaId = areaId;
-    if (areaId && !before.planVersionId && planId) data.planVersionId = planId;
-  }
-  // parseFields only sees dollars; without them a value initiative follows its first KPI.
-  if (data.valueType === "VALUE") {
-    const measures = await prisma.initiativeMeasure.findMany({ where: { initiativeId: id }, include: { readings: true } });
-    data.pctComplete = derivedPct(data.progressActual, data.progressTarget, measures) ?? data.pctComplete;
-  }
+  const data = parseFields(formData);
   const after = await prisma.initiative.update({ where: { id }, data });
   await saveCharterRows(id, formData);
   await audit(session.user.id, "UPDATE", "Initiative", id, { before, after });
@@ -193,15 +127,17 @@ export async function createInitiative(formData: FormData) {
   if (exists) redirect("/admin/initiatives/new?error=duplicate");
 
   const fields = parseFields(formData);
-  fields.cimItemCode = await validCimItemCode(fields.cimItemCode);
   // New initiatives join the active plan so they show up on the plan-scoped
   // views; the optional area must belong to that plan.
   const activePlan = await getActivePlan();
   const chosenArea = str(formData, "strategicAreaId");
   const strategicAreaId = await validAreaId(chosenArea, activePlan?.id ?? null);
   if (chosenArea && !strategicAreaId) redirect("/admin/initiatives/new?error=area");
+  // Scored neutrally until someone values it; it starts with no status.
+  const value = valueFromDollars(null);
+  const lift = effortToLift("M");
   const created = await prisma.initiative.create({
-    data: { code, ...fields, planVersionId: activePlan?.id ?? null, strategicAreaId },
+    data: { code, ...fields, cimDriver: str(formData, "cimDriver"), value, lift, quadrant: quadrantFor(value, lift), planVersionId: activePlan?.id ?? null, strategicAreaId },
   });
   await saveCharterRows(created.id, formData);
   await audit(session.user.id, "CREATE", "Initiative", created.id, { after: created });
@@ -269,38 +205,6 @@ const ELT_KINDS = ["SUPPORT", "INVESTMENT"];
 const ELT_STATUSES = ["REQUESTED", "APPROVED", "DECLINED"];
 
 
-export async function addInitiativeUpdate(formData: FormData) {
-  const session = await requireEditor();
-  const initiativeId = String(formData.get("initiativeId"));
-  const existing = await prisma.initiative.findUnique({ where: { id: initiativeId }, select: { id: true, status: true } });
-  if (!existing) redirect("/admin/initiatives");
-  const status = pick(formData, "status", STATUSES, existing.status) as InitiativeStatus;
-  const update = str(formData, "update");
-  const pathForward = str(formData, "pathForward");
-  const nextMilestone = str(formData, "nextMilestone");
-  const reportingPeriod = str(formData, "reportingPeriod");
-  const milestoneDueAt = date(formData, "milestoneDueAt");
-  const created = await prisma.initiativeUpdate.create({
-    data: {
-      initiativeId,
-      status,
-      update,
-      pathForward,
-      nextMilestone,
-      milestoneDueAt,
-      reportingPeriod,
-      updatedBy: session.user.name,
-    },
-  });
-  await prisma.initiative.update({ where: { id: initiativeId }, data: { status } });
-  await audit(session.user.id, "CREATE", "InitiativeUpdate", created.id, { after: { initiativeId, status, reportingPeriod } });
-  revalidatePath(`/initiatives/${initiativeId}`);
-  revalidatePath("/");
-  revalidatePath("/admin/initiatives");
-  await flash("Status update saved");
-  redirect(`/initiatives/${initiativeId}`);
-}
-
 export async function addInitiativeMilestone(formData: FormData) {
   const session = await requireEditor();
   const initiativeId = String(formData.get("initiativeId"));
@@ -359,7 +263,25 @@ async function syncMeasurePct(initiativeId: string): Promise<number | null> {
 function revalidateMeasurePaths(initiativeId: string) {
   revalidatePath(`/initiatives/${initiativeId}`);
   revalidatePath("/admin/initiatives");
+  revalidatePath("/inbox");
   revalidatePath("/");
+}
+
+// Measures are the one part of a charter an SI's own lead keeps up to date, so
+// they pass here as well as editors.
+async function requireMeasureEditor(initiativeId: string) {
+  const session = await requireSession();
+  const initiative = await prisma.initiative.findUnique({ where: { id: initiativeId }, select: { ownerUserId: true, teamLead: true } });
+  if (!initiative) redirect("/admin/initiatives");
+  if (!canEdit(session.user.role) && !initiativeOwnerMatches(initiative, session.user)) redirect("/");
+  return session;
+}
+
+// Back to where the update was typed: the SI page, or the month in Inbox.
+function readingReturnPath(fd: FormData, initiativeId: string): string {
+  if (str(fd, "returnTo") !== "inbox") return `/initiatives/${initiativeId}`;
+  const period = str(fd, "period");
+  return `/inbox${period && PERIOD_PATTERN.test(period) ? `?period=${period}` : ""}#si-${initiativeId}`;
 }
 
 // Name, kind, unit, baseline and target, shared by add + edit. A blank baseline or
@@ -384,10 +306,8 @@ async function parseMeasureFields(fd: FormData, initiativeId: string) {
 }
 
 export async function addInitiativeMeasure(formData: FormData) {
-  const session = await requireEditor();
   const initiativeId = String(formData.get("initiativeId"));
-  const existing = await prisma.initiative.findUnique({ where: { id: initiativeId }, select: { id: true } });
-  if (!existing) redirect("/admin/initiatives");
+  const session = await requireMeasureEditor(initiativeId);
   const fields = await parseMeasureFields(formData, initiativeId);
   const { _max } = await prisma.initiativeMeasure.aggregate({ where: { initiativeId }, _max: { order: true } });
   const created = await prisma.initiativeMeasure.create({ data: { initiativeId, ...fields, order: (_max.order ?? -1) + 1 } });
@@ -399,10 +319,10 @@ export async function addInitiativeMeasure(formData: FormData) {
 }
 
 export async function updateInitiativeMeasure(formData: FormData) {
-  const session = await requireEditor();
   const id = String(formData.get("id"));
   const existing = await prisma.initiativeMeasure.findUnique({ where: { id } });
   if (!existing) redirect("/admin/initiatives");
+  const session = await requireMeasureEditor(existing.initiativeId);
   const fields = await parseMeasureFields(formData, existing.initiativeId);
   await prisma.initiativeMeasure.update({ where: { id }, data: fields });
   const pctComplete = await syncMeasurePct(existing.initiativeId);
@@ -414,10 +334,10 @@ export async function updateInitiativeMeasure(formData: FormData) {
 
 // Moves a KPI ahead of the others, which makes it the one percent complete follows.
 export async function setPrimaryInitiativeMeasure(formData: FormData) {
-  const session = await requireEditor();
   const id = String(formData.get("id"));
   const existing = await prisma.initiativeMeasure.findUnique({ where: { id } });
   if (!existing) redirect("/admin/initiatives");
+  const session = await requireMeasureEditor(existing.initiativeId);
   const { _min } = await prisma.initiativeMeasure.aggregate({ where: { initiativeId: existing.initiativeId }, _min: { order: true } });
   const order = (_min.order ?? 0) - 1;
   await prisma.initiativeMeasure.update({ where: { id }, data: { order } });
@@ -429,10 +349,10 @@ export async function setPrimaryInitiativeMeasure(formData: FormData) {
 }
 
 export async function removeInitiativeMeasure(formData: FormData) {
-  const session = await requireEditor();
   const id = String(formData.get("id"));
   const existing = await prisma.initiativeMeasure.findUnique({ where: { id }, include: { readings: true } });
   if (!existing) redirect("/admin/initiatives");
+  const session = await requireMeasureEditor(existing.initiativeId);
   await prisma.initiativeMeasure.delete({ where: { id } });
   const pctComplete = await syncMeasurePct(existing.initiativeId);
   await audit(session.user.id, "DELETE", "InitiativeMeasure", id, { before: existing, after: { pctComplete } });
@@ -442,21 +362,22 @@ export async function removeInitiativeMeasure(formData: FormData) {
 }
 
 export async function addInitiativeMeasureReading(formData: FormData) {
-  const session = await requireEditor();
   const measureId = String(formData.get("measureId"));
   const measure = await prisma.initiativeMeasure.findUnique({ where: { id: measureId }, select: { initiativeId: true } });
   if (!measure) redirect("/admin/initiatives");
+  const session = await requireMeasureEditor(measure.initiativeId);
+  const returnPath = readingReturnPath(formData, measure.initiativeId);
   const value = parseMeasureValue(str(formData, "value"));
   if (value === null) {
     await flash("Enter the latest value as a number, e.g. 18, 12.5% or $1.5M", "error");
-    redirect(`/initiatives/${measure.initiativeId}`);
+    redirect(returnPath);
   }
   const now = new Date();
   const asOf = date(formData, "asOf") ?? now;
   // A day's grace: the picker's "today" can be ahead of the server's in some time zones.
   if (asOf.getTime() > now.getTime() + 24 * 60 * 60 * 1000) {
     await flash("The as-of date can't be in the future", "error");
-    redirect(`/initiatives/${measure.initiativeId}`);
+    redirect(returnPath);
   }
   const note = str(formData, "note");
   const created = await prisma.initiativeMeasureReading.create({
@@ -466,14 +387,14 @@ export async function addInitiativeMeasureReading(formData: FormData) {
   await audit(session.user.id, "CREATE", "InitiativeMeasureReading", created.id, { after: { measureId, value, asOf, note, pctComplete } });
   revalidateMeasurePaths(measure.initiativeId);
   await flash("Measure updated");
-  redirect(`/initiatives/${measure.initiativeId}`);
+  redirect(returnPath);
 }
 
 export async function removeInitiativeMeasureReading(formData: FormData) {
-  const session = await requireEditor();
   const id = String(formData.get("id"));
   const existing = await prisma.initiativeMeasureReading.findUnique({ where: { id }, include: { measure: { select: { initiativeId: true } } } });
   if (!existing) redirect("/admin/initiatives");
+  const session = await requireMeasureEditor(existing.measure.initiativeId);
   const { measure, ...before } = existing;
   await prisma.initiativeMeasureReading.delete({ where: { id } });
   const pctComplete = await syncMeasurePct(measure.initiativeId);

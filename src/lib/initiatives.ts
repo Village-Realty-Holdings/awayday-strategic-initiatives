@@ -1,17 +1,42 @@
 import type { InitiativeStatus, Quadrant } from "@/generated/prisma/client";
 
-// Status display metadata. Per DESIGN.md, status is always color + glyph + label
+// An SI's one status. Per DESIGN.md, status is always color + glyph + label
 // (never color alone), so it reads for colorblind users too.
-export const STATUS_META: Record<
-  InitiativeStatus,
-  { label: string; glyph: string; fg: string; dot: string }
-> = {
-  NOT_STARTED: { label: "Not started", glyph: "○", fg: "text-ink-faint", dot: "bg-ink-faint" },
-  PLANNING: { label: "Planning", glyph: "◔", fg: "text-navy", dot: "bg-navy" },
-  IN_PROGRESS: { label: "In progress", glyph: "●", fg: "text-ok", dot: "bg-ok" },
-  AT_RISK: { label: "At risk", glyph: "▲", fg: "text-risk", dot: "bg-risk" },
-  DONE: { label: "Done", glyph: "■", fg: "text-done", dot: "bg-done" },
+type StatusDisplay = {
+  label: string;
+  glyph: string;
+  fg: string;
+  dot: string;
+  variant: "ok" | "warn" | "risk" | "done" | "outline";
 };
+
+export const STATUS_META: Record<InitiativeStatus, StatusDisplay> = {
+  COMPLETE: { label: "Complete", glyph: "■", fg: "text-done", dot: "bg-done", variant: "done" },
+  ON_TRACK: { label: "On-track", glyph: "●", fg: "text-ok", dot: "bg-ok", variant: "ok" },
+  AT_RISK: { label: "At-risk", glyph: "◆", fg: "text-warn", dot: "bg-warn", variant: "warn" },
+  OFF_TRACK: { label: "Off-track", glyph: "▼", fg: "text-risk", dot: "bg-risk", variant: "risk" },
+};
+
+export const STATUS_ORDER: InitiativeStatus[] = ["COMPLETE", "ON_TRACK", "AT_RISK", "OFF_TRACK"];
+
+const NO_STATUS: StatusDisplay = { label: "No status", glyph: "○", fg: "text-ink-faint", dot: "bg-ink-faint", variant: "outline" };
+
+export function statusDisplay(status: InitiativeStatus | null | undefined): StatusDisplay {
+  return status ? STATUS_META[status] : NO_STATUS;
+}
+
+/** Status filters' value for SIs with none set. */
+export const NO_STATUS_FILTER = "NO_STATUS";
+export const STATUS_FILTERS: string[] = [...STATUS_ORDER, NO_STATUS_FILTER];
+export const statusFilterLabel = (value: string): string =>
+  value === NO_STATUS_FILTER ? NO_STATUS.label : STATUS_META[value as InitiativeStatus].label;
+export const matchesStatusFilter = (status: InitiativeStatus | null, filter: string): boolean =>
+  !filter || (status ?? NO_STATUS_FILTER) === filter;
+
+/** A submitted status, or null when it isn't one of the options. */
+export function parseStatus(raw: string | null | undefined): InitiativeStatus | null {
+  return STATUS_ORDER.includes(raw as InitiativeStatus) ? (raw as InitiativeStatus) : null;
+}
 
 export const QUADRANT_META: Record<Quadrant, { label: string; hint: string; fg: string; bg: string }> = {
   BIG_BET: { label: "Big Bet", hint: "High value · high effort", fg: "text-navy-deep", bg: "bg-navy/10" },
@@ -151,45 +176,6 @@ export function formatDateShort(d: Date | null): string {
 export function formatDateDay(d: Date | null): string {
   if (!d) return "—";
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-}
-
-// Four-state initiative health (pace-derived, not raw status). Drives dot/bar colors
-// on the quadrant + Gantt views. Reuses the brand status palette.
-export type Health = "complete" | "on-track" | "behind" | "at-risk";
-
-export const HEALTH_META: Record<Health, { label: string; dot: string; bar: string; fg: string; soft: string }> = {
-  "complete": { label: "Complete", dot: "bg-done", bar: "bg-done", fg: "text-done", soft: "bg-done/10" },
-  "on-track": { label: "On track", dot: "bg-ok", bar: "bg-ok", fg: "text-ok", soft: "bg-ok-soft" },
-  "behind": { label: "Behind", dot: "bg-warn", bar: "bg-warn", fg: "text-warn", soft: "bg-warn-soft" },
-  "at-risk": { label: "At risk", dot: "bg-risk", bar: "bg-risk", fg: "text-risk", soft: "bg-risk-soft" },
-};
-
-export const HEALTH_ORDER: Health[] = ["on-track", "behind", "at-risk", "complete"];
-
-export function siHealth(
-  status: InitiativeStatus,
-  pct: number,
-  start: Date | null,
-  end: Date | null,
-  now: Date,
-): Health {
-  if (status === "DONE" || pct >= 0.999) return "complete";
-  if (status === "AT_RISK") return "at-risk";
-  if (start && end) {
-    const s = start.getTime();
-    const e = end.getTime();
-    const n = now.getTime();
-    if (e > s) {
-      if (n < s) return "on-track";
-      const expected = (n - s) / (e - s);
-      if (pct >= expected * 0.95) return "on-track";
-      if (pct >= expected * 0.7) return "behind";
-      return "at-risk";
-    }
-  }
-  if (pct >= 0.7) return "on-track";
-  if (pct >= 0.4) return "behind";
-  return "at-risk";
 }
 
 // Schedule pace: expected % complete given today vs actual. Drives slippage flags.

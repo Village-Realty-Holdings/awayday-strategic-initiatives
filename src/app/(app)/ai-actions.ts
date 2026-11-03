@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/session";
 import { activePlanInitiativeWhere } from "@/lib/active-plan";
 import { complete, HOUSE_STYLE, aiConfigured } from "@/lib/ai";
-import { siHealth, HEALTH_META } from "@/lib/initiatives";
+import { STATUS_META } from "@/lib/initiatives";
 import { getEbitdaBuild, getScorecardGoals, getPillars } from "@/lib/strategy-reference-data";
 import type { EbitdaBuild } from "@/lib/strategy-reference";
 import { rateLimit } from "@/lib/rate-limit";
@@ -127,21 +127,20 @@ export async function askBoard(question: string): Promise<AiResult> {
       prisma.cimRisk.findMany({ include: { initiatives: true } }),
       getEbitdaBuild(),
     ]);
-    const now = new Date();
-    const counts = { total: initiatives.length, done: 0, behind: 0, atRisk: 0 };
+    const counts = { total: initiatives.length, done: 0, atRisk: 0, offTrack: 0 };
     const behindList: string[] = [];
     for (const i of initiatives) {
-      const h = siHealth(i.status, i.pctComplete, i.startDate, i.endDate, now);
-      if (h === "complete") counts.done++;
-      if (h === "behind") counts.behind++;
-      if (h === "at-risk") { counts.atRisk++; behindList.push(`${i.code} ${i.name} (${HEALTH_META[h].label}, ${Math.round(i.pctComplete * 100)}%)`); }
+      if (i.status === "COMPLETE" || i.pctComplete >= 0.999) counts.done++;
+      else if (i.status === "AT_RISK") counts.atRisk++;
+      else if (i.status === "OFF_TRACK") counts.offTrack++;
+      if (i.status === "AT_RISK" || i.status === "OFF_TRACK") behindList.push(`${i.code} ${i.name} (${STATUS_META[i.status].label}, ${Math.round(i.pctComplete * 100)}%)`);
     }
     const criticalRisks = risks.filter((r) => r.critical).map((r) => `${r.code} ${r.risk}`);
 
     const context = [
       ebitdaSummary(ebitda),
-      `Initiatives: ${counts.total} total, ${counts.done} complete, ${counts.behind} behind pace, ${counts.atRisk} at risk.`,
-      behindList.length ? `At-risk initiatives: ${behindList.slice(0, 12).join("; ")}.` : "",
+      `Initiatives: ${counts.total} total, ${counts.done} complete, ${counts.atRisk} at-risk, ${counts.offTrack} off-track.`,
+      behindList.length ? `At-risk and off-track initiatives: ${behindList.slice(0, 12).join("; ")}.` : "",
       criticalRisks.length ? `Critical CIM risks: ${criticalRisks.join("; ")}.` : "",
     ]
       .filter(Boolean)
@@ -182,7 +181,6 @@ export async function generateBoardNarrative(): Promise<AiResult> {
       getScorecardGoals(),
       getPillars(),
     ]);
-    const now = new Date();
 
     // code -> progress (DONE counts as 1) for pillar/SI rollups. Pillar items
     // reference initiative codes that may sit outside the active plan, so look
@@ -192,15 +190,14 @@ export async function generateBoardNarrative(): Promise<AiResult> {
       where: { code: { in: pillarCodes } },
       select: { code: true, status: true, pctComplete: true },
     });
-    const siPct = new Map(pillarSis.map((i) => [i.code, i.status === "DONE" ? 1 : i.pctComplete]));
-    const counts = { total: initiatives.length, done: 0, behind: 0, atRisk: 0 };
+    const siPct = new Map(pillarSis.map((i) => [i.code, i.status === "COMPLETE" ? 1 : i.pctComplete]));
+    const counts = { total: initiatives.length, done: 0, atRisk: 0, offTrack: 0 };
     const behindList: string[] = [];
     for (const i of initiatives) {
-      const h = siHealth(i.status, i.pctComplete, i.startDate, i.endDate, now);
-      if (h === "complete") counts.done++;
-      else if (h === "behind") counts.behind++;
-      else if (h === "at-risk") counts.atRisk++;
-      if ((h === "behind" || h === "at-risk") && i.valueType === "VALUE") {
+      if (i.status === "COMPLETE" || i.pctComplete >= 0.999) counts.done++;
+      else if (i.status === "AT_RISK") counts.atRisk++;
+      else if (i.status === "OFF_TRACK") counts.offTrack++;
+      if ((i.status === "AT_RISK" || i.status === "OFF_TRACK") && i.valueType === "VALUE") {
         const dollars = i.progressTarget ? `, $${Math.round(i.progressTarget).toLocaleString("en-US")} targeted` : "";
         const lead = i.teamLead ? `, ${i.teamLead}` : "";
         behindList.push(`${i.code} ${i.name} (${Math.round(i.pctComplete * 100)}%${dollars}${lead})`);
@@ -221,7 +218,7 @@ export async function generateBoardNarrative(): Promise<AiResult> {
     const riskRows = risks
       .map((r) => {
         const linked = r.initiatives.map((ri) => ri.initiative);
-        const cov = linked.length ? linked.reduce((a, i) => a + (i.status === "DONE" ? 1 : i.pctComplete), 0) / linked.length : 0;
+        const cov = linked.length ? linked.reduce((a, i) => a + (i.status === "COMPLETE" ? 1 : i.pctComplete), 0) / linked.length : 0;
         const exposed = r.prizeNum != null ? r1(r.prizeNum * (1 - cov)) : null;
         return { code: r.code, risk: r.risk, owner: r.owner, critical: r.critical, prize: r.prize, cov: Math.round(cov * 100), exposed };
       })
@@ -243,8 +240,8 @@ export async function generateBoardNarrative(): Promise<AiResult> {
 
     const snapshot = [
       ...ebitdaLines,
-      `Initiatives: ${counts.total} total, ${counts.done} complete, ${counts.behind} behind pace, ${counts.atRisk} at risk.`,
-      behindList.length ? `Behind/at-risk value initiatives: ${behindList.slice(0, 12).join("; ")}.` : "",
+      `Initiatives: ${counts.total} total, ${counts.done} complete, ${counts.atRisk} at-risk, ${counts.offTrack} off-track.`,
+      behindList.length ? `At-risk and off-track value initiatives: ${behindList.slice(0, 12).join("; ")}.` : "",
       pillarLines.length ? `2026 goal pillars: ${pillarLines.join("; ")}.` : "",
       redGoals.length ? `RED financial/operating KPIs: ${redGoals.join("; ")}.` : "",
       `CIM risk exposure: ~$${totalExposed}M total exposed (prize x uncovered share). Top: ${topRisks.join("; ")}.`,
@@ -259,7 +256,7 @@ export async function generateBoardNarrative(): Promise<AiResult> {
         `## Executive summary — where Awayday stands against ${exitGoal} (lead with lender EBITDA, the gap, YTD growth, and overall portfolio health). One tight paragraph.\n` +
         `## 2026 goals — one short paragraph per pillar with its progress and the standout driver or blocker.\n` +
         `## Risk posture — the most under-covered and critical CIM risks, led by the largest dollars exposed.\n` +
-        `## Decisions and asks — 2 to 4 specific decisions to put in front of the board, drawn from the behind-pace high-value work and the under-covered risks.\n\n` +
+        `## Decisions and asks — 2 to 4 specific decisions to put in front of the board, drawn from the at-risk and off-track high-value work and the under-covered risks.\n\n` +
         `Keep it tight and board-grade: no hype, no filler.\n\nSnapshot:\n${snapshot}`,
       // Enough room to finish all four sections without truncating mid-decision.
       maxTokens: 3000,

@@ -15,10 +15,10 @@ import {
   splitNames,
   synthesiseAreas,
   SUMMARY_SCOPE,
+  updatePeriods,
   type ReviewArea,
   type ReviewPeriodStatus,
   type ReviewSi,
-  type SiReviewStatus,
   type SoWhat,
 } from "@/lib/review-model";
 
@@ -216,8 +216,7 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
         objective: i.valueWhenComplete,
         kpi: [i.quantMetric, i.quantTarget].filter(Boolean).join(": ") || null,
         goingFor: [i.quantMetric, i.quantTarget].filter(Boolean).join(": ") || i.valueWhenComplete,
-        initiativeStatus: i.status,
-        status: (update?.reviewStatus as SiReviewStatus | null) ?? null,
+        status: update?.status ?? i.status,
         latestProgress: update?.update ?? null,
         whatNext: update?.pathForward ?? null,
         updatedThisPeriod: Boolean(update),
@@ -285,7 +284,9 @@ export async function resolvePeriod(
   requested?: string | null,
   fallback: "review" | "updates" = "review",
 ): Promise<{ id: string; periods: string[]; home: string; published: string[] }> {
-  const { periods, published } = await getReviewPeriodIndex();
+  const index = await getReviewPeriodIndex();
+  const published = index.published;
+  const periods = fallback === "updates" ? updatePeriods(index.periods) : index.periods;
   const home = fallback === "updates" ? openUpdatePeriod(periods, published) : homeReviewPeriod(periods, published);
   return { id: requested && periods.includes(requested) ? requested : home, periods, home, published };
 }

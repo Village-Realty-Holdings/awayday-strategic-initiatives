@@ -1,18 +1,16 @@
 "use client";
 
 import type { InitiativeStatus, Quadrant } from "@/generated/prisma/client";
-import { STATUS_META, QUADRANT_META } from "@/lib/initiatives";
+import { statusDisplay, QUADRANT_META } from "@/lib/initiatives";
 import { Badge } from "@/components/ui/badge";
 
-export function StatusBadge({ status }: { status: InitiativeStatus }) {
-  const m = STATUS_META[status];
+export function StatusBadge({ status, className }: { status: InitiativeStatus | null; className?: string }) {
+  const m = statusDisplay(status);
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs font-medium whitespace-nowrap">
-      <span className={`${m.fg} text-micro leading-none`} aria-hidden>
-        {m.glyph}
-      </span>
-      <span className="text-ink">{m.label}</span>
-    </span>
+    <Badge variant={m.variant} className={className}>
+      <span aria-hidden className="text-nano leading-none">{m.glyph}</span>
+      {m.label}
+    </Badge>
   );
 }
 

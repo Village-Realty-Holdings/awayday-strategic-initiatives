@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import { activePlanInitiativeWhere } from "@/lib/active-plan";
-import { siHealth } from "@/lib/initiatives";
 import type { GanttRow } from "@/components/gantt-chart";
 
 function quarterStart(d: Date): Date {
@@ -74,7 +73,6 @@ export async function loadGanttData() {
       cimDriver: i.cimDriver,
       quadrant: i.quadrant,
       status: i.status,
-      health: siHealth(i.status, i.pctComplete, i.start, i.end, now),
       leftPct: left,
       widthPct: Math.max(pos(i.end) - left, 1.2),
       pct: i.pctComplete,

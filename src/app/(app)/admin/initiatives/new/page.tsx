@@ -12,18 +12,16 @@ export const dynamic = "force-dynamic";
 
 async function loadFormData() {
   const activePlan = await getActivePlan();
-  const [initiatives, roster, risks, areas, cimKpis] = await Promise.all([
+  const [initiatives, roster, areas, cimKpis] = await Promise.all([
     prisma.initiative.findMany({ select: { code: true, teamLead: true } }),
     prisma.rosterMember.findMany({ select: { name: true, position: true } }),
-    prisma.cimRisk.findMany({ orderBy: { code: "asc" }, select: { code: true, risk: true } }),
     getPlanAreas(activePlan?.id),
     getCimKpiMap(),
   ]);
   const usedCodes = initiatives.map((x) => x.code);
   // Owners are people from the People directory.
   const owners = [...new Set(roster.map((r) => r.name).filter(Boolean))].sort() as string[];
-  const cimItems = risks.map((r) => ({ code: r.code, label: `${r.code} — ${r.risk}` }));
-  return { usedCodes, owners, cimItems, cimKpis, areas };
+  return { usedCodes, owners, cimKpis, areas };
 }
 
 const ERRORS: Record<string, string> = {
@@ -39,11 +37,11 @@ export default async function NewInitiativePage({
 }) {
   await requireAdmin();
   const { error } = await searchParams;
-  const { usedCodes, owners, cimItems, cimKpis, areas } = await loadFormData();
+  const { usedCodes, owners, cimKpis, areas } = await loadFormData();
 
   return (
     <div className={PAGE_FRAME}>
-      <PageHeader sticky back={{ href: "/admin/initiatives", label: "Initiatives" }} eyebrow="Initiatives" title="New initiative" description="Priority is derived from the targeted value and effort. Laid out like the one-page SI charter. Only the code and name are required." />
+      <PageHeader sticky back={{ href: "/admin/initiatives", label: "Initiatives" }} eyebrow="Initiatives" title="New initiative" description="Laid out like the one-page SI charter. Only the code and name are required." />
       <div className="w-full max-w-section">
 
         {error && ERRORS[error] && (
@@ -53,7 +51,7 @@ export default async function NewInitiativePage({
           </Alert>
         )}
 
-        <InitiativeForm action={createInitiative} submitLabel="Create initiative" cancelHref="/admin/initiatives" owners={owners} usedCodes={usedCodes} cimItems={cimItems} cimKpis={cimKpis} areas={areas} />
+        <InitiativeForm action={createInitiative} submitLabel="Create initiative" cancelHref="/admin/initiatives" owners={owners} usedCodes={usedCodes} cimKpis={cimKpis} areas={areas} />
       </div>
     </div>
   );

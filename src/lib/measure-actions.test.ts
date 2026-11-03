@@ -3,10 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // The measure server actions with Prisma, the session and Next mocked: a value
 // initiative's percent follows its first KPI, including back to 0 when that KPI
 // goes; dollars and non-value initiatives keep their own rules; unreadable or
-// future input saves nothing; and only editors get through.
+// future input saves nothing; and only editors and the SI's own lead get through.
 
 const m = vi.hoisted(() => ({
-  requireEditor: vi.fn(),
+  session: { user: { id: "u-ed", name: "Erin Editor", role: "editor" } },
   initiativeFindUnique: vi.fn(),
   initiativeUpdate: vi.fn(),
   measureFindUnique: vi.fn(),
@@ -27,7 +27,12 @@ vi.mock("@/lib/audit", () => ({ audit: m.audit }));
 vi.mock("@/lib/flash", () => ({ flash: m.flash }));
 vi.mock("@/lib/active-plan", () => ({ getActivePlan: vi.fn() }));
 vi.mock("@/lib/storage", () => ({ deleteAttachment: vi.fn() }));
-vi.mock("@/lib/session", () => ({ requireEditor: m.requireEditor, requireAdmin: vi.fn() }));
+vi.mock("@/lib/session", () => ({
+  requireSession: vi.fn(async () => m.session),
+  requireEditor: vi.fn(),
+  requireAdmin: vi.fn(),
+  canEdit: (role?: string | null) => role === "admin" || role === "editor",
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     initiative: { findUnique: m.initiativeFindUnique, update: m.initiativeUpdate },
@@ -67,7 +72,7 @@ const initiative = (over: Record<string, unknown> = {}) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  m.requireEditor.mockResolvedValue({ user: { id: "u-ed", name: "Erin Editor", role: "editor" } });
+  m.session.user = { id: "u-ed", name: "Erin Editor", role: "editor" };
   m.measureFindUnique.mockResolvedValue({ id: "m1", initiativeId: "i1", readings: [] });
   m.readingCreate.mockResolvedValue({ id: "r1" });
 });
@@ -97,13 +102,22 @@ describe("addInitiativeMeasureReading", () => {
     ["an unreadable value", { value: "about 70" }],
     ["a future date", { value: "70", asOf: "2099-01-01" }],
   ])("saves nothing for %s", async (_label, fields) => {
+    m.initiativeFindUnique.mockResolvedValue(initiative());
     await expect(addInitiativeMeasureReading(form({ measureId: "m1", ...fields }))).rejects.toThrow("REDIRECT /initiatives/i1");
     expect(m.readingCreate).not.toHaveBeenCalled();
     expect(m.flash).toHaveBeenCalledWith(expect.any(String), "error");
   });
 
-  it("stops anyone who isn't an editor before reading the form", async () => {
-    m.requireEditor.mockRejectedValue(new Error("REDIRECT /"));
+  it("lets the SI's own lead update, and returns to their Inbox month", async () => {
+    m.session.user = { id: "u-kyle", name: "Kyle Sullivan", role: "user" };
+    m.initiativeFindUnique.mockResolvedValue(initiative({ ownerUserId: null, teamLead: "Kyle Sullivan" }));
+    await expect(addInitiativeMeasureReading(form({ measureId: "m1", value: "75", returnTo: "inbox", period: "2026-10" }))).rejects.toThrow("REDIRECT /inbox?period=2026-10#si-i1");
+    expect(m.readingCreate).toHaveBeenCalledOnce();
+  });
+
+  it("stops anyone who isn't an editor or the lead", async () => {
+    m.session.user = { id: "u-kyle", name: "Kyle Sullivan", role: "user" };
+    m.initiativeFindUnique.mockResolvedValue(initiative({ ownerUserId: null, teamLead: "Curt Stark" }));
     await expect(addInitiativeMeasureReading(form({ measureId: "m1", value: "75" }))).rejects.toThrow("REDIRECT /");
     expect(m.readingCreate).not.toHaveBeenCalled();
   });

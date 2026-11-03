@@ -16,17 +16,17 @@ import {
   parseSoWhats,
   PERIOD_PATTERN,
   periodLabel,
-  SI_REVIEW_STATUSES,
   SUMMARY_SCOPE,
-  type SiReviewStatus,
 } from "@/lib/review-model";
+import { parseStatus } from "@/lib/initiatives";
+import { recordSiUpdate } from "@/lib/si-updates";
 
 
 function revalidateReview() {
   revalidatePath("/", "layout");
 }
 
-/** An SI lead's monthly update: review status, latest progress and what next. */
+/** An SI lead's monthly update: status, latest progress and what next. */
 export async function saveInitiativeUpdate(formData: FormData) {
   const session = await requireSession();
   const initiativeId = String(formData.get("initiativeId") ?? "");
@@ -35,33 +35,30 @@ export async function saveInitiativeUpdate(formData: FormData) {
   const [initiative, review] = await Promise.all([
     prisma.initiative.findUnique({
       where: { id: initiativeId },
-      select: { id: true, status: true, ownerUserId: true, teamLead: true },
+      select: { id: true, ownerUserId: true, teamLead: true },
     }),
     period ? prisma.reviewPeriod.findUnique({ where: { id: period }, select: { status: true } }) : null,
   ]);
   if (!initiative) redirect("/inbox");
   if (!canEdit(session.user.role) && !initiativeOwnerMatches(initiative, session.user)) redirect("/inbox");
   // A published review is final: its month takes no more updates, for anyone.
-  if (review?.status === "PUBLISHED") redirect(`/inbox?period=${period}`);
+  if (review?.status === "PUBLISHED") redirect(str(formData, "returnTo") === "initiative" ? `/initiatives/${initiativeId}` : `/inbox?period=${period}`);
 
-  const rawStatus = str(formData, "reviewStatus");
-  const reviewStatus = SI_REVIEW_STATUSES.includes(rawStatus as SiReviewStatus) ? (rawStatus as SiReviewStatus) : null;
-  const created = await prisma.initiativeUpdate.create({
-    data: {
-      initiativeId,
-      // Lifecycle status is copied, not changed: the review status is separate.
-      status: initiative.status,
-      reviewStatus,
-      update: str(formData, "update"),
-      pathForward: str(formData, "pathForward"),
-      nextMilestone: str(formData, "nextMilestone"),
-      milestoneDueAt: date(formData, "milestoneDueAt"),
-      reportingPeriod: period,
-      updatedBy: session.user.name,
-    },
+  const status = parseStatus(str(formData, "status"));
+  const created = await recordSiUpdate({
+    initiativeId,
+    status,
+    update: str(formData, "update"),
+    pathForward: str(formData, "pathForward"),
+    reportingPeriod: period,
+    updatedBy: session.user.name,
   });
-  await audit(session.user.id, "CREATE", "InitiativeUpdate", created.id, { after: { initiativeId, reviewStatus, reportingPeriod: created.reportingPeriod } });
+  await audit(session.user.id, "CREATE", "InitiativeUpdate", created.id, { after: { initiativeId, status, reportingPeriod: created.reportingPeriod } });
   revalidateReview();
+  if (str(formData, "returnTo") === "initiative") {
+    await flash("Status update saved");
+    redirect(`/initiatives/${initiativeId}`);
+  }
   redirect(`/inbox${period ? `?period=${period}` : ""}#si-${initiativeId}`);
 }
 

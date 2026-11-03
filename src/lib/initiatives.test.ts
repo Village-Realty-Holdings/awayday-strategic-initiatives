@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { quadrantTooltipClasses } from "./initiatives";
+import { matchesStatusFilter, NO_STATUS_FILTER, parseStatus, quadrantTooltipClasses, statusDisplay } from "./initiatives";
 
 // The Lift × Value chart is overflow-hidden: a tooltip that opens toward a
 // nearby edge is clipped invisible (found live in the Alex demo, 2026-08-19,
@@ -26,5 +26,21 @@ describe("quadrantTooltipClasses", () => {
 
   it("handles the clipped-invisible corner case from the demo (bottom-right dot)", () => {
     expect(quadrantTooltipClasses(96, 10)).toBe("bottom-4 right-0");
+  });
+});
+
+describe("status", () => {
+  it("accepts only the four options", () => {
+    expect(parseStatus("OFF_TRACK")).toBe("OFF_TRACK");
+    expect(parseStatus("BEHIND")).toBeNull();
+    expect(parseStatus(null)).toBeNull();
+  });
+
+  it("shows no status neutrally, and can filter for it", () => {
+    expect(statusDisplay(null)).toMatchObject({ label: "No status", variant: "outline" });
+    expect(statusDisplay("OFF_TRACK")).toMatchObject({ label: "Off-track", variant: "risk" });
+    expect(matchesStatusFilter(null, NO_STATUS_FILTER)).toBe(true);
+    expect(matchesStatusFilter("ON_TRACK", NO_STATUS_FILTER)).toBe(false);
+    expect(matchesStatusFilter("ON_TRACK", "")).toBe(true);
   });
 });

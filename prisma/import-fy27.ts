@@ -10,8 +10,8 @@ if (!connectionString) throw new Error("Set DIRECT_URL to the target Postgres co
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
-// The charter's status choice, onto the lifecycle status.
-const STATUS = { "On track": "IN_PROGRESS", "At risk": "AT_RISK", "Off track": "AT_RISK", "Not started": "NOT_STARTED" } as const;
+// The charter's status choice. "Not started" has no status yet.
+const STATUS = { "On track": "ON_TRACK", "At risk": "AT_RISK", "Off track": "OFF_TRACK", "Not started": null } as const;
 const DONE = /^(done|complete|completed)$/i;
 
 /**
@@ -204,7 +204,7 @@ async function main() {
         updated++;
       } else {
         const row = await tx.initiative.create({
-          data: { code: item.code, ...data, status: data.status ?? "NOT_STARTED", value: 3, lift: 3, quadrant: "FILL_IN", pctComplete: 0 },
+          data: { code: item.code, ...data, status: data.status ?? null, value: 3, lift: 3, quadrant: "FILL_IN", pctComplete: 0 },
         });
         initiativeId = row.id;
         created++;

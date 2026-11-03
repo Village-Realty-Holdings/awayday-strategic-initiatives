@@ -5,11 +5,9 @@ import { activePlanInitiativeWhere } from "@/lib/active-plan";
 import {
   VALUE_SCALE,
   LIFT_SCALE,
-  STATUS_META,
   QUADRANT_META,
-  HEALTH_META,
-  HEALTH_ORDER,
-  siHealth,
+  STATUS_ORDER,
+  statusDisplay,
   quadrantTooltipClasses,
 } from "@/lib/initiatives";
 
@@ -24,7 +22,6 @@ export default async function QuadrantPage() {
   // Only value initiatives are scored on the Lift × Value map; non-value
   // (enabler/milestone) initiatives are excluded.
   const items = await prisma.initiative.findMany({ where: await activePlanInitiativeWhere({ valueType: "VALUE" }), orderBy: { code: "asc" } });
-  const now = new Date();
 
   // Deterministic jitter so initiatives sharing the same (value, lift) don't fully overlap.
   const seen = new Map<string, number>();
@@ -36,10 +33,8 @@ export default async function QuadrantPage() {
     const r = n === 0 ? 0 : 3.2 + n * 0.7;
     const baseX = ((5 - i.lift) / 4) * 80 + 10; // higher lift -> left
     const baseY = ((i.value - 1) / 4) * 80 + 10; // higher value -> top
-    const health = siHealth(i.status, i.pctComplete, i.startDate, i.endDate, now);
     return {
       i,
-      health,
       x: Math.max(4, Math.min(96, baseX + Math.cos(angle) * r)),
       y: Math.max(4, Math.min(96, baseY + Math.sin(angle) * r)),
     };
@@ -51,13 +46,13 @@ export default async function QuadrantPage() {
         className="mb-5"
         eyebrow="Portfolio"
         title="Lift × Value"
-        description="Where to spend: strategic value against effort to deliver. Top-right is the sweet spot. Dot color shows delivery health against the timeline."
+        description="Where to spend: strategic value against effort to deliver. Top-right is the sweet spot. Dot color shows status."
       />
 
       <div className="flex flex-wrap items-center gap-4 pb-3 text-note text-ink-muted">
-        {HEALTH_ORDER.map((h) => (
-          <span key={h} className="inline-flex items-center gap-1.5">
-            <span className={`h-2.5 w-2.5 rounded-full ${HEALTH_META[h].dot}`} aria-hidden /> {HEALTH_META[h].label}
+        {[...STATUS_ORDER, null].map((s) => (
+          <span key={s ?? "none"} className="inline-flex items-center gap-1.5">
+            <span className={`h-2.5 w-2.5 rounded-full ${statusDisplay(s).dot}`} aria-hidden /> {statusDisplay(s).label}
           </span>
         ))}
       </div>
@@ -94,7 +89,7 @@ export default async function QuadrantPage() {
             <span className="absolute right-3 bottom-3 text-note font-medium text-ink-faint">Maybe</span>
 
             {/* Dots */}
-            {dots.map(({ i, x, y, health }) => (
+            {dots.map(({ i, x, y }) => (
               <Link
                 key={i.id}
                 href={`/initiatives/${i.id}`}
@@ -104,7 +99,7 @@ export default async function QuadrantPage() {
                 style={{ left: `${x}%`, bottom: `${y}%` }}
               >
                 <span
-                  className={`block h-3 w-3 rounded-full ring-2 ring-surface transition-transform group-hover:scale-150 ${HEALTH_META[health].dot}`}
+                  className={`block h-3 w-3 rounded-full ring-2 ring-surface transition-transform group-hover:scale-150 ${statusDisplay(i.status).dot}`}
                 />
                 <span
                   className={`pointer-events-none absolute z-20 hidden w-max max-w-[200px] rounded-md bg-ink px-2 py-1.5 text-left text-micro leading-snug text-white shadow-lg group-hover:block ${quadrantTooltipClasses(x, y)}`}
@@ -114,9 +109,8 @@ export default async function QuadrantPage() {
                     Value {i.value} · Lift {i.lift} · {QUADRANT_META[i.quadrant].label}
                   </span>
                   <span className="block text-white/70">
-                    {i.teamLead ?? "Unassigned"} · {STATUS_META[i.status].label} {Math.round(i.pctComplete * 100)}%
+                    {i.teamLead ?? "Unassigned"} · {statusDisplay(i.status).label} {Math.round(i.pctComplete * 100)}%
                   </span>
-                  <span className="block text-white/70">Health: {HEALTH_META[health].label}</span>
                 </span>
               </Link>
             ))}
