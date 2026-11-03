@@ -138,7 +138,7 @@ export function InboxView({
 
       <div className="xl:col-span-2">
         <Panel title="My milestones and action items" count={items.filter((i) => !i.done).length}>
-          {items.length === 0 ? <p className="text-xs text-ink-faint">Nothing yet.</p> : <ItemChecklist title="Tick off what's done" items={items} />}
+          {items.length === 0 ? <p className="text-xs text-ink-faint">No Milestones have been assigned</p> : <ItemChecklist title="Tick off what's done" items={items} />}
         </Panel>
       </div>
     </div>
