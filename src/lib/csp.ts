@@ -16,6 +16,7 @@ export function buildCsp(isProd: boolean): string {
     "base-uri 'self'",
     `form-action ${FORM_ACTION_SOURCES.join(" ")}`,
     "frame-ancestors 'none'",
-    "upgrade-insecure-requests",
+    // Production only: Safari also upgrades http://localhost, which breaks local dev.
+    ...(isProd ? ["upgrade-insecure-requests"] : []),
   ].join("; ");
 }
