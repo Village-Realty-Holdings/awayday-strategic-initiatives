@@ -65,10 +65,12 @@ function UpdateChecklist({ sis, locked }: { sis: InboxSi[]; locked: boolean }) {
             {s.updated ? <Check size={14} strokeWidth={2.5} /> : <X size={14} strokeWidth={2.5} />}
           </span>
           <div className="min-w-0 flex-1">
-            <Link href={`/initiatives/${s.id}`} className="text-sm font-medium text-ink hover:text-navy-deep">
-              <span className="tabular mr-2 text-micro text-ink-faint">{s.shortCode}</span>
+            <p className="text-sm font-medium text-ink">
+              <Link href={`/initiatives/${s.id}`} aria-label={`Open ${s.shortCode} ${s.name}`} className="tabular mr-2 text-micro text-navy underline underline-offset-2 hover:text-navy-deep">
+                {s.shortCode}
+              </Link>
               {s.name}
-            </Link>
+            </p>
             <p className={`text-note ${s.updated ? "text-ok" : "text-risk"}`}>{s.updated ? "Updated" : "Needs an update"}</p>
           </div>
           {s.updated && <StatusBadge status={s.status} />}
