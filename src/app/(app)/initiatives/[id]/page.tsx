@@ -13,6 +13,7 @@ import {
   durationDays,
   formatTeam,
 } from "@/lib/initiatives";
+import { hasDollarProgress } from "@/lib/measures";
 import { canEdit, requireSession } from "@/lib/session";
 import { DeleteInitiativeButton } from "@/components/delete-initiative-button";
 import {
@@ -32,6 +33,7 @@ import { CompletionToggle } from "@/components/completion-toggle";
 import { DatePicker } from "@/components/date-picker";
 import { StatusBadge, QuadrantBadge } from "@/components/badges";
 import { DetailList, DetailSection, RemoveButton } from "@/components/initiative-section";
+import { InitiativeMeasures } from "@/components/initiative-measures";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,6 +70,7 @@ export default async function InitiativeDetail({
     where: { id },
     include: {
       riskLog: { orderBy: { order: "asc" } },
+      measures: { orderBy: [{ order: "asc" }, { createdAt: "asc" }], include: { readings: true } },
       milestones: { orderBy: [{ dueAt: "asc" }, { order: "asc" }] },
       actionItems: { orderBy: { order: "asc" } },
       eltRequests: { orderBy: { order: "asc" } },
@@ -240,6 +243,15 @@ export default async function InitiativeDetail({
               </p>
             </DetailSection>
           )}
+
+          <InitiativeMeasures
+            initiativeId={i.id}
+            measures={i.measures}
+            editable={editable}
+            isValue={isValue}
+            dollarsDrivePct={hasDollarProgress(i.progressActual, i.progressTarget)}
+            suggestedName={i.quantMetric}
+          />
 
           <DetailSection
             icon={TriangleAlert}

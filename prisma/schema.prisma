@@ -110,7 +110,7 @@ model Initiative {
   ebitdaValue        String?             @db.Text // charter: EBITDA value ($), as written, e.g. "$11M (~30 extra tuck-ins per yr)"
   investmentCost     String?             @db.Text // charter: investment cost ($) to deliver the SI
   progressActual     Float? // numeric current value, for actual/target auto-% in the charter
-  progressTarget     Float? // numeric goal value; pctComplete derives from actual/target when both set
+  progressTarget     Float? // numeric goal value; pctComplete derives from actual/target when both set, else from the first KPI measure
   // EBITDA run-rate impact (from OSI); powers the EBITDA Gap & Risk-Coverage view.
   estEbitdaImpact    Decimal?            @db.Decimal(14, 2)
   actualEbitdaImpact Decimal?            @db.Decimal(14, 2)
@@ -122,6 +122,7 @@ model Initiative {
   comments           InitiativeComment[]
   riskLog            InitiativeRisk[]
   milestones         InitiativeMilestone[]
+  measures           InitiativeMeasure[]
   actionItems        InitiativeActionItem[]
   eltRequests        InitiativeEltRequest[]
   updates            InitiativeUpdate[]
@@ -186,6 +187,41 @@ model InitiativeMilestone {
   updatedAt    DateTime   @updatedAt
 
   @@index([initiativeId])
+}
+
+// The KPIs and leading measures an initiative drives. Numeric, unlike the
+// charter's free-text quantMetric/baseline/quantTarget. Progress is
+// (latest - baseline) / (target - baseline), so lower-is-better works too. The
+// first KPI by order drives pctComplete when the initiative has no dollar figures.
+model InitiativeMeasure {
+  id           String                     @id @default(cuid())
+  initiative   Initiative                 @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  initiativeId String
+  name         String
+  kind         String                     @default("KPI") // KPI | LEADING
+  unit         String                     @default("NUMBER") // PERCENT | DOLLARS | NUMBER | DAYS
+  baseline     Float?
+  target       Float?
+  order        Int                        @default(0)
+  readings     InitiativeMeasureReading[]
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+
+  @@index([initiativeId])
+}
+
+// One dated value of a measure. Each update adds a row, so the history is kept.
+model InitiativeMeasureReading {
+  id        String            @id @default(cuid())
+  measure   InitiativeMeasure @relation(fields: [measureId], references: [id], onDelete: Cascade)
+  measureId String
+  value     Float
+  asOf      DateTime
+  note      String?           @db.Text
+  enteredBy String?
+  createdAt DateTime          @default(now())
+
+  @@index([measureId, asOf])
 }
 
 // One model covers both of Alex's owner-carrying lists: dependencies (what

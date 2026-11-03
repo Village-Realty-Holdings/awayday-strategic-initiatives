@@ -12,6 +12,7 @@ import { deleteAttachment } from "@/lib/storage";
 import { quadrantFor, valueFromDollars, effortToLift, parseDollars, type Effort } from "@/lib/initiatives";
 import { InitiativeStatus } from "@/generated/prisma/enums";
 import { diffRows, parseDependencyRows, parseMilestoneRows, parseRiskRows, splitByWhen } from "@/lib/charter-rows";
+import { derivedPct, MEASURE_KINDS, MEASURE_UNITS, parseMeasureValue } from "@/lib/measures";
 
 const STATUSES: string[] = Object.values(InitiativeStatus);
 const EFFORTS = ["S", "M", "L"];
@@ -168,6 +169,11 @@ export async function updateInitiative(formData: FormData) {
     data.strategicAreaId = areaId;
     if (areaId && !before.planVersionId && planId) data.planVersionId = planId;
   }
+  // parseFields only sees dollars; without them a value initiative follows its first KPI.
+  if (data.valueType === "VALUE") {
+    const measures = await prisma.initiativeMeasure.findMany({ where: { initiativeId: id }, include: { readings: true } });
+    data.pctComplete = derivedPct(data.progressActual, data.progressTarget, measures) ?? data.pctComplete;
+  }
   const after = await prisma.initiative.update({ where: { id }, data });
   await saveCharterRows(id, formData);
   await audit(session.user.id, "UPDATE", "Initiative", id, { before, after });
@@ -206,8 +212,8 @@ export async function createInitiative(formData: FormData) {
   redirect(`/initiatives/${created.id}`);
 }
 
-// Inline charter progress update. Percent is purely value created ÷ value to
-// create (may exceed 100%); there is no manual percent entry.
+// Inline charter progress update. Percent is value created ÷ value to create (may
+// exceed 100%), or the first KPI's progress without both; there is no manual percent entry.
 export async function updateProgress(formData: FormData) {
   const session = await requireEditor();
   const id = String(formData.get("initiativeId"));
@@ -217,11 +223,9 @@ export async function updateProgress(formData: FormData) {
   // Dollar inputs may carry commas / $ / M-K suffixes.
   const actual = parseDollars(str(formData, "actual"));
   const target = parseDollars(str(formData, "target"));
-  // Derive percent from the dollar values (can exceed 100%); keep prior when not both set.
-  const pct =
-    actual !== null && target !== null && target !== 0
-      ? Math.max(0, actual / target)
-      : before.pctComplete;
+  // Derive percent from the dollar values or first KPI; keep prior when neither gives one.
+  const measures = await prisma.initiativeMeasure.findMany({ where: { initiativeId: id }, include: { readings: true } });
+  const pct = derivedPct(actual, target, measures) ?? before.pctComplete;
 
   const after = await prisma.initiative.update({
     where: { id },
@@ -337,6 +341,146 @@ export async function removeInitiativeMilestone(formData: FormData) {
   revalidatePath(`/initiatives/${existing.initiativeId}`);
   await flash("Milestone removed");
   redirect(`/initiatives/${existing.initiativeId}`);
+}
+
+// A value initiative's percent follows its measures unless dollars drive it.
+// Non-value initiatives stay status-driven. Returns the percent now stored.
+async function syncMeasurePct(initiativeId: string): Promise<number | null> {
+  const i = await prisma.initiative.findUnique({
+    where: { id: initiativeId },
+    select: { valueType: true, pctComplete: true, progressActual: true, progressTarget: true, measures: { include: { readings: true } } },
+  });
+  if (!i || i.valueType !== "VALUE") return null;
+  const pct = derivedPct(i.progressActual, i.progressTarget, i.measures) ?? 0;
+  if (pct !== i.pctComplete) await prisma.initiative.update({ where: { id: initiativeId }, data: { pctComplete: pct } });
+  return pct;
+}
+
+function revalidateMeasurePaths(initiativeId: string) {
+  revalidatePath(`/initiatives/${initiativeId}`);
+  revalidatePath("/admin/initiatives");
+  revalidatePath("/");
+}
+
+// Name, kind, unit, baseline and target, shared by add + edit. A blank baseline or
+// target is allowed (progress just can't be worked out yet); an unreadable one isn't.
+async function parseMeasureFields(fd: FormData, initiativeId: string) {
+  const name = str(fd, "name");
+  const baselineRaw = str(fd, "baseline");
+  const targetRaw = str(fd, "target");
+  const baseline = parseMeasureValue(baselineRaw);
+  const target = parseMeasureValue(targetRaw);
+  if (!name || (baselineRaw && baseline === null) || (targetRaw && target === null)) {
+    await flash(name ? "Baseline and target must be numbers, e.g. 18, 12.5% or $1.5M" : "A measure needs a name", "error");
+    redirect(`/initiatives/${initiativeId}`);
+  }
+  return {
+    name,
+    kind: pick(fd, "kind", MEASURE_KINDS, "KPI"),
+    unit: pick(fd, "unit", MEASURE_UNITS, "NUMBER"),
+    baseline,
+    target,
+  };
+}
+
+export async function addInitiativeMeasure(formData: FormData) {
+  const session = await requireEditor();
+  const initiativeId = String(formData.get("initiativeId"));
+  const existing = await prisma.initiative.findUnique({ where: { id: initiativeId }, select: { id: true } });
+  if (!existing) redirect("/admin/initiatives");
+  const fields = await parseMeasureFields(formData, initiativeId);
+  const { _max } = await prisma.initiativeMeasure.aggregate({ where: { initiativeId }, _max: { order: true } });
+  const created = await prisma.initiativeMeasure.create({ data: { initiativeId, ...fields, order: (_max.order ?? -1) + 1 } });
+  const pctComplete = await syncMeasurePct(initiativeId);
+  await audit(session.user.id, "CREATE", "InitiativeMeasure", created.id, { after: { initiativeId, ...fields, pctComplete } });
+  revalidateMeasurePaths(initiativeId);
+  await flash("Measure added");
+  redirect(`/initiatives/${initiativeId}`);
+}
+
+export async function updateInitiativeMeasure(formData: FormData) {
+  const session = await requireEditor();
+  const id = String(formData.get("id"));
+  const existing = await prisma.initiativeMeasure.findUnique({ where: { id } });
+  if (!existing) redirect("/admin/initiatives");
+  const fields = await parseMeasureFields(formData, existing.initiativeId);
+  await prisma.initiativeMeasure.update({ where: { id }, data: fields });
+  const pctComplete = await syncMeasurePct(existing.initiativeId);
+  await audit(session.user.id, "UPDATE", "InitiativeMeasure", id, { before: existing, after: { ...fields, pctComplete } });
+  revalidateMeasurePaths(existing.initiativeId);
+  await flash("Measure saved");
+  redirect(`/initiatives/${existing.initiativeId}`);
+}
+
+// Moves a KPI ahead of the others, which makes it the one percent complete follows.
+export async function setPrimaryInitiativeMeasure(formData: FormData) {
+  const session = await requireEditor();
+  const id = String(formData.get("id"));
+  const existing = await prisma.initiativeMeasure.findUnique({ where: { id } });
+  if (!existing) redirect("/admin/initiatives");
+  const { _min } = await prisma.initiativeMeasure.aggregate({ where: { initiativeId: existing.initiativeId }, _min: { order: true } });
+  const order = (_min.order ?? 0) - 1;
+  await prisma.initiativeMeasure.update({ where: { id }, data: { order } });
+  const pctComplete = await syncMeasurePct(existing.initiativeId);
+  await audit(session.user.id, "UPDATE", "InitiativeMeasure", id, { before: { order: existing.order }, after: { order, pctComplete } });
+  revalidateMeasurePaths(existing.initiativeId);
+  await flash("Percent complete now follows this KPI");
+  redirect(`/initiatives/${existing.initiativeId}`);
+}
+
+export async function removeInitiativeMeasure(formData: FormData) {
+  const session = await requireEditor();
+  const id = String(formData.get("id"));
+  const existing = await prisma.initiativeMeasure.findUnique({ where: { id }, include: { readings: true } });
+  if (!existing) redirect("/admin/initiatives");
+  await prisma.initiativeMeasure.delete({ where: { id } });
+  const pctComplete = await syncMeasurePct(existing.initiativeId);
+  await audit(session.user.id, "DELETE", "InitiativeMeasure", id, { before: existing, after: { pctComplete } });
+  revalidateMeasurePaths(existing.initiativeId);
+  await flash("Measure removed");
+  redirect(`/initiatives/${existing.initiativeId}`);
+}
+
+export async function addInitiativeMeasureReading(formData: FormData) {
+  const session = await requireEditor();
+  const measureId = String(formData.get("measureId"));
+  const measure = await prisma.initiativeMeasure.findUnique({ where: { id: measureId }, select: { initiativeId: true } });
+  if (!measure) redirect("/admin/initiatives");
+  const value = parseMeasureValue(str(formData, "value"));
+  if (value === null) {
+    await flash("Enter the latest value as a number, e.g. 18, 12.5% or $1.5M", "error");
+    redirect(`/initiatives/${measure.initiativeId}`);
+  }
+  const now = new Date();
+  const asOf = date(formData, "asOf") ?? now;
+  // A day's grace: the picker's "today" can be ahead of the server's in some time zones.
+  if (asOf.getTime() > now.getTime() + 24 * 60 * 60 * 1000) {
+    await flash("The as-of date can't be in the future", "error");
+    redirect(`/initiatives/${measure.initiativeId}`);
+  }
+  const note = str(formData, "note");
+  const created = await prisma.initiativeMeasureReading.create({
+    data: { measureId, value, asOf, note, enteredBy: session.user.name },
+  });
+  const pctComplete = await syncMeasurePct(measure.initiativeId);
+  await audit(session.user.id, "CREATE", "InitiativeMeasureReading", created.id, { after: { measureId, value, asOf, note, pctComplete } });
+  revalidateMeasurePaths(measure.initiativeId);
+  await flash("Measure updated");
+  redirect(`/initiatives/${measure.initiativeId}`);
+}
+
+export async function removeInitiativeMeasureReading(formData: FormData) {
+  const session = await requireEditor();
+  const id = String(formData.get("id"));
+  const existing = await prisma.initiativeMeasureReading.findUnique({ where: { id }, include: { measure: { select: { initiativeId: true } } } });
+  if (!existing) redirect("/admin/initiatives");
+  const { measure, ...before } = existing;
+  await prisma.initiativeMeasureReading.delete({ where: { id } });
+  const pctComplete = await syncMeasurePct(measure.initiativeId);
+  await audit(session.user.id, "DELETE", "InitiativeMeasureReading", id, { before, after: { pctComplete } });
+  revalidateMeasurePaths(measure.initiativeId);
+  await flash("Update removed");
+  redirect(`/initiatives/${measure.initiativeId}`);
 }
 
 export async function addInitiativeActionItem(formData: FormData) {

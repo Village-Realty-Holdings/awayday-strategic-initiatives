@@ -78,10 +78,7 @@ export default async function OwnerPage({ params }: { params: Promise<{ owner: s
   const complete = initiatives.filter((i) => i.status === "DONE" || i.pctComplete >= 0.999).length;
   const avg = initiatives.reduce((s, i) => s + i.pctComplete, 0) / Math.max(initiatives.length, 1);
   const toCreate = initiatives.reduce((s, i) => s + (i.progressTarget ?? 0), 0);
-  const created = initiatives.reduce(
-    (s, i) => s + (i.progressActual ?? ((i.progressTarget ?? 0) ? (i.progressTarget ?? 0) * i.pctComplete : 0)),
-    0,
-  );
+  const created = initiatives.reduce((s, i) => s + (i.progressActual ?? 0), 0);
   const cims = [...new Set(initiatives.map((i) => i.cimDriver).filter(Boolean))].sort() as string[];
 
   return (

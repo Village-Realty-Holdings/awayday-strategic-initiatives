@@ -59,7 +59,7 @@ export function ProgressForm({
     <form action={updateProgress} className="grid gap-2">
       <input type="hidden" name="initiativeId" value={initiativeId} />
       <p className="text-note text-ink-faint">
-        Enter value created and the value-to-create goal; percent is calculated (e.g. 850k of 1.5M = 57%, and it can exceed 100%).
+        Enter value created and the value-to-create goal; percent is calculated (e.g. 850k of 1.5M = 57%, and it can exceed 100%). Without both, percent follows the first KPI.
       </p>
       <div className="flex flex-wrap items-end gap-2">
         <Label className="grid gap-1 text-xs font-medium text-ink-muted">

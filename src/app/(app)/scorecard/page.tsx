@@ -38,11 +38,10 @@ export default async function ScorecardPage() {
     const done = i.status === "DONE" || i.pctComplete >= 0.999;
     if (done) r.complete++;
     else r.inFlight++;
-    // Value created = dollars done; to-create = dollar goal. Fall back to goal*pct when actual is unset.
-    const target = i.progressTarget ?? 0;
-    const actual = i.progressActual ?? (target ? target * i.pctComplete : 0);
-    r.toCreate += target;
-    r.created += actual;
+    // Value created = dollars done; to-create = dollar goal. Percent can come from a
+    // KPI, so it never stands in for dollars nobody entered.
+    r.toCreate += i.progressTarget ?? 0;
+    r.created += i.progressActual ?? 0;
     r.avgPct += i.pctComplete;
   }
 
