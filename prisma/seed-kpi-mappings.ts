@@ -10,6 +10,7 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
 // TRevPAR has an input so far: the others stay on "No data yet" (unless a value is
 // entered by hand) until the import publishes their metrics and their
 // inputMetricKey is set. Targets are in base units, so M&A's $26M is 26000000.
+// Only missing rows are created: once a row exists, Admin > Measure mappings owns it.
 const MAPPINGS = [
   { area: "M&A", calculation: "DIRECT", inputMetricKey: null, timeBasis: "YTD", displayFormat: "currency", higherIsBetter: true, targetBudget: 26_000_000, targetStretch: 47_000_000 },
   { area: "GROW", calculation: "DIRECT", inputMetricKey: null, timeBasis: "YTD", displayFormat: "percent", higherIsBetter: true, targetBudget: 23, targetStretch: 28 },
@@ -33,7 +34,7 @@ async function main() {
     }
     await prisma.kpiMeasureMapping.upsert({
       where: { measureKpiId: kpi.id },
-      update: fields,
+      update: {},
       create: { measureKpiId: kpi.id, ...fields },
     });
     synced++;

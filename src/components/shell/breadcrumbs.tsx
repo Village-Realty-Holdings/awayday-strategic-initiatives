@@ -31,6 +31,7 @@ const LABELS: Record<string, string> = {
   lists: "Manage lists",
   admin: "Admin",
   "data-sources": "Data sources",
+  "measure-mappings": "Measure mappings",
   "ai-telemetry": "AI telemetry",
   reference: "Strategy reference",
   plans: "Plan versions",

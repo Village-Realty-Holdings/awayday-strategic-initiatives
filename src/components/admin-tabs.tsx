@@ -1,12 +1,13 @@
 "use client";
 
-import { Database, Layers, LineChart, Target, Users, CalendarCheck, Compass } from "@/components/icons";
+import { Database, Layers, LineChart, SlidersHorizontal, Target, Users, CalendarCheck, Compass } from "@/components/icons";
 import { LinkTabs, type LinkTab } from "@/components/shell/link-tabs";
 
 const TABS: LinkTab[] = [
   { label: "People & access", href: "/admin/people", icon: Users },
   { label: "Groups", href: "/admin/groups", icon: Layers },
   { label: "Data sources", href: "/admin/data-sources", icon: Database },
+  { label: "Measure mappings", href: "/admin/measure-mappings", icon: SlidersHorizontal },
   { label: "Initiatives", href: "/admin/initiatives", icon: Target },
   { label: "Plan versions", href: "/admin/plans", icon: CalendarCheck },
   { label: "Strategy reference", href: "/admin/reference", icon: Compass },

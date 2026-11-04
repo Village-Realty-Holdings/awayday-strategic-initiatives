@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveMeasure, formatDerivedMeasure, mappingRag, parseMeasureNumber, type MeasureMapping } from "./kpi-measure-mapping";
+import { deriveMeasure, formatDerivedMeasure, mappingRag, missingMeasureInputs, parseMeasureNumber, type MeasureMapping } from "./kpi-measure-mapping";
 import type { KpiRow } from "./review-kpi";
 
 const PERIOD = "2026-09";
@@ -108,5 +108,14 @@ describe("formatDerivedMeasure", () => {
     expect(formatDerivedMeasure(0.25, mapping({ calculation: "RATIO_DELTA_PY" }))).toBe("+0.25%");
     expect(formatDerivedMeasure(12.9, mapping({ calculation: "DIRECT" }))).toBe("12.9%");
     expect(formatDerivedMeasure(26_000_000, mapping({ calculation: "DIRECT", displayFormat: "currency" }))).toBe("$26.0M");
+  });
+});
+
+describe("missingMeasureInputs", () => {
+  it("names exactly what is still needed", () => {
+    const names = new Map([["trevpar", "TRevPAR"]]);
+    expect(missingMeasureInputs(mapping({ inputMetricKey: null }), new Map(), PERIOD)).toEqual(["an input metric to be chosen"]);
+    expect(missingMeasureInputs(mapping(), new Map([["trevpar", [row("136", "ACTUAL")]]]), PERIOD, names)).toEqual(["TRevPAR: YTD PY"]);
+    expect(missingMeasureInputs(mapping(), new Map([["trevpar", [row("136", "ACTUAL"), row("133", "PRIOR_YEAR")]]]), PERIOD)).toEqual([]);
   });
 });

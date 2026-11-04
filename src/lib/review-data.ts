@@ -90,6 +90,20 @@ const currentObservationWhere = {
   quality: { notIn: ["INVALID", "UNAVAILABLE"] },
 };
 
+/** The period's current rows for each metric a mapping reads, plus the metrics' names. */
+export async function loadMappingInputs(keys: readonly string[], period: string) {
+  const defs = keys.length
+    ? await prisma.kpiDefinition.findMany({
+        where: { metricKey: { in: [...keys] } },
+        select: { metricKey: true, name: true, observations: { where: { ...currentObservationWhere, reportingPeriod: period }, select: OBSERVATION_SELECT } },
+      })
+    : [];
+  return {
+    rows: new Map(defs.map((d) => [d.metricKey, d.observations as KpiRow[]])),
+    names: new Map(defs.map((d) => [d.metricKey, d.name])),
+  };
+}
+
 function siValue(measures: InitiativeMeasureWithReadings[], through: string | null): ReviewSiValue | null {
   const measure = headlineMeasure(measures);
   if (!measure) return null;
@@ -196,14 +210,7 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
     const mapping = activeMapping(a);
     return mapping ? mappingInputKeys(mapping) : [];
   }))];
-  const inputDefs = inputKeys.length
-    ? await prisma.kpiDefinition.findMany({
-        where: { metricKey: { in: inputKeys } },
-        select: { metricKey: true, name: true, observations: { where: { ...currentObservationWhere, reportingPeriod: period }, select: OBSERVATION_SELECT } },
-      })
-    : [];
-  const inputRows = new Map(inputDefs.map((d) => [d.metricKey, d.observations as KpiRow[]]));
-  const inputNames = new Map(inputDefs.map((d) => [d.metricKey, d.name]));
+  const { rows: inputRows, names: inputNames } = await loadMappingInputs(inputKeys, period);
 
   const synthesised = areaRows.length === 0;
   type AreaSeed = Omit<ReviewArea, "sis" | "number"> & { match: (i: (typeof initiatives)[number]) => boolean };

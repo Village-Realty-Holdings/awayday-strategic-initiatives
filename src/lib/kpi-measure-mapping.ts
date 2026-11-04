@@ -1,5 +1,5 @@
 import { CONSOLIDATED_REPORTING_SCOPE, selectCurrentObservations } from "@/lib/kpi";
-import { formatKpiValue, type KpiRow } from "@/lib/review-kpi";
+import { BASIS_LABEL, formatKpiValue, TIME_LABEL, type KpiRow } from "@/lib/review-kpi";
 import { ragAgainst, type Rag } from "@/lib/review-model";
 
 // How a pillar's measure gets its value from the metrics the import publishes.
@@ -8,6 +8,8 @@ import { ragAgainst, type Rag } from "@/lib/review-model";
 // written back, so a later revision to an input also changes the result.
 
 export const MEASURE_CALCULATIONS = ["DIRECT", "YOY_PCT", "RATIO_DELTA_PY"] as const;
+export const MAPPING_TIME_BASES = ["MONTHLY", "YTD", "LTM", "POINT_IN_TIME"] as const;
+export const MAPPING_DISPLAY_FORMATS = ["percent", "currency", "number"] as const;
 
 export type MeasureMapping = {
   calculation: string;
@@ -22,6 +24,7 @@ export type MeasureMapping = {
 export type DerivedMeasure = { value: number; quality: string };
 
 type RowsByMetric = ReadonlyMap<string, readonly KpiRow[]>;
+type Basis = "ACTUAL" | "PRIOR_YEAR";
 
 /** The metric keys a mapping reads, in order. */
 export function mappingInputKeys(mapping: Pick<MeasureMapping, "inputMetricKey" | "denominatorMetricKey">): string[] {
@@ -41,14 +44,8 @@ export function parseMeasureNumber(value: string | null | undefined): number | n
 /** Works out a measure for the period, or null when any input is missing or unusable. */
 export function deriveMeasure(mapping: MeasureMapping, rows: RowsByMetric, period: string): DerivedMeasure | null {
   const stale: boolean[] = [];
-  const read = (metricKey: string | null, comparisonBasis: "ACTUAL" | "PRIOR_YEAR"): number | null => {
-    if (!metricKey) return null;
-    const [row] = selectCurrentObservations(rows.get(metricKey) ?? [], {
-      reportingPeriod: period,
-      reportingScope: CONSOLIDATED_REPORTING_SCOPE,
-      comparisonBasis,
-      timeBasis: mapping.timeBasis,
-    }).filter((o) => (o.entityScope ?? "CONSOLIDATED") === "CONSOLIDATED");
+  const read = (metricKey: string | null, comparisonBasis: Basis): number | null => {
+    const row = findInput(mapping, rows, period, metricKey, comparisonBasis);
     if (!row) return null;
     stale.push(row.quality === "STALE");
     const number = Number(row.value);
@@ -60,7 +57,32 @@ export function deriveMeasure(mapping: MeasureMapping, rows: RowsByMetric, perio
   return { value, quality: stale.includes(true) ? "STALE" : "VALID" };
 }
 
-function calculate(mapping: MeasureMapping, read: (metricKey: string | null, basis: "ACTUAL" | "PRIOR_YEAR") => number | null): number | null {
+/** What the mapping still needs for the period, in words; empty when every input is there. */
+export function missingMeasureInputs(mapping: MeasureMapping, rows: RowsByMetric, period: string, names: ReadonlyMap<string, string> = new Map()): string[] {
+  const { inputMetricKey: input, denominatorMetricKey: denominator } = mapping;
+  if (!input) return ["an input metric to be chosen"];
+  const required: [string, Basis][] =
+    mapping.calculation === "RATIO_DELTA_PY" && denominator
+      ? [[input, "ACTUAL"], [input, "PRIOR_YEAR"], [denominator, "ACTUAL"], [denominator, "PRIOR_YEAR"]]
+      : mapping.calculation === "YOY_PCT"
+        ? [[input, "ACTUAL"], [input, "PRIOR_YEAR"]]
+        : [[input, "ACTUAL"]];
+  return required
+    .filter(([key, basis]) => !findInput(mapping, rows, period, key, basis))
+    .map(([key, basis]) => `${names.get(key) ?? key}: ${TIME_LABEL[mapping.timeBasis] ?? mapping.timeBasis} ${BASIS_LABEL[basis]}`);
+}
+
+function findInput(mapping: MeasureMapping, rows: RowsByMetric, period: string, metricKey: string | null, comparisonBasis: Basis) {
+  if (!metricKey) return undefined;
+  return selectCurrentObservations(rows.get(metricKey) ?? [], {
+    reportingPeriod: period,
+    reportingScope: CONSOLIDATED_REPORTING_SCOPE,
+    comparisonBasis,
+    timeBasis: mapping.timeBasis,
+  }).find((o) => (o.entityScope ?? "CONSOLIDATED") === "CONSOLIDATED");
+}
+
+function calculate(mapping: MeasureMapping, read: (metricKey: string | null, basis: Basis) => number | null): number | null {
   const { inputMetricKey: input, denominatorMetricKey: denominator } = mapping;
   switch (mapping.calculation) {
     case "DIRECT":
