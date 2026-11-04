@@ -95,6 +95,22 @@ export type ReviewMeasure = {
   source: "manual" | "import" | "derived" | null;
   /** The metrics a derived value was worked out from. */
   inputs?: string[];
+  /** Where the value came from and how its status was reached, for the pillar editor. */
+  origin?: MeasureOrigin;
+};
+
+export type MeasureOrigin = {
+  value: { summary: string; details: string[] };
+  status: {
+    label: string;
+    /** The budget target as a number, or null when the status has none to compare with. */
+    budget: string | null;
+    /** Value minus budget, signed, e.g. "+$8.5M (+32.7%)". */
+    difference: string | null;
+    verdict: "better" | "worse" | "on target" | null;
+    direction: "Higher is better" | "Lower is better" | null;
+    basis: string;
+  };
 };
 
 export type ReviewArea = {
@@ -358,12 +374,10 @@ export function ragFor(value: string | null, target: string | null, quality = "V
   return ragAgainst(actual, goal, Boolean(target?.trim().startsWith("<")));
 }
 
-/** Green at or past the goal, amber within 10% of it, red beyond that. */
+/** Amber within 10% of the goal on either side; otherwise green when better than it and red when worse. */
 export function ragAgainst(actual: number, goal: number, lowerIsBetter: boolean): Rag {
-  const good = lowerIsBetter ? actual <= goal : actual >= goal;
-  const distance = goal === 0 ? 0 : Math.abs(actual - goal) / Math.abs(goal);
-  if (good) return "GREEN";
-  return distance <= 0.1 ? "AMBER" : "RED";
+  if (Math.abs(actual - goal) <= Math.abs(goal) * 0.1) return "AMBER";
+  return (lowerIsBetter ? actual < goal : actual > goal) ? "GREEN" : "RED";
 }
 
 export function ragTone(rag: Rag): PillarTone | null {

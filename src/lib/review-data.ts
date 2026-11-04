@@ -4,7 +4,7 @@ import { formatMeasureValue, headlineMeasure, latestReading, measureRag } from "
 import { prisma } from "@/lib/prisma";
 import { getActivePlan } from "@/lib/active-plan";
 import { PUBLICATION_APPROVED } from "@/lib/kpi";
-import { deriveMeasure, formatDerivedMeasure, mappingInputKeys, mappingRag, parseMeasureNumber } from "@/lib/kpi-measure-mapping";
+import { deriveMeasure, formatDerivedMeasure, mappingInputKeys, mappingRag, measureOrigin, parseMeasureNumber } from "@/lib/kpi-measure-mapping";
 import { buildFinanceTable, currentKpiValue, MANUAL_SOURCE_CATEGORY, type FinanceTable, type KpiRow } from "@/lib/review-kpi";
 import {
   homeReviewPeriod,
@@ -83,6 +83,8 @@ const OBSERVATION_SELECT = {
   authorityRank: true,
   sourceDocumentName: true,
   sourceCategory: true,
+  sourceLocation: true,
+  evidence: true,
 } as const;
 
 const currentObservationWhere = {
@@ -240,6 +242,17 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
           : derived
             ? mappingRag(derived.value, mapping, derived.quality)
             : mappingRag(parseMeasureNumber(obs?.value), mapping, obs?.quality);
+        const origin = measureOrigin({
+          source,
+          observation: obs,
+          number: derived?.value ?? parseMeasureNumber(obs?.value),
+          rag,
+          target,
+          mapping,
+          rows: inputRows,
+          names: inputNames,
+          period,
+        });
         return {
           id: a.id,
           code: a.code,
@@ -256,6 +269,7 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
                 target,
                 rag,
                 source,
+                origin,
                 ...(derived && mapping ? { inputs: mappingInputKeys(mapping).map((key) => inputNames.get(key) ?? key) } : {}),
               }
             : null,

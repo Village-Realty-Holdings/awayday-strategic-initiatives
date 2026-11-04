@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { editMeasureValue, editPlanHeader, editReviewDetails, editSiUpdate, editSoWhats, editStrategicArea, type EditResult } from "@/app/(app)/review-edit-actions";
 import type { InitiativeStatus } from "@/generated/prisma/client";
-import { fmtLong, type ReviewSi, type SoWhat } from "@/lib/review-model";
+import { fmtLong, type MeasureOrigin, type ReviewSi, type SoWhat } from "@/lib/review-model";
 import { useCloseEditor } from "./edit-mode";
 import { type EditorSoWhat, SoWhatEditor } from "./so-what-editor";
 import { SiStatusPicker } from "./status";
@@ -172,6 +172,35 @@ export function AreaEditor({ areaId, eyebrow, name, goal, owner }: { areaId: str
   );
 }
 
+/** Where the measure's value came from, and how far it is from the target that sets its status. */
+function MeasureOriginPanel({ origin }: { origin: MeasureOrigin }) {
+  const { value, status } = origin;
+  return (
+    <dl className="grid gap-3 rounded-md border border-border bg-surface-2/50 p-3 text-note">
+      <div>
+        <dt className="font-medium text-ink">Value source</dt>
+        <dd className="mt-0.5 text-ink-muted">{value.summary}</dd>
+        {value.details.map((detail) => (
+          <dd key={detail} className="mt-0.5 text-ink-muted">
+            {detail}
+          </dd>
+        ))}
+      </div>
+      <div>
+        <dt className="font-medium text-ink">Status: {status.label}</dt>
+        {status.difference && (
+          <dd className="mt-0.5 text-ink-muted">
+            {status.difference} vs the {status.budget} budget target ({status.verdict}).
+          </dd>
+        )}
+        {!status.difference && status.budget && <dd className="mt-0.5 text-ink-muted">Budget target: {status.budget}.</dd>}
+        {status.direction && <dd className="mt-0.5 text-ink-muted">{status.direction}.</dd>}
+        <dd className="mt-0.5 text-ink-muted">{status.basis}</dd>
+      </div>
+    </dl>
+  );
+}
+
 export function MeasureValueEditor({
   areaId,
   periodId,
@@ -180,6 +209,7 @@ export function MeasureValueEditor({
   target,
   value,
   source,
+  origin,
 }: {
   areaId: string;
   periodId: string;
@@ -188,6 +218,7 @@ export function MeasureValueEditor({
   target: string | null;
   value: string | null;
   source: "manual" | "import" | "derived" | null;
+  origin?: MeasureOrigin;
 }) {
   if (source === "import") {
     return (
@@ -198,6 +229,11 @@ export function MeasureValueEditor({
             {periodLabel}&apos;s value, {value}, was loaded from a data source. Change it at the source, not here.
           </DialogDescription>
         </DialogHeader>
+        {origin && (
+          <div className="px-6 py-4">
+            <MeasureOriginPanel origin={origin} />
+          </div>
+        )}
         <DialogFooter className="border-t border-border bg-surface-2/50 px-6 py-3">
           <DialogClose asChild>
             <Button type="button" size="sm">
@@ -210,6 +246,7 @@ export function MeasureValueEditor({
   }
   return (
     <EditForm title={`Edit ${name}`} description={`This measure's value for ${periodLabel}. The status compares it with the target${target ? `, ${target}` : ""}.`} action={editMeasureValue} hidden={{ areaId, periodId }}>
+      {origin && <MeasureOriginPanel origin={origin} />}
       <Field
         label="Value"
         hint={source === "derived" ? `Calculated as ${value} from imported figures. A value typed here replaces it for this month.` : "As it should read on the review, e.g. 9.8% or $12.4M. Leave blank to remove it."}

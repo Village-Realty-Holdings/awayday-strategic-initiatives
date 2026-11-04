@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveMeasure, formatDerivedMeasure, mappingRag, missingMeasureInputs, parseMeasureNumber, type MeasureMapping } from "./kpi-measure-mapping";
+import { deriveMeasure, formatDerivedMeasure, mappingRag, measureOrigin, missingMeasureInputs, parseMeasureNumber, type MeasureMapping, type MeasureOriginInput } from "./kpi-measure-mapping";
 import type { KpiRow } from "./review-kpi";
 
 const PERIOD = "2026-09";
@@ -79,7 +79,8 @@ describe("deriveMeasure", () => {
 describe("mappingRag", () => {
   it("treats lower as better when the mapping says so, unlike the target text", () => {
     const churn = { higherIsBetter: false, targetBudget: 11 };
-    expect(mappingRag(10.5, churn)).toBe("GREEN");
+    expect(mappingRag(9, churn)).toBe("GREEN");
+    expect(mappingRag(10.5, churn)).toBe("AMBER");
     expect(mappingRag(11.5, churn)).toBe("AMBER");
     expect(mappingRag(12.9, churn)).toBe("RED");
   });
@@ -117,5 +118,33 @@ describe("missingMeasureInputs", () => {
     expect(missingMeasureInputs(mapping({ inputMetricKey: null }), new Map(), PERIOD)).toEqual(["an input metric to be chosen"]);
     expect(missingMeasureInputs(mapping(), new Map([["trevpar", [row("136", "ACTUAL")]]]), PERIOD, names)).toEqual(["TRevPAR: YTD PY"]);
     expect(missingMeasureInputs(mapping(), new Map([["trevpar", [row("136", "ACTUAL"), row("133", "PRIOR_YEAR")]]]), PERIOD)).toEqual([]);
+  });
+});
+
+describe("measureOrigin", () => {
+  const base: MeasureOriginInput = { source: "manual", observation: { observedAt: new Date("2026-11-04T12:00:00Z"), evidence: "Entered on the review by Erin" }, number: 34_500_000, rag: "GREEN", target: "$26M", mapping: mapping({ calculation: "DIRECT", displayFormat: "currency", targetBudget: 26_000_000 }), rows: new Map(), names: new Map(), period: PERIOD };
+
+  it("shows who entered a value and how far it is from budget", () => {
+    const origin = measureOrigin(base);
+    expect(origin.value).toEqual({ summary: "Entered by hand", details: ["Entered on the review by Erin", "Saved 4 Nov 2026"] });
+    expect(origin.status).toMatchObject({ label: "On track", budget: "$26.0M", difference: "+$8.5M (+32.7%)", verdict: "better", direction: "Higher is better" });
+  });
+
+  it("calls a higher value worse when lower is better", () => {
+    const origin = measureOrigin({ ...base, number: 12.4, rag: "RED", mapping: mapping({ calculation: "DIRECT", higherIsBetter: false, targetBudget: 11 }) });
+    expect(origin.status).toMatchObject({ budget: "11%", difference: "+1.4 pts (+12.7%)", verdict: "worse", direction: "Lower is better" });
+  });
+
+  it("lists each input and its source cell for a calculated value", () => {
+    const rows = new Map([["trevpar", [row("136.30", "ACTUAL", { sourceDocumentName: "Sept.xlsx", sourceLocation: "sheet:Base Shop!B378" } as Partial<KpiRow>), row("133.00", "PRIOR_YEAR")]]]);
+    const origin = measureOrigin({ ...base, source: "derived", observation: null, number: 2.48, mapping: mapping(), rows, names: new Map([["trevpar", "TRevPAR"]]) });
+    expect(origin.value.summary).toContain("Growth vs prior year");
+    expect(origin.value.details).toEqual(["TRevPAR: YTD Actual = 136.30 (Sept.xlsx · Base Shop!B378)", "TRevPAR: YTD PY = 133.00"]);
+  });
+
+  it("says what is missing when there's no value, and gives no difference", () => {
+    const origin = measureOrigin({ ...base, source: null, observation: null, number: null, rag: "GREY", mapping: mapping(), names: new Map([["trevpar", "TRevPAR"]]) });
+    expect(origin.value.details[0]).toContain("TRevPAR: YTD Actual");
+    expect(origin.status.difference).toBeNull();
   });
 });

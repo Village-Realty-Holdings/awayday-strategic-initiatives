@@ -1,6 +1,6 @@
 import { CONSOLIDATED_REPORTING_SCOPE, selectCurrentObservations } from "@/lib/kpi";
 import { BASIS_LABEL, formatKpiValue, TIME_LABEL, type KpiRow } from "@/lib/review-kpi";
-import { ragAgainst, type Rag } from "@/lib/review-model";
+import { fmtLong, isoDay, ragAgainst, ragLabel, type MeasureOrigin, type Rag } from "@/lib/review-model";
 
 // How a pillar's measure gets its value from the metrics the import publishes.
 // One KpiMeasureMapping row per measure says which metrics to read and which
@@ -59,17 +59,21 @@ export function deriveMeasure(mapping: MeasureMapping, rows: RowsByMetric, perio
 
 /** What the mapping still needs for the period, in words; empty when every input is there. */
 export function missingMeasureInputs(mapping: MeasureMapping, rows: RowsByMetric, period: string, names: ReadonlyMap<string, string> = new Map()): string[] {
-  const { inputMetricKey: input, denominatorMetricKey: denominator } = mapping;
-  if (!input) return ["an input metric to be chosen"];
-  const required: [string, Basis][] =
-    mapping.calculation === "RATIO_DELTA_PY" && denominator
-      ? [[input, "ACTUAL"], [input, "PRIOR_YEAR"], [denominator, "ACTUAL"], [denominator, "PRIOR_YEAR"]]
-      : mapping.calculation === "YOY_PCT"
-        ? [[input, "ACTUAL"], [input, "PRIOR_YEAR"]]
-        : [[input, "ACTUAL"]];
-  return required
+  if (!mapping.inputMetricKey) return ["an input metric to be chosen"];
+  return requiredInputs(mapping)
     .filter(([key, basis]) => !findInput(mapping, rows, period, key, basis))
-    .map(([key, basis]) => `${names.get(key) ?? key}: ${TIME_LABEL[mapping.timeBasis] ?? mapping.timeBasis} ${BASIS_LABEL[basis]}`);
+    .map(([key, basis]) => inputLabel(mapping, key, basis, names));
+}
+
+function requiredInputs(mapping: MeasureMapping): [string, Basis][] {
+  const { inputMetricKey: input, denominatorMetricKey: denominator } = mapping;
+  if (!input) return [];
+  if (mapping.calculation === "RATIO_DELTA_PY" && denominator) return [[input, "ACTUAL"], [input, "PRIOR_YEAR"], [denominator, "ACTUAL"], [denominator, "PRIOR_YEAR"]];
+  return mapping.calculation === "YOY_PCT" ? [[input, "ACTUAL"], [input, "PRIOR_YEAR"]] : [[input, "ACTUAL"]];
+}
+
+function inputLabel(mapping: MeasureMapping, key: string, basis: Basis, names: ReadonlyMap<string, string>): string {
+  return `${names.get(key) ?? key}: ${TIME_LABEL[mapping.timeBasis] ?? mapping.timeBasis} ${BASIS_LABEL[basis]}`;
 }
 
 function findInput(mapping: MeasureMapping, rows: RowsByMetric, period: string, metricKey: string | null, comparisonBasis: Basis) {
@@ -121,4 +125,89 @@ export function mappingRag(value: number | null, mapping: Pick<MeasureMapping, "
   if (quality === "UNAVAILABLE" || quality === "INVALID") return "GREY";
   if (quality === "STALE") return "AMBER";
   return ragAgainst(value, mapping.targetBudget, !mapping.higherIsBetter);
+}
+
+const CALCULATION_TEXT: Record<string, string> = {
+  DIRECT: "Imported value, unchanged.",
+  YOY_PCT: "Growth vs prior year: (actual − prior year) ÷ prior year.",
+  RATIO_DELTA_PY: "Margin change: actual margin − prior-year margin, in points.",
+};
+
+const STATUS_RULE = "Green when more than 10% better than the target, yellow within 10% either side, red when more than 10% worse.";
+
+function documentLine(row: { sourceDocumentName?: string | null; sourceLocation?: string | null }): string | null {
+  return [row.sourceDocumentName, row.sourceLocation?.replace(/^sheet:/, "")].filter(Boolean).join(" · ") || null;
+}
+
+function formatInUnits(value: number, displayFormat: string): string {
+  if (displayFormat === "percent") return `${Number(value.toFixed(2))}%`;
+  return displayFormat === "currency" ? formatKpiValue(String(value), { unit: null, displayFormat }) : value.toLocaleString("en-US");
+}
+
+function formatDifference(difference: number, budget: number, displayFormat: string): string {
+  const sign = difference < 0 ? "−" : "+";
+  const size = Math.abs(difference);
+  const amount = displayFormat === "percent" ? `${Number(size.toFixed(2))} pts` : formatInUnits(size, displayFormat);
+  const percent = budget === 0 ? "" : ` (${sign}${Math.abs((difference / budget) * 100).toFixed(1)}%)`;
+  return `${sign}${amount}${percent}`;
+}
+
+function valueOrigin(input: MeasureOriginInput): MeasureOrigin["value"] {
+  const { source, observation, mapping, rows, period, names } = input;
+  const when = isoDay(observation?.observedAt);
+  if (source === "manual") {
+    return { summary: "Entered by hand", details: [observation?.evidence, when && `Saved ${fmtLong(when)}`].filter((d): d is string => Boolean(d)) };
+  }
+  if (source === "import") {
+    const document = observation ? documentLine(observation) : null;
+    return { summary: "Published directly on this measure", details: [document, when && `Observed ${fmtLong(when)}`].filter((d): d is string => Boolean(d)) };
+  }
+  if (source === "derived" && mapping) {
+    const details = requiredInputs(mapping).map(([key, basis]) => {
+      const row = findInput(mapping, rows, period, key, basis) as KpiRow | undefined;
+      const document = row ? documentLine(row) : null;
+      return `${inputLabel(mapping, key, basis, names)} = ${row?.value ?? "—"}${document ? ` (${document})` : ""}`;
+    });
+    return { summary: CALCULATION_TEXT[mapping.calculation] ?? "Calculated from imported metrics.", details };
+  }
+  if (mapping) {
+    const missing = missingMeasureInputs(mapping, rows, period, names);
+    return { summary: "No value for this month", details: missing.length ? [`Waiting for ${missing.join("; ")}.`] : ["The inputs can't be calculated, for example a prior-year value of zero."] };
+  }
+  return { summary: "No value for this month", details: ["This measure isn't mapped to imported metrics."] };
+}
+
+export type MeasureOriginInput = {
+  source: "manual" | "import" | "derived" | null;
+  /** The observation on the measure itself, when it has one. */
+  observation: Pick<KpiRow, "observedAt" | "sourceDocumentName" | "sourceLocation" | "evidence"> | null;
+  /** The number the status compares with the target. */
+  number: number | null;
+  rag: Rag;
+  target: string | null;
+  mapping: (MeasureMapping & { active?: boolean }) | null;
+  rows: RowsByMetric;
+  names: ReadonlyMap<string, string>;
+  period: string;
+};
+
+/** Where a measure's value came from and how its status was reached. */
+export function measureOrigin(input: MeasureOriginInput): MeasureOrigin {
+  const { number, rag, target, mapping } = input;
+  const value = valueOrigin(input);
+  const label = ragLabel(rag);
+  if (!mapping) {
+    const basis = target ? `Compared with the first number in the target text, "${target}". ${STATUS_RULE}` : "No target to compare with.";
+    return { value, status: { label, budget: null, difference: null, verdict: null, direction: null, basis } };
+  }
+  const direction = mapping.higherIsBetter ? "Higher is better" : "Lower is better";
+  if (mapping.targetBudget === null) return { value, status: { label, budget: null, difference: null, verdict: null, direction, basis: "No budget target is set on the mapping, so there's no rating." } };
+  const budget = formatInUnits(mapping.targetBudget, mapping.displayFormat);
+  if (number === null) return { value, status: { label, budget, difference: null, verdict: null, direction, basis: `No value to compare with the budget target. ${STATUS_RULE}` } };
+  const difference = number - mapping.targetBudget;
+  const verdict = difference === 0 ? "on target" : difference > 0 === mapping.higherIsBetter ? "better" : "worse";
+  return {
+    value,
+    status: { label, budget, difference: formatDifference(difference, mapping.targetBudget, mapping.displayFormat), verdict, direction, basis: STATUS_RULE },
+  };
 }

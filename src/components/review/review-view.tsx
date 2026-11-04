@@ -48,7 +48,7 @@ function EditableMeasure({ area, periodId, periodLabel, children }: { area: Revi
     <Editable
       label={`${area.name} measure`}
       periodLocked
-      editor={<MeasureValueEditor areaId={area.id} periodId={periodId} periodLabel={periodLabel} name={measure.name} target={measure.target} value={measure.value} source={measure.source} />}
+      editor={<MeasureValueEditor areaId={area.id} periodId={periodId} periodLabel={periodLabel} name={measure.name} target={measure.target} value={measure.value} source={measure.source} origin={measure.origin} />}
     >
       {children}
     </Editable>

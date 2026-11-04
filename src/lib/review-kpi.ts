@@ -24,6 +24,8 @@ export type KpiRow = KpiObservationRecord & {
   kpiId: string;
   sourceDocumentName?: string | null;
   sourceCategory?: string | null;
+  sourceLocation?: string | null;
+  evidence?: string | null;
 };
 
 // ---------------------------------------------------------------------------

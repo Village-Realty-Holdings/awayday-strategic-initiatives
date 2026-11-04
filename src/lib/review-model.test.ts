@@ -94,7 +94,9 @@ describe("initiativeOwnerMatches", () => {
 
 describe("ragFor", () => {
   it("compares a value with its target", () => {
-    expect(ragFor("25%", "23% budget; 28% stretch")).toBe("GREEN");
+    expect(ragFor("30%", "23% budget; 28% stretch")).toBe("GREEN");
+    expect(ragFor("25%", "23% budget; 28% stretch")).toBe("AMBER");
+    expect(ragFor("23%", "23% budget; 28% stretch")).toBe("AMBER");
     expect(ragFor("22%", "23% budget")).toBe("AMBER");
     expect(ragFor("12%", "<11%")).toBe("AMBER");
     expect(ragFor("15%", "<11%")).toBe("RED");
