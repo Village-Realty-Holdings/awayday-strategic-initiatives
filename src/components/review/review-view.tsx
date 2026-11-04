@@ -201,6 +201,18 @@ export function ReviewView({
         }
       />
 
+      <section aria-labelledby="where-to-go-title" className="-mt-4 grid gap-3 border-y border-border py-4 sm:grid-cols-[minmax(8rem,0.7fr)_1fr_1fr] sm:items-center sm:gap-6">
+        <h2 id="where-to-go-title" className="text-sm font-semibold text-ink">Where to go</h2>
+        <Link href="/" aria-current="page" className="group rounded-md p-2 -mx-2 hover:bg-surface-2">
+          <span className="block text-sm font-semibold text-navy-deep">Strategy Review</span>
+          <span className="mt-0.5 block text-xs text-ink-muted">See overall progress, pillar health, milestones and asks.</span>
+        </Link>
+        <Link href="/inbox" className="group rounded-md p-2 -mx-2 hover:bg-surface-2">
+          <span className="block text-sm font-semibold text-navy-deep">Inbox</span>
+          <span className="mt-0.5 block text-xs text-ink-muted">Update your initiatives and submit monthly progress.</span>
+        </Link>
+      </section>
+
       <Editable
         label="review details"
         periodLocked
