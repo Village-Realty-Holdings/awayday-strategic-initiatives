@@ -178,7 +178,8 @@ export default async function MeasureMappingsPage({ searchParams }: { searchPara
                 Enter targets in full: $26M as 26000000, 11% as 11. Status compares the value with the budget target, and shows no rating without one.
               </p>
               <div className="flex items-center justify-between gap-3">
-                <Label className="flex items-center gap-2">
+                {/* relative: Radix's hidden form input is absolute, and would otherwise stretch the document. */}
+                <Label className="relative flex items-center gap-2">
                   <Checkbox name="active" defaultChecked={mapping?.active ?? true} />
                   Use this mapping on the review
                 </Label>
