@@ -93,7 +93,16 @@ describe("getReviewPlan", () => {
 
     areaFindMany.mockResolvedValue([area([{ ...obs("0.5%", "ACTUAL"), timeBasis: "POINT_IN_TIME", sourceCategory: "MANUAL" }])]);
     const manual = (await getReviewPlan("2026-09")).areas[0].measure;
-    expect(manual).toMatchObject({ value: "0.5%", rag: "RED", source: "manual" });
+    expect(manual).toMatchObject({ value: "0.5%", rag: "RED", source: "manual", statusOverride: null });
+    expect(manual?.origin?.calculated.value).toBe("+2.5%");
+
+    // A status set by hand shows, and the calculated one stays visible beside it.
+    areaFindMany.mockResolvedValue([{ ...area([]), pillarStatuses: [{ status: "BEHIND" }] }]);
+    expect((await getReviewPlan("2026-09")).areas[0].measure).toMatchObject({ rag: "RED", calculatedRag: "GREEN", statusOverride: "BEHIND" });
+
+    // Enablers can't have one, even if a row exists.
+    areaFindMany.mockResolvedValue([{ ...area([]), kind: "ENABLER", pillarStatuses: [{ status: "BEHIND" }] }]);
+    expect((await getReviewPlan("2026-09")).areas[0].measure).toMatchObject({ rag: "GREEN", statusOverride: null });
   });
 
   it("uses StrategicArea rows and numbers the value drivers", async () => {

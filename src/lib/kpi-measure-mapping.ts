@@ -170,11 +170,14 @@ function valueOrigin(input: MeasureOriginInput): MeasureOrigin["value"] {
     });
     return { summary: CALCULATION_TEXT[mapping.calculation] ?? "Calculated from imported metrics.", details };
   }
-  if (mapping) {
-    const missing = missingMeasureInputs(mapping, rows, period, names);
-    return { summary: "No value for this month", details: missing.length ? [`Waiting for ${missing.join("; ")}.`] : ["The inputs can't be calculated, for example a prior-year value of zero."] };
-  }
-  return { summary: "No value for this month", details: ["This measure isn't mapped to imported metrics."] };
+  return { summary: "No value for this month", details: [] };
+}
+
+function calculatedOrigin({ calculatedValue, mapping, rows, period, names }: MeasureOriginInput): MeasureOrigin["calculated"] {
+  if (calculatedValue) return { value: calculatedValue, note: null };
+  if (!mapping) return { value: null, note: "This measure isn't mapped to imported metrics." };
+  const missing = missingMeasureInputs(mapping, rows, period, names);
+  return { value: null, note: missing.length ? `Waiting for ${missing.join("; ")}.` : "The inputs can't be calculated, for example a prior-year value of zero." };
 }
 
 export type MeasureOriginInput = {
@@ -183,6 +186,8 @@ export type MeasureOriginInput = {
   observation: Pick<KpiRow, "observedAt" | "sourceDocumentName" | "sourceLocation" | "evidence"> | null;
   /** The number the status compares with the target. */
   number: number | null;
+  /** What the mapped inputs work out to, formatted, even when another value is showing. */
+  calculatedValue?: string | null;
   rag: Rag;
   target: string | null;
   mapping: (MeasureMapping & { active?: boolean }) | null;
@@ -195,19 +200,21 @@ export type MeasureOriginInput = {
 export function measureOrigin(input: MeasureOriginInput): MeasureOrigin {
   const { number, rag, target, mapping } = input;
   const value = valueOrigin(input);
+  const calculated = calculatedOrigin(input);
   const label = ragLabel(rag);
   if (!mapping) {
     const basis = target ? `Compared with the first number in the target text, "${target}". ${STATUS_RULE}` : "No target to compare with.";
-    return { value, status: { label, budget: null, difference: null, verdict: null, direction: null, basis } };
+    return { value, calculated, status: { label, budget: null, difference: null, verdict: null, direction: null, basis } };
   }
   const direction = mapping.higherIsBetter ? "Higher is better" : "Lower is better";
-  if (mapping.targetBudget === null) return { value, status: { label, budget: null, difference: null, verdict: null, direction, basis: "No budget target is set on the mapping, so there's no rating." } };
+  if (mapping.targetBudget === null) return { value, calculated, status: { label, budget: null, difference: null, verdict: null, direction, basis: "No budget target is set on the mapping, so there's no rating." } };
   const budget = formatInUnits(mapping.targetBudget, mapping.displayFormat);
-  if (number === null) return { value, status: { label, budget, difference: null, verdict: null, direction, basis: `No value to compare with the budget target. ${STATUS_RULE}` } };
+  if (number === null) return { value, calculated, status: { label, budget, difference: null, verdict: null, direction, basis: `No value to compare with the budget target. ${STATUS_RULE}` } };
   const difference = number - mapping.targetBudget;
   const verdict = difference === 0 ? "on target" : difference > 0 === mapping.higherIsBetter ? "better" : "worse";
   return {
     value,
+    calculated,
     status: { label, budget, difference: formatDifference(difference, mapping.targetBudget, mapping.displayFormat), verdict, direction, basis: STATUS_RULE },
   };
 }

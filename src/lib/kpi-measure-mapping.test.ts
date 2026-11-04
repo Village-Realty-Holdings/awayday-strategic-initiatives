@@ -127,12 +127,16 @@ describe("measureOrigin", () => {
   it("shows who entered a value and how far it is from budget", () => {
     const origin = measureOrigin(base);
     expect(origin.value).toEqual({ summary: "Entered by hand", details: ["Entered on the review by Erin", "Saved 4 Nov 2026"] });
-    expect(origin.status).toMatchObject({ label: "On track", budget: "$26.0M", difference: "+$8.5M (+32.7%)", verdict: "better", direction: "Higher is better" });
+    expect(origin.status).toMatchObject({ label: "Ahead", budget: "$26.0M", difference: "+$8.5M (+32.7%)", verdict: "better", direction: "Higher is better" });
   });
 
   it("calls a higher value worse when lower is better", () => {
     const origin = measureOrigin({ ...base, number: 12.4, rag: "RED", mapping: mapping({ calculation: "DIRECT", higherIsBetter: false, targetBudget: 11 }) });
     expect(origin.status).toMatchObject({ budget: "11%", difference: "+1.4 pts (+12.7%)", verdict: "worse", direction: "Lower is better" });
+  });
+
+  it("reports the calculated value even when another value is showing", () => {
+    expect(measureOrigin({ ...base, calculatedValue: "+2.5%" }).calculated).toEqual({ value: "+2.5%", note: null });
   });
 
   it("lists each input and its source cell for a calculated value", () => {
@@ -144,7 +148,9 @@ describe("measureOrigin", () => {
 
   it("says what is missing when there's no value, and gives no difference", () => {
     const origin = measureOrigin({ ...base, source: null, observation: null, number: null, rag: "GREY", mapping: mapping(), names: new Map([["trevpar", "TRevPAR"]]) });
-    expect(origin.value.details[0]).toContain("TRevPAR: YTD Actual");
+    expect(origin.value).toEqual({ summary: "No value for this month", details: [] });
+    expect(origin.calculated.value).toBeNull();
+    expect(origin.calculated.note).toContain("TRevPAR: YTD Actual");
     expect(origin.status.difference).toBeNull();
   });
 });

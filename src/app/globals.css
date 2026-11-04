@@ -193,8 +193,7 @@ body {
 .strategy-house__pillar--ahead {
   border-top-color: var(--color-ok);
 }
-.strategy-house__pillar--on_track,
-.strategy-house__pillar--watch {
+.strategy-house__pillar--on_track {
   border-top-color: var(--color-warn);
 }
 .strategy-house__pillar--behind {

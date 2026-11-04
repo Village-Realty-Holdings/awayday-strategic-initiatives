@@ -29,8 +29,7 @@ export function UpdatedBadge({ updated }: { updated: boolean }) {
 
 export const TONE_VARIANT: Record<PillarTone, "ok" | "default" | "warn" | "risk"> = {
   ahead: "ok",
-  on_track: "default",
-  watch: "warn",
+  on_track: "warn",
   behind: "risk",
 };
 

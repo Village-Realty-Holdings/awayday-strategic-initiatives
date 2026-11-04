@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button";
 import { DialogClose, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { editMeasureValue, editPlanHeader, editReviewDetails, editSiUpdate, editSoWhats, editStrategicArea, type EditResult } from "@/app/(app)/review-edit-actions";
 import type { InitiativeStatus } from "@/generated/prisma/client";
-import { fmtLong, type MeasureOrigin, type ReviewSi, type SoWhat } from "@/lib/review-model";
+import { fmtLong, type MeasureOrigin, type PillarStatus, type ReviewSi, type SoWhat } from "@/lib/review-model";
 import { useCloseEditor } from "./edit-mode";
 import { type EditorSoWhat, SoWhatEditor } from "./so-what-editor";
 import { SiStatusPicker } from "./status";
@@ -178,6 +179,10 @@ function MeasureOriginPanel({ origin }: { origin: MeasureOrigin }) {
   return (
     <dl className="grid gap-3 rounded-md border border-border bg-surface-2/50 p-3 text-note">
       <div>
+        <dt className="font-medium text-ink">Calculated value: {origin.calculated.value ?? "none yet"}</dt>
+        {origin.calculated.note && <dd className="mt-0.5 text-ink-muted">{origin.calculated.note}</dd>}
+      </div>
+      <div>
         <dt className="font-medium text-ink">Value source</dt>
         <dd className="mt-0.5 text-ink-muted">{value.summary}</dd>
         {value.details.map((detail) => (
@@ -187,7 +192,7 @@ function MeasureOriginPanel({ origin }: { origin: MeasureOrigin }) {
         ))}
       </div>
       <div>
-        <dt className="font-medium text-ink">Status: {status.label}</dt>
+        <dt className="font-medium text-ink">Calculated status: {status.label}</dt>
         {status.difference && (
           <dd className="mt-0.5 text-ink-muted">
             {status.difference} vs the {status.budget} budget target ({status.verdict}).
@@ -210,6 +215,8 @@ export function MeasureValueEditor({
   value,
   source,
   origin,
+  isPillar = false,
+  statusOverride = null,
 }: {
   areaId: string;
   periodId: string;
@@ -219,8 +226,11 @@ export function MeasureValueEditor({
   value: string | null;
   source: "manual" | "import" | "derived" | null;
   origin?: MeasureOrigin;
+  isPillar?: boolean;
+  statusOverride?: PillarStatus | null;
 }) {
-  if (source === "import") {
+  // Enablers have nothing to edit on a loaded value; pillars can still set a status.
+  if (source === "import" && !isPillar) {
     return (
       <>
         <DialogHeader className="border-b border-border px-6 pb-4 pt-5">
@@ -247,12 +257,28 @@ export function MeasureValueEditor({
   return (
     <EditForm title={`Edit ${name}`} description={`This measure's value for ${periodLabel}. The status compares it with the target${target ? `, ${target}` : ""}.`} action={editMeasureValue} hidden={{ areaId, periodId }}>
       {origin && <MeasureOriginPanel origin={origin} />}
-      <Field
-        label="Value"
-        hint={source === "derived" ? `Calculated as ${value} from imported figures. A value typed here replaces it for this month.` : "As it should read on the review, e.g. 9.8% or $12.4M. Leave blank to remove it."}
-      >
-        <Input name="value" defaultValue={source === "derived" ? "" : (value ?? "")} maxLength={60} autoFocus />
-      </Field>
+      {source === "import" ? (
+        <p className="text-note text-ink-muted">
+          {periodLabel}&apos;s value, {value}, was loaded from a data source. Change it at the source, not here.
+        </p>
+      ) : (
+        <Field
+          label="Value"
+          hint={source === "derived" ? `Calculated as ${value} from imported figures. A value typed here replaces it for this month.` : "As it should read on the review, e.g. 9.8% or $12.4M. Leave blank to remove it."}
+        >
+          <Input name="value" defaultValue={source === "derived" ? "" : (value ?? "")} maxLength={60} autoFocus />
+        </Field>
+      )}
+      {isPillar && (
+        <Field label="Status" hint={`For this pillar in ${periodLabel} only. Setting it by hand replaces the calculated status.`}>
+          <NativeSelect name="pillarStatus" defaultValue={statusOverride ?? "calculated"}>
+            <option value="calculated">Use calculated{origin ? ` (${origin.status.label})` : ""}</option>
+            <option value="AHEAD">Ahead</option>
+            <option value="ON_TRACK">On track</option>
+            <option value="BEHIND">Behind</option>
+          </NativeSelect>
+        </Field>
+      )}
     </EditForm>
   );
 }

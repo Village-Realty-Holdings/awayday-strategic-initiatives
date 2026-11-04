@@ -11,7 +11,12 @@ export const BELOW_LINE_STATUSES = ["NOT_STARTED", "ON_TRACK", "AT_RISK", "BLOCK
 export type BelowLineStatus = (typeof BELOW_LINE_STATUSES)[number];
 
 export type AreaKind = "VALUE_DRIVER" | "ENABLER";
-export type PillarTone = "ahead" | "on_track" | "watch" | "behind";
+export type PillarTone = "ahead" | "on_track" | "behind";
+
+/** A status set by hand on a pillar for one month. */
+export const PILLAR_STATUSES = ["AHEAD", "ON_TRACK", "BEHIND"] as const;
+export type PillarStatus = (typeof PILLAR_STATUSES)[number];
+export const PILLAR_STATUS_RAG: Record<PillarStatus, Rag> = { AHEAD: "GREEN", ON_TRACK: "AMBER", BEHIND: "RED" };
 export type Rag = "GREEN" | "AMBER" | "RED" | "GREY";
 
 export type ReviewMilestone = {
@@ -95,12 +100,18 @@ export type ReviewMeasure = {
   source: "manual" | "import" | "derived" | null;
   /** The metrics a derived value was worked out from. */
   inputs?: string[];
+  /** The status from the value and target, before any set by hand. `rag` is what shows. */
+  calculatedRag?: Rag;
+  /** The status set by hand for this pillar and month, if any. */
+  statusOverride?: PillarStatus | null;
   /** Where the value came from and how its status was reached, for the pillar editor. */
   origin?: MeasureOrigin;
 };
 
 export type MeasureOrigin = {
   value: { summary: string; details: string[] };
+  /** What the mapped inputs work out to, whatever value the measure shows. */
+  calculated: { value: string | null; note: string | null };
   status: {
     label: string;
     /** The budget target as a number, or null when the status has none to compare with. */
@@ -381,15 +392,15 @@ export function ragAgainst(actual: number, goal: number, lowerIsBetter: boolean)
 }
 
 export function ragTone(rag: Rag): PillarTone | null {
-  if (rag === "GREEN") return "on_track";
-  if (rag === "AMBER") return "watch";
+  if (rag === "GREEN") return "ahead";
+  if (rag === "AMBER") return "on_track";
   if (rag === "RED") return "behind";
   return null;
 }
 
 export function ragLabel(rag: Rag): string {
-  if (rag === "GREEN") return "On track";
-  if (rag === "AMBER") return "Watch";
+  if (rag === "GREEN") return "Ahead";
+  if (rag === "AMBER") return "On track";
   if (rag === "RED") return "Behind";
   return "No data";
 }

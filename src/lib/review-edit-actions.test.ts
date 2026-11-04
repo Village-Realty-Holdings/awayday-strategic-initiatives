@@ -22,6 +22,9 @@ const m = vi.hoisted(() => ({
   obsUpdate: vi.fn(),
   obsCreate: vi.fn(),
   revisionCreate: vi.fn(),
+  statusFindUnique: vi.fn(),
+  statusUpsert: vi.fn(),
+  statusDelete: vi.fn(),
   tx: null as unknown,
   // Batches resolve to their ops; interactive transactions run against the mock client.
   transaction: vi.fn(async (arg: unknown) => (typeof arg === "function" ? arg(m.tx) : arg)),
@@ -52,6 +55,7 @@ vi.mock("@/lib/prisma", () => {
     initiative: { findUnique: m.initiativeFindUnique },
     kpiObservation: { findFirst: m.obsFindFirst, update: m.obsUpdate, create: m.obsCreate },
     kpiObservationRevision: { create: m.revisionCreate },
+    reviewPillarStatus: { findUnique: m.statusFindUnique, upsert: m.statusUpsert, delete: m.statusDelete },
     $transaction: m.transaction,
   };
   m.tx = prisma;
@@ -175,6 +179,52 @@ describe("editSiUpdate", () => {
     m.periodFindUnique.mockResolvedValue({ status: "PUBLISHED" });
     expect((await editSiUpdate(form({ periodId: "2026-10", initiativeId: "i1" }))).ok).toBe(false);
     expect(m.recordSiUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe("editMeasureValue: pillar status", () => {
+  const pillar = { planVersionId: "fy27", kind: "VALUE_DRIVER", kpis: [{ id: "k1" }] };
+  const where = { periodId_strategicAreaId: { periodId: "2026-10", strategicAreaId: "a1" } };
+
+  beforeEach(() => {
+    m.areaFindUnique.mockResolvedValue(pillar);
+    m.statusFindUnique.mockResolvedValue(null);
+    m.statusUpsert.mockResolvedValue({ id: "s1" });
+  });
+
+  it("saves a status without touching the value when the form has no value field", async () => {
+    await expect(editMeasureValue(form({ periodId: "2026-10", areaId: "a1", pillarStatus: "AHEAD" }))).resolves.toEqual({ ok: true });
+    expect(m.statusUpsert.mock.calls[0][0]).toMatchObject({ where, create: { status: "AHEAD", updatedBy: "Erin Editor" }, update: { status: "AHEAD" } });
+    expect(m.periodUpsert).toHaveBeenCalled();
+    expect(m.audit).toHaveBeenCalledWith("u-ed", "CREATE", "ReviewPillarStatus", "s1", expect.anything());
+    expect(m.obsFindFirst).not.toHaveBeenCalled();
+  });
+
+  it("goes back to the calculated status by removing the row", async () => {
+    m.statusFindUnique.mockResolvedValue({ id: "s1", status: "BEHIND" });
+    await expect(editMeasureValue(form({ periodId: "2026-10", areaId: "a1", pillarStatus: "calculated" }))).resolves.toEqual({ ok: true });
+    expect(m.statusDelete).toHaveBeenCalledWith({ where });
+    expect(m.statusUpsert).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing when the status hasn't changed", async () => {
+    m.statusFindUnique.mockResolvedValue({ id: "s1", status: "AHEAD" });
+    await editMeasureValue(form({ periodId: "2026-10", areaId: "a1", pillarStatus: "AHEAD" }));
+    await editMeasureValue(form({ periodId: "2026-10", areaId: "a2", pillarStatus: "calculated" }));
+    m.statusFindUnique.mockResolvedValue(null);
+    await editMeasureValue(form({ periodId: "2026-10", areaId: "a3", pillarStatus: "calculated" }));
+    expect(m.statusUpsert).not.toHaveBeenCalled();
+    expect(m.audit).not.toHaveBeenCalledWith("u-ed", "CREATE", "ReviewPillarStatus", expect.anything(), expect.anything());
+  });
+
+  it("refuses enablers, unknown statuses and published months", async () => {
+    m.areaFindUnique.mockResolvedValue({ ...pillar, kind: "ENABLER" });
+    expect(await editMeasureValue(form({ periodId: "2026-10", areaId: "a1", pillarStatus: "AHEAD" }))).toEqual({ ok: false, error: "Only pillars can have a status set by hand." });
+    m.areaFindUnique.mockResolvedValue(pillar);
+    expect(await editMeasureValue(form({ periodId: "2026-10", areaId: "a1", pillarStatus: "WATCH" }))).toEqual({ ok: false, error: "Unknown status." });
+    m.periodFindUnique.mockResolvedValue({ status: "PUBLISHED" });
+    expect((await editMeasureValue(form({ periodId: "2026-10", areaId: "a1", pillarStatus: "AHEAD" }))).ok).toBe(false);
+    expect(m.statusUpsert).not.toHaveBeenCalled();
   });
 });
 

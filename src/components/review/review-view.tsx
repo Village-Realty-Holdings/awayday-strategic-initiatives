@@ -48,7 +48,7 @@ function EditableMeasure({ area, periodId, periodLabel, children }: { area: Revi
     <Editable
       label={`${area.name} measure`}
       periodLocked
-      editor={<MeasureValueEditor areaId={area.id} periodId={periodId} periodLabel={periodLabel} name={measure.name} target={measure.target} value={measure.value} source={measure.source} origin={measure.origin} />}
+      editor={<MeasureValueEditor areaId={area.id} periodId={periodId} periodLabel={periodLabel} name={measure.name} target={measure.target} value={measure.value} source={measure.source} origin={measure.origin} isPillar={area.kind === "VALUE_DRIVER"} statusOverride={measure.statusOverride ?? null} />}
     >
       {children}
     </Editable>
@@ -80,6 +80,7 @@ function AreaSection({ area, soWhats, periodId, periodLabel }: { area: ReviewAre
             {area.measure?.value && area.measure.source === "manual" && <p className="mt-1 text-xs text-ink-faint">Entered by hand.</p>}
             {area.measure?.value && area.measure.source === "derived" && <p className="mt-1 text-xs text-ink-faint">Calculated from {area.measure.inputs?.join(" and ")}.</p>}
             {!area.measure?.value && <p className="mt-1 text-xs text-ink-faint">No value loaded for this month.</p>}
+            {area.measure?.statusOverride && <p className="mt-1 text-xs text-ink-faint">Status set by hand. Calculated: {ragLabel(area.measure.calculatedRag ?? "GREY")}.</p>}
           </EditableMeasure>
           <EditableArea area={area}>
             <dl className="grid gap-3 text-xs sm:grid-cols-2">

@@ -475,6 +475,7 @@ model StrategicArea {
   initiatives Initiative[]
   belowLineProjects BelowLineProject[]
   kpis         KpiDefinition[]
+  pillarStatuses ReviewPillarStatus[]
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
@@ -538,8 +539,26 @@ model ReviewPeriod {
   publishedAt    DateTime?
   publishedBy    String?
   soWhats        ReviewSoWhat[]
+  pillarStatuses ReviewPillarStatus[]
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
+}
+
+// A pillar's status for one month, set by hand on the review. It replaces the
+// calculated status for that pillar and month; with no row, the calculated one shows.
+model ReviewPillarStatus {
+  id              String        @id @default(cuid())
+  periodId        String
+  period          ReviewPeriod  @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  strategicAreaId String
+  strategicArea   StrategicArea @relation(fields: [strategicAreaId], references: [id], onDelete: Cascade)
+  status          String        // AHEAD | ON_TRACK | BEHIND
+  updatedBy       String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([periodId, strategicAreaId])
+  @@index([strategicAreaId])
 }
 
 // A so-what on the review: scope is SUMMARY or a StrategicArea code of the

@@ -10,7 +10,7 @@ import { getReviewPlan } from "@/lib/review-data";
 import { MANUAL_MEASURE_IDENTITY, MANUAL_SOURCE_CATEGORY } from "@/lib/review-kpi";
 import { requireEditor } from "@/lib/session";
 import { parseStatus } from "@/lib/initiatives";
-import { isoDay, parseIsoDay, parseSoWhats, PERIOD_PATTERN, SUMMARY_SCOPE } from "@/lib/review-model";
+import { isoDay, parseIsoDay, parseSoWhats, PERIOD_PATTERN, PILLAR_STATUSES, SUMMARY_SCOPE, type PillarStatus } from "@/lib/review-model";
 import { recordSiUpdate } from "@/lib/si-updates";
 
 // ---------------------------------------------------------------------------
@@ -156,6 +156,10 @@ export async function editSiUpdate(fd: FormData): Promise<EditResult> {
  * approved KpiObservation on the area's KPI under MANUAL_MEASURE_IDENTITY, with
  * every value kept in KpiObservationRevision. Saving again revises it; a blank
  * value supersedes it. A value loaded from a document is never overwritten.
+ *
+ * Pillars can also have their status set by hand for the month; "calculated"
+ * goes back to the status worked out from the value and target. Each field is
+ * only saved when the form sends it.
  */
 export async function editMeasureValue(fd: FormData): Promise<EditResult> {
   const session = await requireEditor();
@@ -167,13 +171,46 @@ export async function editMeasureValue(fd: FormData): Promise<EditResult> {
   const area = await prisma.strategicArea.findUnique({
     where: { id: areaId },
     // Same order as getReviewPlan, so this is the KPI the review shows.
-    select: { planVersionId: true, kpis: { orderBy: { name: "asc" }, take: 1, select: { id: true } } },
+    select: { planVersionId: true, kind: true, kpis: { orderBy: { name: "asc" }, take: 1, select: { id: true } } },
   });
   if (!plan || !area || area.planVersionId !== plan.id) return { ok: false, error: "That pillar is not in the active plan." };
   const kpiId = area.kpis[0]?.id;
   if (!kpiId) return { ok: false, error: "This pillar has no KPI definition to hold a value." };
-  const value = str(fd, "value")?.slice(0, 60) ?? null;
+  const statusField = str(fd, "pillarStatus");
+  if (statusField && area.kind === "ENABLER") return { ok: false, error: "Only pillars can have a status set by hand." };
+  if (statusField && statusField !== "calculated" && !(PILLAR_STATUSES as readonly string[]).includes(statusField)) return { ok: false, error: "Unknown status." };
 
+  if (fd.has("value")) {
+    const saved = await saveMeasureValue(session, kpiId, id, str(fd, "value")?.slice(0, 60) ?? null);
+    if (!saved.ok) return saved;
+  }
+  if (statusField) await saveMeasureStatus(session, areaId, id, statusField === "calculated" ? null : (statusField as PillarStatus));
+  return { ok: true };
+}
+
+type EditSession = Awaited<ReturnType<typeof requireEditor>>;
+
+async function saveMeasureStatus(session: EditSession, areaId: string, id: string, status: PillarStatus | null) {
+  const where = { periodId_strategicAreaId: { periodId: id, strategicAreaId: areaId } };
+  const before = await prisma.reviewPillarStatus.findUnique({ where, select: { id: true, status: true } });
+  if ((before?.status ?? null) === status) return;
+  if (status) {
+    await prisma.reviewPeriod.upsert({ where: { id }, create: { id, preparedBy: session.user.name }, update: {} });
+    const row = await prisma.reviewPillarStatus.upsert({
+      where,
+      create: { periodId: id, strategicAreaId: areaId, status, updatedBy: session.user.name },
+      update: { status, updatedBy: session.user.name },
+      select: { id: true },
+    });
+    await audit(session.user.id, before ? "UPDATE" : "CREATE", "ReviewPillarStatus", row.id, { before: { status: before?.status ?? null }, after: { status, periodId: id, areaId } });
+  } else {
+    await prisma.reviewPillarStatus.delete({ where });
+    await audit(session.user.id, "DELETE", "ReviewPillarStatus", before!.id, { before: { status: before!.status, periodId: id, areaId } });
+  }
+  revalidateReview();
+}
+
+async function saveMeasureValue(session: EditSession, kpiId: string, id: string, value: string | null): Promise<EditResult> {
   const { sourceRef, ...identity } = MANUAL_MEASURE_IDENTITY;
   const result = await prisma.$transaction(async (tx): Promise<EditResult & { before?: string | null; observationId?: string }> => {
     const approved = await tx.kpiObservation.findFirst({

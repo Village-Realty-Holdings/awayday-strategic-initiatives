@@ -7,6 +7,8 @@ import { PUBLICATION_APPROVED } from "@/lib/kpi";
 import { deriveMeasure, formatDerivedMeasure, mappingInputKeys, mappingRag, measureOrigin, parseMeasureNumber } from "@/lib/kpi-measure-mapping";
 import { buildFinanceTable, currentKpiValue, MANUAL_SOURCE_CATEGORY, type FinanceTable, type KpiRow } from "@/lib/review-kpi";
 import {
+  PILLAR_STATUS_RAG,
+  PILLAR_STATUSES,
   homeReviewPeriod,
   isoDay,
   openUpdatePeriod,
@@ -19,6 +21,7 @@ import {
   synthesiseAreas,
   SUMMARY_SCOPE,
   updatePeriods,
+  type PillarStatus,
   type ReviewArea,
   type ReviewSiValue,
   type ReviewPeriodStatus,
@@ -184,7 +187,7 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
           where: { planVersionId: plan.id },
           orderBy: [{ kind: "desc" }, { order: "asc" }],
           // Ordered so "the area's measure" is the same KPI here and in Edit Mode's save.
-          include: { kpis: { orderBy: { name: "asc" }, select: { id: true, name: true, target: true, measureMapping: true, observations: { where: currentObservationWhere, select: OBSERVATION_SELECT } } } },
+          include: { pillarStatuses: { where: { periodId: period }, select: { status: true } }, kpis: { orderBy: { name: "asc" }, select: { id: true, name: true, target: true, measureMapping: true, observations: { where: currentObservationWhere, select: OBSERVATION_SELECT } } } },
         })
       : [],
     prisma.initiative.findMany({
@@ -233,20 +236,26 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
         const obs = kpi ? currentKpiValue(kpi.observations as KpiRow[], period) : null;
         const mapping = activeMapping(a);
         // A value on the measure itself, typed in or published, wins over a calculated one.
-        const derived = !obs && mapping ? deriveMeasure(mapping, inputRows, period) : null;
+        const calculated = mapping ? deriveMeasure(mapping, inputRows, period) : null;
+        const derived = obs ? null : calculated;
         const source = obs ? (obs.sourceCategory === MANUAL_SOURCE_CATEGORY ? "manual" : "import") : derived ? "derived" : null;
         const value = obs?.value ?? (derived && mapping ? formatDerivedMeasure(derived.value, mapping) : null);
         const target = kpi?.target ?? a.kpiTarget ?? null;
-        const rag = !mapping
+        const calculatedRag = !mapping
           ? ragFor(obs?.value ?? null, target, obs?.quality)
           : derived
             ? mappingRag(derived.value, mapping, derived.quality)
             : mappingRag(parseMeasureNumber(obs?.value), mapping, obs?.quality);
+        // Only pillars can have a status set by hand.
+        const stored = a.kind === "ENABLER" ? null : a.pillarStatuses?.[0]?.status;
+        const statusOverride = (PILLAR_STATUSES as readonly string[]).includes(stored ?? "") ? (stored as PillarStatus) : null;
+        const rag = statusOverride ? PILLAR_STATUS_RAG[statusOverride] : calculatedRag;
         const origin = measureOrigin({
           source,
           observation: obs,
           number: derived?.value ?? parseMeasureNumber(obs?.value),
-          rag,
+          calculatedValue: calculated && mapping ? formatDerivedMeasure(calculated.value, mapping) : null,
+          rag: calculatedRag,
           target,
           mapping,
           rows: inputRows,
@@ -269,6 +278,8 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
                 target,
                 rag,
                 source,
+                calculatedRag,
+                statusOverride,
                 origin,
                 ...(derived && mapping ? { inputs: mappingInputKeys(mapping).map((key) => inputNames.get(key) ?? key) } : {}),
               }
