@@ -187,7 +187,7 @@ export function MeasureValueEditor({
   name: string;
   target: string | null;
   value: string | null;
-  source: "manual" | "import" | null;
+  source: "manual" | "import" | "derived" | null;
 }) {
   if (source === "import") {
     return (
@@ -210,8 +210,11 @@ export function MeasureValueEditor({
   }
   return (
     <EditForm title={`Edit ${name}`} description={`This measure's value for ${periodLabel}. The status compares it with the target${target ? `, ${target}` : ""}.`} action={editMeasureValue} hidden={{ areaId, periodId }}>
-      <Field label="Value" hint="As it should read on the review, e.g. 9.8% or $12.4M. Leave blank to remove it.">
-        <Input name="value" defaultValue={value ?? ""} maxLength={60} autoFocus />
+      <Field
+        label="Value"
+        hint={source === "derived" ? `Calculated as ${value} from imported figures. A value typed here replaces it for this month.` : "As it should read on the review, e.g. 9.8% or $12.4M. Leave blank to remove it."}
+      >
+        <Input name="value" defaultValue={source === "derived" ? "" : (value ?? "")} maxLength={60} autoFocus />
       </Field>
     </EditForm>
   );

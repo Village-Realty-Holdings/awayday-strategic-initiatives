@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // rows; FY26-style plans (no areas) get areas synthesised from cimDriver. The
 // SI status and update text come only from the requested period's update.
 
-const { getActivePlan, planFindUnique, areaFindMany, initiativeFindMany, observationFindMany, updateFindMany, periodFindMany, periodFindUnique } = vi.hoisted(() => ({
+const { getActivePlan, planFindUnique, areaFindMany, definitionFindMany, initiativeFindMany, observationFindMany, updateFindMany, periodFindMany, periodFindUnique } = vi.hoisted(() => ({
+  definitionFindMany: vi.fn(),
   getActivePlan: vi.fn(),
   planFindUnique: vi.fn(),
   areaFindMany: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     planVersion: { findUnique: planFindUnique },
     strategicArea: { findMany: areaFindMany },
+    kpiDefinition: { findMany: definitionFindMany },
     initiative: { findMany: initiativeFindMany },
     kpiObservation: { findMany: observationFindMany },
     initiativeUpdate: { findMany: updateFindMany },
@@ -75,6 +77,23 @@ describe("getReviewPlan", () => {
     periodFindUnique.mockResolvedValueOnce({ status: "PUBLISHED" });
     plan = await getReviewPlan("2026-10");
     expect(plan.areas[0].sis[0].value).toEqual({ name: "Score", latest: "2", target: "3", rag: "RED" });
+  });
+
+  it("works a mapped measure out from imported metrics, and a value on the measure wins", async () => {
+    const mapping = { active: true, calculation: "YOY_PCT", inputMetricKey: "trevpar_finance", denominatorMetricKey: null, timeBasis: "YTD", displayFormat: "percent", higherIsBetter: true, targetBudget: 1, targetStretch: 5 };
+    const obs = (value: string, comparisonBasis: string) => ({ kpiId: "t", value, reportingPeriod: "2026-09", observedAt: new Date("2026-09-30"), refreshedAt: new Date("2026-10-23"), quality: "VALID", publicationState: "APPROVED", revision: 1, reportingScope: "AWAYDAY_CONSOLIDATED", comparisonBasis, timeBasis: "YTD", entityScope: "CONSOLIDATED", entityId: "AWAYDAY_CONSOLIDATED", authorityRank: 15, sourceCategory: "ares_lightbay_financials" });
+    const area = (observations: unknown[]) => ({ id: "a-t", code: "TREVPAR", name: "TRevPAR Expansion", kind: "VALUE_DRIVER", goal: null, owner: null, kpiName: "TRevPAR growth (YoY)", kpiTarget: "1% budget; 5% stretch", kpis: [{ id: "k-t", name: "TRevPAR growth (YoY)", target: "1% budget; 5% stretch", measureMapping: mapping, observations }] });
+    getActivePlan.mockResolvedValue({ id: "fy27", code: "FY27", title: "FY27" });
+    initiativeFindMany.mockResolvedValue([]);
+    definitionFindMany.mockResolvedValue([{ metricKey: "trevpar_finance", name: "TRevPAR (Finance definition)", observations: [obs("136.30", "ACTUAL"), obs("133.00", "PRIOR_YEAR")] }]);
+
+    areaFindMany.mockResolvedValue([area([])]);
+    const derived = (await getReviewPlan("2026-09")).areas[0].measure;
+    expect(derived).toMatchObject({ value: "+2.5%", rag: "GREEN", source: "derived", inputs: ["TRevPAR (Finance definition)"] });
+
+    areaFindMany.mockResolvedValue([area([{ ...obs("0.5%", "ACTUAL"), timeBasis: "POINT_IN_TIME", sourceCategory: "MANUAL" }])]);
+    const manual = (await getReviewPlan("2026-09")).areas[0].measure;
+    expect(manual).toMatchObject({ value: "0.5%", rag: "RED", source: "manual" });
   });
 
   it("uses StrategicArea rows and numbers the value drivers", async () => {

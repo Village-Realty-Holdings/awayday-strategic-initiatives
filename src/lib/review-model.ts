@@ -91,8 +91,10 @@ export type ReviewMeasure = {
   value: string | null;
   target: string | null;
   rag: Rag;
-  /** Where this month's value came from: typed in on the review, a loaded document, or none yet. */
-  source: "manual" | "import" | null;
+  /** Where this month's value came from: typed in on the review, a loaded document, worked out from imported metrics, or none yet. */
+  source: "manual" | "import" | "derived" | null;
+  /** The metrics a derived value was worked out from. */
+  inputs?: string[];
 };
 
 export type ReviewArea = {
@@ -353,7 +355,11 @@ export function ragFor(value: string | null, target: string | null, quality = "V
   const actual = numberFromText(value);
   const goal = numberFromText(target);
   if (actual === null || goal === null) return "GREY";
-  const lowerIsBetter = Boolean(target?.trim().startsWith("<"));
+  return ragAgainst(actual, goal, Boolean(target?.trim().startsWith("<")));
+}
+
+/** Green at or past the goal, amber within 10% of it, red beyond that. */
+export function ragAgainst(actual: number, goal: number, lowerIsBetter: boolean): Rag {
   const good = lowerIsBetter ? actual <= goal : actual >= goal;
   const distance = goal === 0 ? 0 : Math.abs(actual - goal) / Math.abs(goal);
   if (good) return "GREEN";

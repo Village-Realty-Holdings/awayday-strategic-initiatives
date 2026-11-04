@@ -4,6 +4,7 @@ import { formatMeasureValue, headlineMeasure, latestReading, measureRag } from "
 import { prisma } from "@/lib/prisma";
 import { getActivePlan } from "@/lib/active-plan";
 import { PUBLICATION_APPROVED } from "@/lib/kpi";
+import { deriveMeasure, formatDerivedMeasure, mappingInputKeys, mappingRag, parseMeasureNumber } from "@/lib/kpi-measure-mapping";
 import { buildFinanceTable, currentKpiValue, MANUAL_SOURCE_CATEGORY, type FinanceTable, type KpiRow } from "@/lib/review-kpi";
 import {
   homeReviewPeriod,
@@ -167,7 +168,7 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
           where: { planVersionId: plan.id },
           orderBy: [{ kind: "desc" }, { order: "asc" }],
           // Ordered so "the area's measure" is the same KPI here and in Edit Mode's save.
-          include: { kpis: { orderBy: { name: "asc" }, select: { id: true, name: true, target: true, observations: { where: currentObservationWhere, select: OBSERVATION_SELECT } } } },
+          include: { kpis: { orderBy: { name: "asc" }, select: { id: true, name: true, target: true, measureMapping: true, observations: { where: currentObservationWhere, select: OBSERVATION_SELECT } } } },
         })
       : [],
     prisma.initiative.findMany({
@@ -186,6 +187,24 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
   // A published month is final, so later values don't change it. A draft shows the latest.
   const valuesThrough = review?.status === "PUBLISHED" ? period : null;
 
+  // Metrics the area measures are mapped to, which aren't tied to an area themselves.
+  const activeMapping = (a: (typeof areaRows)[number]) => {
+    const mapping = a.kpis[0]?.measureMapping;
+    return mapping?.active ? mapping : null;
+  };
+  const inputKeys = [...new Set(areaRows.flatMap((a) => {
+    const mapping = activeMapping(a);
+    return mapping ? mappingInputKeys(mapping) : [];
+  }))];
+  const inputDefs = inputKeys.length
+    ? await prisma.kpiDefinition.findMany({
+        where: { metricKey: { in: inputKeys } },
+        select: { metricKey: true, name: true, observations: { where: { ...currentObservationWhere, reportingPeriod: period }, select: OBSERVATION_SELECT } },
+      })
+    : [];
+  const inputRows = new Map(inputDefs.map((d) => [d.metricKey, d.observations as KpiRow[]]));
+  const inputNames = new Map(inputDefs.map((d) => [d.metricKey, d.name]));
+
   const synthesised = areaRows.length === 0;
   type AreaSeed = Omit<ReviewArea, "sis" | "number"> & { match: (i: (typeof initiatives)[number]) => boolean };
   const seeds: AreaSeed[] = synthesised
@@ -203,8 +222,17 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
     : areaRows.map((a) => {
         const kpi = a.kpis[0];
         const obs = kpi ? currentKpiValue(kpi.observations as KpiRow[], period) : null;
-        const source = obs ? (obs.sourceCategory === MANUAL_SOURCE_CATEGORY ? "manual" : "import") : null;
+        const mapping = activeMapping(a);
+        // A value on the measure itself, typed in or published, wins over a calculated one.
+        const derived = !obs && mapping ? deriveMeasure(mapping, inputRows, period) : null;
+        const source = obs ? (obs.sourceCategory === MANUAL_SOURCE_CATEGORY ? "manual" : "import") : derived ? "derived" : null;
+        const value = obs?.value ?? (derived && mapping ? formatDerivedMeasure(derived.value, mapping) : null);
         const target = kpi?.target ?? a.kpiTarget ?? null;
+        const rag = !mapping
+          ? ragFor(obs?.value ?? null, target, obs?.quality)
+          : derived
+            ? mappingRag(derived.value, mapping, derived.quality)
+            : mappingRag(parseMeasureNumber(obs?.value), mapping, obs?.quality);
         return {
           id: a.id,
           code: a.code,
@@ -214,7 +242,15 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
           owner: a.owner,
           ownerLine: a.owner,
           measure: kpi || a.kpiName
-            ? { kpiId: kpi?.id ?? null, name: kpi?.name ?? a.kpiName ?? "", value: obs?.value ?? null, target, rag: ragFor(obs?.value ?? null, target, obs?.quality), source }
+            ? {
+                kpiId: kpi?.id ?? null,
+                name: kpi?.name ?? a.kpiName ?? "",
+                value,
+                target,
+                rag,
+                source,
+                ...(derived && mapping ? { inputs: mappingInputKeys(mapping).map((key) => inputNames.get(key) ?? key) } : {}),
+              }
             : null,
           match: (i) => i.strategicAreaId === a.id,
         };

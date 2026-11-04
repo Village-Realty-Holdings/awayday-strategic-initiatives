@@ -572,8 +572,30 @@ model KpiDefinition {
   observations    KpiObservation[]
   overrides       KpiOverride[]
   commentary      KpiCommentary[]
+  measureMapping  KpiMeasureMapping?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
+}
+
+// How a pillar measure gets its value from imported metrics, plus how to rate it.
+// Input keys are plain strings because a mapping can name a metric the import
+// hasn't published yet; it stays empty until that metric's rows arrive.
+model KpiMeasureMapping {
+  id                   String        @id @default(cuid())
+  measureKpiId         String        @unique
+  measureKpi           KpiDefinition @relation(fields: [measureKpiId], references: [id], onDelete: Cascade)
+  calculation          String        // DIRECT | YOY_PCT | RATIO_DELTA_PY
+  inputMetricKey       String?
+  denominatorMetricKey String?       // RATIO_DELTA_PY only
+  timeBasis            String        // MONTHLY | YTD | LTM | POINT_IN_TIME
+  displayFormat        String        // percent | currency | number
+  higherIsBetter       Boolean       @default(true)
+  // Base units: $26M is 26000000, 11% is 11. Status is rated against the budget target.
+  targetBudget         Float?
+  targetStretch        Float?
+  active               Boolean       @default(true)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 }
 
 model KpiObservation {

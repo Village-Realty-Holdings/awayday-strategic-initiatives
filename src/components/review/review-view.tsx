@@ -78,6 +78,7 @@ function AreaSection({ area, soWhats, periodId, periodLabel }: { area: ReviewAre
             <p className="text-note text-ink-faint">Measure · {area.measure?.name || "not set"}</p>
             <p className="tabular text-3xl font-semibold tracking-tight text-ink">{area.measure?.value ?? "—"}</p>
             {area.measure?.value && area.measure.source === "manual" && <p className="mt-1 text-xs text-ink-faint">Entered by hand.</p>}
+            {area.measure?.value && area.measure.source === "derived" && <p className="mt-1 text-xs text-ink-faint">Calculated from {area.measure.inputs?.join(" and ")}.</p>}
             {!area.measure?.value && <p className="mt-1 text-xs text-ink-faint">No value loaded for this month.</p>}
           </EditableMeasure>
           <EditableArea area={area}>
