@@ -31,10 +31,14 @@ function eyebrow(area: ReviewArea): string {
 }
 
 /** The area's own fields in Edit Mode; areas synthesised from a plan without StrategicArea rows have none to edit. */
-function EditableArea({ area, className, children }: { area: ReviewArea; className?: string; children: ReactNode }) {
+function EditableArea({ area, periodId, periodLabel, className, children }: { area: ReviewArea; periodId: string; periodLabel: string; className?: string; children: ReactNode }) {
   if (!area.id) return <div className={className}>{children}</div>;
   return (
-    <Editable label={area.name} className={className} editor={<AreaEditor areaId={area.id} eyebrow={eyebrow(area)} name={area.name} goal={area.goal} owner={area.owner} />}>
+    <Editable
+      label={area.name}
+      className={className}
+      editor={<AreaEditor areaId={area.id} eyebrow={eyebrow(area)} name={area.name} goal={area.goal} owner={area.owner} measure={area.measure} periodId={periodId} periodLabel={periodLabel} isPillar={area.kind === "VALUE_DRIVER"} />}
+    >
       {children}
     </Editable>
   );
@@ -59,7 +63,7 @@ function AreaSection({ area, soWhats, periodId, periodLabel }: { area: ReviewAre
   const isPillar = area.kind === "VALUE_DRIVER";
   return (
     <Card id={anchor(area)} className="scroll-mt-20 gap-0 p-5">
-      <EditableArea area={area}>
+      <EditableArea area={area} periodId={periodId} periodLabel={periodLabel}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">
@@ -82,7 +86,7 @@ function AreaSection({ area, soWhats, periodId, periodLabel }: { area: ReviewAre
             {!area.measure?.value && <p className="mt-1 text-xs text-ink-faint">No value loaded for this month.</p>}
             {area.measure?.statusOverride && <p className="mt-1 text-xs text-ink-faint">Status set by hand. Calculated: {ragLabel(area.measure.calculatedRag ?? "GREY")}.</p>}
           </EditableMeasure>
-          <EditableArea area={area}>
+          <EditableArea area={area} periodId={periodId} periodLabel={periodLabel}>
             <dl className="grid gap-3 text-xs sm:grid-cols-2">
               <div>
                 <dt className="font-semibold text-ink">Target</dt>
@@ -257,7 +261,7 @@ export function ReviewView({
           {pillars.map((a) => {
             const tone = a.measure ? ragTone(a.measure.rag) : null;
             return (
-              <EditableArea key={a.code} area={a} className="flex flex-col">
+              <EditableArea key={a.code} area={a} periodId={period.id} periodLabel={period.label} className="flex flex-col">
                 <a href={`#${anchor(a)}`} className={`strategy-house__pillar flex-1 ${tone ? `strategy-house__pillar--${tone}` : ""}`}>
                   <span className="text-xs font-semibold text-ink">{a.number} · {a.name}</span>
                   {a.ownerLine && <span className="mt-0.5 text-note text-ink-faint">{a.ownerLine}</span>}
@@ -276,7 +280,7 @@ export function ReviewView({
         {enablers.length > 0 && (
           <div className="strategy-house__enablers" style={{ "--house-cols": enablers.length } as CSSProperties}>
             {enablers.map((a) => (
-              <EditableArea key={a.code} area={a} className="flex flex-col">
+              <EditableArea key={a.code} area={a} periodId={period.id} periodLabel={period.label} className="flex flex-col">
                 <a href={`#${anchor(a)}`} className="flex-1">
                   <span className="font-semibold text-ink">{a.name}</span>
                   {a.ownerLine && <span className="block text-note text-ink-muted">{a.ownerLine}</span>}

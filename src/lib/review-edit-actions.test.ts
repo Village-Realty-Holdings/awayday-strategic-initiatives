@@ -159,6 +159,27 @@ describe("editStrategicArea", () => {
     expect((await editStrategicArea(form({ areaId: "a1", name: " " }))).ok).toBe(false);
     expect(m.areaUpdate).not.toHaveBeenCalled();
   });
+
+  it("saves the month's measure value and status with the pillar", async () => {
+    m.areaFindUnique.mockResolvedValue({ planVersionId: "fy27", name: "Grow", goal: null, owner: null, kind: "VALUE_DRIVER", kpis: [{ id: "k1" }] });
+    m.obsFindFirst.mockResolvedValue(null);
+    m.obsCreate.mockResolvedValue({ id: "o-new", revision: 1 });
+    m.statusFindUnique.mockResolvedValue(null);
+    m.statusUpsert.mockResolvedValue({ id: "s1" });
+    const result = await editStrategicArea(form({ areaId: "a1", periodId: "2026-10", name: "Grow", value: "3,009", pillarStatus: "AHEAD" }));
+    expect(result).toEqual({ ok: true });
+    expect(m.obsCreate.mock.calls[0][0].data).toMatchObject({ kpiId: "k1", reportingPeriod: "2026-10", value: "3,009" });
+    expect(m.statusUpsert.mock.calls[0][0]).toMatchObject({ create: { status: "AHEAD" } });
+    expect(m.areaUpdate).toHaveBeenCalled();
+  });
+
+  it("saves nothing when the month is published and the form sends a value", async () => {
+    m.areaFindUnique.mockResolvedValue({ planVersionId: "fy27", name: "Grow", goal: null, owner: null, kind: "VALUE_DRIVER", kpis: [{ id: "k1" }] });
+    m.periodFindUnique.mockResolvedValue({ status: "PUBLISHED" });
+    expect((await editStrategicArea(form({ areaId: "a1", periodId: "2026-10", name: "Grow", value: "1" }))).ok).toBe(false);
+    expect(m.areaUpdate).not.toHaveBeenCalled();
+    expect(m.obsCreate).not.toHaveBeenCalled();
+  });
 });
 
 describe("editSiUpdate", () => {

@@ -108,7 +108,10 @@ export async function editSoWhats(fd: FormData): Promise<EditResult> {
   return { ok: true };
 }
 
-/** A pillar or enabler of the active plan: name, objective and owner. */
+/**
+ * A pillar or enabler of the active plan: name, objective and owner, plus the
+ * month's measure value and status when the form sends them (see editMeasureValue).
+ */
 export async function editStrategicArea(fd: FormData): Promise<EditResult> {
   const session = await requireEditor();
   const plan = await getActivePlan();
@@ -118,6 +121,11 @@ export async function editStrategicArea(fd: FormData): Promise<EditResult> {
   const name = str(fd, "name")?.slice(0, 120);
   if (!name) return { ok: false, error: "Give the pillar a name." };
   const after = { name, goal: str(fd, "goal")?.slice(0, 1000) ?? null, owner: str(fd, "owner")?.slice(0, 200) ?? null };
+  // The pillar form also carries the month's measure value and status when it shows them.
+  if (fd.has("value") || fd.has("pillarStatus")) {
+    const measure = await applyMeasureEdit(session, fd);
+    if (!measure.ok) return measure;
+  }
   await prisma.strategicArea.update({ where: { id }, data: after });
   await audit(session.user.id, "UPDATE", "StrategicArea", id, { before: { name: before.name, goal: before.goal, owner: before.owner }, after });
   revalidateReview();
@@ -162,7 +170,12 @@ export async function editSiUpdate(fd: FormData): Promise<EditResult> {
  * only saved when the form sends it.
  */
 export async function editMeasureValue(fd: FormData): Promise<EditResult> {
-  const session = await requireEditor();
+  return applyMeasureEdit(await requireEditor(), fd);
+}
+
+type EditSession = Awaited<ReturnType<typeof requireEditor>>;
+
+async function applyMeasureEdit(session: EditSession, fd: FormData): Promise<EditResult> {
   const id = periodId(fd);
   const areaId = str(fd, "areaId") ?? "";
   if (!id) return { ok: false, error: "Unknown review month." };
@@ -187,8 +200,6 @@ export async function editMeasureValue(fd: FormData): Promise<EditResult> {
   if (statusField) await saveMeasureStatus(session, areaId, id, statusField === "calculated" ? null : (statusField as PillarStatus));
   return { ok: true };
 }
-
-type EditSession = Awaited<ReturnType<typeof requireEditor>>;
 
 async function saveMeasureStatus(session: EditSession, areaId: string, id: string, status: PillarStatus | null) {
   const where = { periodId_strategicAreaId: { periodId: id, strategicAreaId: areaId } };

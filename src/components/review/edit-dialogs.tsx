@@ -11,8 +11,8 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { editMeasureValue, editPlanHeader, editReviewDetails, editSiUpdate, editSoWhats, editStrategicArea, type EditResult } from "@/app/(app)/review-edit-actions";
 import type { InitiativeStatus } from "@/generated/prisma/client";
-import { fmtLong, type MeasureOrigin, type PillarStatus, type ReviewSi, type SoWhat } from "@/lib/review-model";
-import { useCloseEditor } from "./edit-mode";
+import { fmtLong, type MeasureOrigin, type PillarStatus, type ReviewMeasure, type ReviewSi, type SoWhat } from "@/lib/review-model";
+import { useCloseEditor, useEditMode } from "./edit-mode";
 import { type EditorSoWhat, SoWhatEditor } from "./so-what-editor";
 import { SiStatusPicker } from "./status";
 
@@ -157,9 +157,41 @@ export function SoWhatsEditor({ periodId, scope, scopeLabel, items }: { periodId
   );
 }
 
-export function AreaEditor({ areaId, eyebrow, name, goal, owner }: { areaId: string; eyebrow: string; name: string; goal: string | null; owner: string | null }) {
+export function AreaEditor({
+  areaId,
+  eyebrow,
+  name,
+  goal,
+  owner,
+  measure,
+  periodId,
+  periodLabel,
+  isPillar = false,
+}: {
+  areaId: string;
+  eyebrow: string;
+  name: string;
+  goal: string | null;
+  owner: string | null;
+  /** The month's measure, shown and edited with the pillar when it has a KPI definition. */
+  measure?: ReviewMeasure | null;
+  periodId?: string;
+  periodLabel?: string;
+  isPillar?: boolean;
+}) {
+  const { locked } = useEditMode();
+  const showMeasure = Boolean(measure?.kpiId && periodId && periodLabel);
   return (
-    <EditForm title={`Edit ${name}`} description={`${eyebrow} of the active plan. The measure and target come from the KPI definitions.`} action={editStrategicArea} hidden={{ areaId }}>
+    <EditForm
+      title={`Edit ${name}`}
+      description={
+        showMeasure
+          ? `${eyebrow} of the active plan. The measure and target come from the KPI definitions; the value and status are for ${periodLabel}.`
+          : `${eyebrow} of the active plan. The measure and target come from the KPI definitions.`
+      }
+      action={editStrategicArea}
+      hidden={showMeasure ? { areaId, periodId: periodId! } : { areaId }}
+    >
       <Field label="Name">
         <Input name="name" defaultValue={name} maxLength={120} required />
       </Field>
@@ -169,15 +201,30 @@ export function AreaEditor({ areaId, eyebrow, name, goal, owner }: { areaId: str
       <Field label="Objective">
         <Textarea name="goal" rows={3} defaultValue={goal ?? ""} maxLength={1000} />
       </Field>
+      {showMeasure && measure && (
+        <section className="flex flex-col gap-4 border-t border-border pt-4">
+          <div>
+            <p className="text-sm font-medium text-ink">Measure · {measure.name}</p>
+            <p className="mt-0.5 text-note text-ink-muted">Target {measure.target || "not set"}</p>
+          </div>
+          {locked ? (
+            <p className="text-note text-ink-muted">
+              {periodLabel} is published, so its value ({measure.value ?? "none"}) and status are locked.
+            </p>
+          ) : (
+            <MeasureFields periodLabel={periodLabel!} measure={measure} isPillar={isPillar} />
+          )}
+        </section>
+      )}
     </EditForm>
   );
 }
 
 /** Where the measure's value came from, and how far it is from the target that sets its status. */
-function MeasureOriginPanel({ origin }: { origin: MeasureOrigin }) {
+function MeasureOriginDetails({ origin }: { origin: MeasureOrigin }) {
   const { value, status } = origin;
   return (
-    <dl className="grid gap-3 rounded-md border border-border bg-surface-2/50 p-3 text-note">
+    <dl className="grid gap-3 text-note">
       <div>
         <dt className="font-medium text-ink">Calculated value: {origin.calculated.value ?? "none yet"}</dt>
         {origin.calculated.note && <dd className="mt-0.5 text-ink-muted">{origin.calculated.note}</dd>}
@@ -203,6 +250,37 @@ function MeasureOriginPanel({ origin }: { origin: MeasureOrigin }) {
         <dd className="mt-0.5 text-ink-muted">{status.basis}</dd>
       </div>
     </dl>
+  );
+}
+
+/** The month's value and, for pillars, its status; shared by the pillar and measure editors. */
+function MeasureFields({ periodLabel, measure, isPillar }: { periodLabel: string; measure: Pick<ReviewMeasure, "value" | "source" | "origin" | "statusOverride">; isPillar: boolean }) {
+  const { value, source, origin, statusOverride } = measure;
+  return (
+    <>
+      {source === "import" ? (
+        <p className="text-note text-ink-muted">
+          {periodLabel}&apos;s value, {value}, was loaded from a data source. Change it at the source, not here.
+        </p>
+      ) : (
+        <Field
+          label="Value"
+          hint={source === "derived" ? `Calculated as ${value} from imported figures. A value typed here replaces it for this month.` : "As it should read on the review, e.g. 9.8% or $12.4M. Leave blank to remove it."}
+        >
+          <Input name="value" defaultValue={source === "derived" ? "" : (value ?? "")} maxLength={60} />
+        </Field>
+      )}
+      {isPillar && (
+        <Field label="Status" hint={`For this pillar in ${periodLabel} only. Setting it by hand replaces the calculated status.`}>
+          <NativeSelect name="pillarStatus" defaultValue={statusOverride ?? "calculated"}>
+            <option value="calculated">Use calculated{origin ? ` (${origin.status.label})` : ""}</option>
+            <option value="AHEAD">Ahead</option>
+            <option value="ON_TRACK">On track</option>
+            <option value="BEHIND">Behind</option>
+          </NativeSelect>
+        </Field>
+      )}
+    </>
   );
 }
 
@@ -241,7 +319,7 @@ export function MeasureValueEditor({
         </DialogHeader>
         {origin && (
           <div className="px-6 py-4">
-            <MeasureOriginPanel origin={origin} />
+            <MeasureOriginDetails origin={origin} />
           </div>
         )}
         <DialogFooter className="border-t border-border bg-surface-2/50 px-6 py-3">
@@ -256,29 +334,7 @@ export function MeasureValueEditor({
   }
   return (
     <EditForm title={`Edit ${name}`} description={`This measure's value for ${periodLabel}. The status compares it with the target${target ? `, ${target}` : ""}.`} action={editMeasureValue} hidden={{ areaId, periodId }}>
-      {origin && <MeasureOriginPanel origin={origin} />}
-      {source === "import" ? (
-        <p className="text-note text-ink-muted">
-          {periodLabel}&apos;s value, {value}, was loaded from a data source. Change it at the source, not here.
-        </p>
-      ) : (
-        <Field
-          label="Value"
-          hint={source === "derived" ? `Calculated as ${value} from imported figures. A value typed here replaces it for this month.` : "As it should read on the review, e.g. 9.8% or $12.4M. Leave blank to remove it."}
-        >
-          <Input name="value" defaultValue={source === "derived" ? "" : (value ?? "")} maxLength={60} autoFocus />
-        </Field>
-      )}
-      {isPillar && (
-        <Field label="Status" hint={`For this pillar in ${periodLabel} only. Setting it by hand replaces the calculated status.`}>
-          <NativeSelect name="pillarStatus" defaultValue={statusOverride ?? "calculated"}>
-            <option value="calculated">Use calculated{origin ? ` (${origin.status.label})` : ""}</option>
-            <option value="AHEAD">Ahead</option>
-            <option value="ON_TRACK">On track</option>
-            <option value="BEHIND">Behind</option>
-          </NativeSelect>
-        </Field>
-      )}
+      <MeasureFields periodLabel={periodLabel} measure={{ value, source, origin, statusOverride }} isPillar={isPillar} />
     </EditForm>
   );
 }
