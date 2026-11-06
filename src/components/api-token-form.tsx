@@ -47,12 +47,24 @@ export function ApiTokenForm({ mcpUrl }: { mcpUrl: string }) {
 function NewToken({ token, name, mcpUrl }: { token: string; name: string; mcpUrl: string }) {
   const command = `claude mcp add --transport http awayday ${mcpUrl} --header "Authorization: Bearer ${token}"`;
   return (
-    <div role="status" className="flex flex-col gap-3 rounded-lg border border-ok/40 bg-ok-soft p-4">
+    <div role="status" className="flex flex-col gap-4 rounded-lg border border-ok/40 bg-ok-soft p-4">
       <p className="text-sm text-ink">
-        <span className="font-medium">{name}</span> is ready. Copy it now: it won&apos;t be shown again.
+        <span className="font-medium">{name}</span> is ready. Copy what you need now: the token won&apos;t be shown again.
       </p>
-      <CopyField label="Token" value={token} />
-      <CopyField label="Claude Code command" value={command} />
+      <div className="flex flex-col gap-2">
+        <p className="text-xs font-medium text-ink">Claude Desktop, claude.ai or the Claude mobile app</p>
+        <p className="text-xs text-ink-muted">
+          In Claude, open Customize → Connectors → Add → Add custom connector. Name it Awayday and paste the URL. On the
+          authentication step choose No sign in, then add a request header with this name and value.
+        </p>
+        <CopyField label="Server URL" value={mcpUrl} />
+        <CopyField label="Header name" value="Authorization" />
+        <CopyField label="Header value" value={`Bearer ${token}`} />
+      </div>
+      <div className="flex flex-col gap-2">
+        <p className="text-xs font-medium text-ink">Claude Code</p>
+        <CopyField label="Command" value={command} />
+      </div>
     </div>
   );
 }

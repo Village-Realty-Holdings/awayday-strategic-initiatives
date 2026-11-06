@@ -141,11 +141,24 @@ Publishing and unpublishing a month stay in the app.
 
 In the app, open **Settings → API tokens**, name the token (e.g. "Claude on my laptop"), choose an access level and an expiry, and click **Create token**.
 - **Access levels:** *Read and update* lets Claude make the changes you're allowed to make. *Read only* limits it to the first two tools.
-- **Copy it now:** the token (`asi_…`) is shown once. The page also shows a ready-made Claude Code command with the token filled in.
+- **Copy it now:** the token (`asi_…`) is shown once. The page also shows the connector settings and a Claude Code command with the token filled in.
 - **What a token can do:** exactly what you can do in the app. If your role changes or your account is suspended, the token follows straight away.
 - **If a token leaks:** revoke it on the same page, and it stops working on its next request.
 
-### 2a. Claude Code
+### 2a. Claude Desktop, claude.ai and the mobile apps (custom connector)
+
+Nothing to install. These apps connect from Anthropic's cloud, so the server only needs to be reachable on the public internet, which it is.
+
+1. In Claude, open **Customize → Connectors**, click **+ Add**, then **Add custom connector**.
+2. Name it `Awayday` and paste the server URL: `https://awayday-strategic-initiatives.tech-dd8.workers.dev/api/mcp`. Click **Continue**.
+3. Under **Authentication**, choose **No sign in**.
+4. Under **Request headers**, add a header named `Authorization` with the value `Bearer asi_…` (your token). Click **Add**.
+
+The connector, and its tools, are then available in every Claude app signed in to your account. Turn it on per chat from the tools menu.
+
+**Team and Enterprise plans:** only owners can add custom connectors there, and a request header is shared by everyone in the organization who uses the connector. Don't put a personal token in an organization connector. Instead, each person uses their own token in Claude Code, or on a personal plan.
+
+### 2b. Claude Code
 
 ```bash
 claude mcp add --transport http awayday \
@@ -155,34 +168,6 @@ claude mcp add --transport http awayday \
 
 Add `--scope user` to make it available in every project. Run `/mcp` in Claude Code to check that `awayday` is connected.
 
-### 2b. Claude Desktop
-
-Claude Desktop runs local MCP servers, so it connects through [`mcp-remote`](https://www.npmjs.com/package/mcp-remote), which needs Node 20 or later. Open **Settings → Developer → Edit Config** and add the server to `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "awayday": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote@0.15.2",
-        "https://awayday-strategic-initiatives.tech-dd8.workers.dev/api/mcp",
-        "--header",
-        "Authorization:${AWAYDAY_AUTH}"
-      ],
-      "env": { "AWAYDAY_AUTH": "Bearer asi_…" }
-    }
-  }
-}
-```
-
-The header value is passed through `env` because some clients split arguments on spaces. Restart Claude Desktop afterwards; the Awayday tools appear under the tools (🔨) menu.
-
-### Not supported: claude.ai custom connectors
-
-Custom connectors on claude.ai (and Claude Desktop's **Settings → Connectors**) sign in with OAuth and can't send a static token. Use Claude Code or the Desktop config above instead.
-
 ### Try it
 
 - "What's the status of each pillar in the October 2026 review?"
@@ -191,7 +176,8 @@ Custom connectors on claude.ai (and Claude Desktop's **Settings → Connectors**
 
 ### Protocol notes
 
-- **Transport:** stateless Streamable HTTP. Each POST carries one JSON-RPC message and gets a JSON reply. `GET` returns 405, because there is no server-to-client stream.
+- **Protocol versions:** MCP `2026-07-28`, which is stateless: `server/discover`, the version in each request's `_meta`, and the `MCP-Protocol-Version`, `Mcp-Method` and `Mcp-Name` headers checked against the body. Older clients that open with `initialize` (2025-03-26 to 2025-11-25) still work.
+- **Transport:** Streamable HTTP. Each POST carries one JSON-RPC message and gets a JSON reply. `GET` returns 405, because there is no server-to-client stream.
 - **Auth and errors:** a missing or bad token gets a 401. Each token is limited to 120 requests a minute. Requests with an `Origin` header from another site are refused.
 - **Why not the official SDK:** `@modelcontextprotocol/sdk` isn't used, because its Ajv validator compiles code at runtime, which Workers forbid. See `src/lib/mcp.ts`.
 

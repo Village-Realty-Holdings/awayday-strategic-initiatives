@@ -9,24 +9,41 @@ import { canEdit } from "@/lib/roles";
 import type { TokenActor } from "@/lib/api-tokens";
 
 // ---------------------------------------------------------------------------
-// MCP server for the monthly review, over stateless Streamable HTTP (one
-// JSON-RPC message per POST, a JSON reply, no server-side session). Written by
-// hand rather than with @modelcontextprotocol/sdk: the SDK brings Express, Hono
-// and Ajv, and Ajv compiles validators with `new Function`, which Workers
-// forbid. The protocol surface needed here (initialize, ping, tools/list,
-// tools/call) is small.
+// MCP server for the monthly review, over Streamable HTTP (one JSON-RPC
+// message per POST, a JSON reply). Written by hand rather than with the MCP
+// SDK: the SDK's Ajv validator compiles code with `new Function`, which
+// Workers forbid, and a tools-only server needs little of it.
+//
+// Two protocol eras are served:
+// - 2026-07-28 (current): stateless. Each request carries its protocol version
+//   and client capabilities in `params._meta`, plus the MCP-Protocol-Version,
+//   Mcp-Method and Mcp-Name headers, which must agree with the body. Clients
+//   may call `server/discover` first.
+// - 2025-03-26 to 2025-11-25 (legacy): an `initialize` handshake, then plain
+//   requests. Kept so older clients still connect; no session is kept.
 //
 // Every write goes through lib/review-edits.ts, the same code Edit Mode uses,
 // so permissions, the published-month lock and the audit log are identical.
 // ---------------------------------------------------------------------------
 
-export const SUPPORTED_PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26"] as const;
-const SERVER_INFO = { name: "awayday-strategic-initiatives", title: "Awayday Strategic Initiatives", version: "1.0.0" };
+export const MODERN_PROTOCOL_VERSIONS = ["2026-07-28"] as const;
+export const LEGACY_PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26"] as const;
+const ALL_VERSIONS: readonly string[] = [...MODERN_PROTOCOL_VERSIONS, ...LEGACY_PROTOCOL_VERSIONS];
+const SERVER_INFO = { name: "awayday-strategic-initiatives", title: "Awayday Strategic Initiatives", version: "1.1.0" };
 
 const INSTRUCTIONS = `Read and update Awayday's monthly Strategy Review.
 Periods are months written YYYY-MM. Call list_review_periods, then get_review to see a month before changing it.
 Pillars are addressed by their code (e.g. "GROW") or id from get_review; initiatives (SIs) by code or id.
 A published month is read-only. Edits are saved as the token's owner and appear in the app straight away.`;
+
+/** How long clients may cache tools/list and server/discover. Lists vary by token, so they are private. */
+const LIST_TTL_MS = 5 * 60 * 1000;
+
+const META = {
+  protocolVersion: "io.modelcontextprotocol/protocolVersion",
+  clientCapabilities: "io.modelcontextprotocol/clientCapabilities",
+  serverInfo: "io.modelcontextprotocol/serverInfo",
+} as const;
 
 // ---------------------------------------------------------------------------
 // JSON-RPC
@@ -43,60 +60,152 @@ const INVALID_REQUEST = -32600;
 const METHOD_NOT_FOUND = -32601;
 const INVALID_PARAMS = -32602;
 const INTERNAL_ERROR = -32603;
+const HEADER_MISMATCH = -32020;
+const UNSUPPORTED_PROTOCOL_VERSION = -32022;
 
-export function rpcError(id: JsonRpcId | null, code: number, message: string): JsonRpcResponse {
-  return { jsonrpc: "2.0", id, error: { code, message } };
+export function rpcError(id: JsonRpcId | null, code: number, message: string, data?: unknown): JsonRpcResponse {
+  return { jsonrpc: "2.0", id, error: data === undefined ? { code, message } : { code, message, data } };
 }
+
+/** What the route sends back: a status, and a JSON body unless there is none (202). */
+export type McpHttpReply = { status: number; body?: JsonRpcResponse };
+
+type Headers = { get(name: string): string | null };
 
 function isRequest(msg: unknown): msg is JsonRpcRequest {
   return Boolean(msg && typeof msg === "object" && (msg as JsonRpcRequest).jsonrpc === "2.0" && typeof (msg as JsonRpcRequest).method === "string");
 }
 
+/** Tool results, discovery and lists: the method's result, or a JSON-RPC error. */
+type MethodResult = { ok: true; result: Record<string, unknown> } | { ok: false; error: JsonRpcResponse; status?: number };
+
 /**
- * Handle one JSON-RPC message, or a batch of them. Returns null when nothing
- * needs a reply (notifications, and client responses), which the route answers
- * with 202 Accepted.
+ * Handle one POSTed JSON-RPC message. The era comes from the message: a
+ * request with `_meta` protocol version (or a modern MCP-Protocol-Version
+ * header) is 2026-07-28; anything else, `initialize` included, is legacy.
+ * Notifications and client responses need no reply (202).
  */
-export async function handleMcpMessage(body: unknown, actor: TokenActor): Promise<JsonRpcResponse | JsonRpcResponse[] | null> {
-  if (Array.isArray(body)) {
-    if (body.length === 0) return rpcError(null, INVALID_REQUEST, "Empty batch.");
-    const replies = (await Promise.all(body.map((m) => handleOne(m, actor)))).filter((r): r is JsonRpcResponse => r !== null);
-    return replies.length ? replies : null;
+export async function handleMcpMessage(body: unknown, headers: Headers, actor: TokenActor): Promise<McpHttpReply> {
+  if (Array.isArray(body)) return { status: 400, body: rpcError(null, INVALID_REQUEST, "Batches are not supported. Send one JSON-RPC message per request.") };
+  if (!isRequest(body)) {
+    // A response from the client (we never send requests) needs no reply.
+    if (body && typeof body === "object" && ("result" in body || "error" in body)) return { status: 202 };
+    return { status: 400, body: rpcError(null, INVALID_REQUEST, "Not a JSON-RPC 2.0 request.") };
   }
-  return handleOne(body, actor);
+  if (body.id === undefined || body.id === null) return { status: 202 };
+  const id = body.id;
+  try {
+    const reply = isModern(body, headers) ? await handleModern(body, id, headers, actor) : await handleLegacy(body, id, actor);
+    return reply;
+  } catch (e) {
+    console.error("mcp request failed", { method: body.method }, e);
+    return { status: 500, body: rpcError(id, INTERNAL_ERROR, "Internal error.") };
+  }
 }
 
-async function handleOne(msg: unknown, actor: TokenActor): Promise<JsonRpcResponse | null> {
-  if (!isRequest(msg)) {
-    // A response from the client (we never send requests) needs no reply.
-    if (msg && typeof msg === "object" && ("result" in msg || "error" in msg)) return null;
-    return rpcError(null, INVALID_REQUEST, "Not a JSON-RPC 2.0 request.");
+function metaOf(msg: JsonRpcRequest): Record<string, unknown> | null {
+  const meta = msg.params?._meta;
+  return meta && typeof meta === "object" && !Array.isArray(meta) ? (meta as Record<string, unknown>) : null;
+}
+
+function isModern(msg: JsonRpcRequest, headers: Headers): boolean {
+  if (msg.method === "initialize") return false;
+  if (metaOf(msg)?.[META.protocolVersion] !== undefined) return true;
+  const header = headers.get("mcp-protocol-version");
+  return header !== null && !(LEGACY_PROTOCOL_VERSIONS as readonly string[]).includes(header);
+}
+
+// --- 2026-07-28 -------------------------------------------------------------
+
+async function handleModern(msg: JsonRpcRequest, id: JsonRpcId, headers: Headers, actor: TokenActor): Promise<McpHttpReply> {
+  const meta = metaOf(msg);
+  const version = meta?.[META.protocolVersion];
+  const capabilities = meta?.[META.clientCapabilities];
+  if (typeof version !== "string" || !capabilities || typeof capabilities !== "object") {
+    return { status: 400, body: rpcError(id, INVALID_PARAMS, `Every request needs params._meta["${META.protocolVersion}"] and ["${META.clientCapabilities}"].`) };
   }
-  const isNotification = msg.id === undefined || msg.id === null;
-  if (isNotification) return null;
-  const id = msg.id as JsonRpcId;
+  if (!(MODERN_PROTOCOL_VERSIONS as readonly string[]).includes(version)) {
+    return { status: 400, body: rpcError(id, UNSUPPORTED_PROTOCOL_VERSION, "Unsupported protocol version", { supported: ALL_VERSIONS, requested: version }) };
+  }
+  const mismatch = headerMismatch(msg, version, headers);
+  if (mismatch) return { status: 400, body: rpcError(id, HEADER_MISMATCH, mismatch) };
+
+  let out: MethodResult;
+  switch (msg.method) {
+    case "server/discover":
+      out = {
+        ok: true,
+        result: { supportedVersions: ALL_VERSIONS, capabilities: { tools: {} }, instructions: INSTRUCTIONS, ttlMs: LIST_TTL_MS, cacheScope: "private" },
+      };
+      break;
+    case "tools/list":
+      out = listTools(id, msg.params, actor);
+      if (out.ok) out.result = { ...out.result, ttlMs: LIST_TTL_MS, cacheScope: "private" };
+      break;
+    case "tools/call":
+      out = await callTool(id, msg.params, actor);
+      break;
+    default:
+      return { status: 404, body: rpcError(id, METHOD_NOT_FOUND, `Method not found: ${msg.method}`) };
+  }
+  if (!out.ok) return { status: out.status ?? 200, body: out.error };
+  return { status: 200, body: { jsonrpc: "2.0", id, result: { resultType: "complete", ...out.result, _meta: { [META.serverInfo]: SERVER_INFO } } } };
+}
+
+/** The standard headers must be present and agree with the body. Returns the problem, or null. */
+function headerMismatch(msg: JsonRpcRequest, version: string, headers: Headers): string | null {
+  const check = (name: string, expected: string, decode = false) => {
+    const raw = headers.get(name);
+    if (raw === null) return `Missing ${name} header.`;
+    const value = decode ? decodeHeaderValue(raw.trim()) : raw.trim();
+    if (value === null) return `Invalid ${name} header.`;
+    return value === expected ? null : `Header mismatch: ${name} header value '${value}' does not match body value '${expected}'`;
+  };
+  const problem = check("MCP-Protocol-Version", version) ?? check("Mcp-Method", msg.method);
+  if (problem) return problem;
+  if (msg.method === "tools/call") return check("Mcp-Name", typeof msg.params?.name === "string" ? msg.params.name : "", true);
+  return null;
+}
+
+/** Header values that can't be sent as-is arrive as =?base64?…?=. */
+function decodeHeaderValue(value: string): string | null {
+  const encoded = value.match(/^=\?base64\?(.*)\?=$/i);
+  if (!encoded) return value;
   try {
-    switch (msg.method) {
-      case "initialize":
-        return { jsonrpc: "2.0", id, result: initializeResult(msg.params) };
-      case "ping":
-        return { jsonrpc: "2.0", id, result: {} };
-      case "tools/list":
-        return { jsonrpc: "2.0", id, result: { tools: visibleTools(actor).map(describeTool) } };
-      case "tools/call":
-        return await callTool(id, msg.params, actor);
-      default:
-        return rpcError(id, METHOD_NOT_FOUND, `Method not found: ${msg.method}`);
-    }
-  } catch (e) {
-    console.error("mcp request failed", { method: msg.method }, e);
-    return rpcError(id, INTERNAL_ERROR, "Internal error.");
+    const bin = atob(encoded[1]);
+    return new TextDecoder("utf-8", { fatal: true }).decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+  } catch {
+    return null;
   }
+}
+
+// --- 2025 (initialize handshake) --------------------------------------------
+
+async function handleLegacy(msg: JsonRpcRequest, id: JsonRpcId, actor: TokenActor): Promise<McpHttpReply> {
+  let out: MethodResult;
+  switch (msg.method) {
+    case "initialize":
+      out = { ok: true, result: initializeResult(msg.params) };
+      break;
+    case "ping":
+      out = { ok: true, result: {} };
+      break;
+    case "tools/list":
+      out = listTools(id, msg.params, actor);
+      break;
+    case "tools/call":
+      out = await callTool(id, msg.params, actor);
+      break;
+    default:
+      return { status: 200, body: rpcError(id, METHOD_NOT_FOUND, `Method not found: ${msg.method}`) };
+  }
+  return { status: 200, body: out.ok ? { jsonrpc: "2.0", id, result: out.result } : out.error };
 }
 
 function initializeResult(params: Record<string, unknown> | undefined) {
   const requested = typeof params?.protocolVersion === "string" ? params.protocolVersion : null;
-  const protocolVersion = (SUPPORTED_PROTOCOL_VERSIONS as readonly string[]).includes(requested ?? "") ? requested! : SUPPORTED_PROTOCOL_VERSIONS[0];
+  const legacy: readonly string[] = LEGACY_PROTOCOL_VERSIONS;
+  const protocolVersion = requested && legacy.includes(requested) ? requested : LEGACY_PROTOCOL_VERSIONS[0];
   return { protocolVersion, capabilities: { tools: { listChanged: false } }, serverInfo: SERVER_INFO, instructions: INSTRUCTIONS };
 }
 
@@ -147,23 +256,29 @@ function describeTool(tool: Tool) {
   };
 }
 
-async function callTool(id: JsonRpcId, params: Record<string, unknown> | undefined, actor: TokenActor): Promise<JsonRpcResponse> {
+function listTools(id: JsonRpcId, params: Record<string, unknown> | undefined, actor: TokenActor): MethodResult {
+  // One page holds every tool, so the only valid cursor is none.
+  if (params?.cursor !== undefined) return { ok: false, error: rpcError(id, INVALID_PARAMS, "Invalid cursor.") };
+  return { ok: true, result: { tools: visibleTools(actor).map(describeTool) } };
+}
+
+async function callTool(id: JsonRpcId, params: Record<string, unknown> | undefined, actor: TokenActor): Promise<MethodResult> {
   const name = typeof params?.name === "string" ? params.name : "";
   const tool = TOOLS.find((t) => t.name === name);
-  if (!tool) return rpcError(id, INVALID_PARAMS, `Unknown tool: ${name || "(none)"}`);
+  if (!tool) return { ok: false, error: rpcError(id, INVALID_PARAMS, `Unknown tool: ${name || "(none)"}`) };
   if (!visibleTools(actor).includes(tool)) {
     const why = actor.scope === "read" ? "This API token is read-only." : "Only admins and editors can use this tool.";
-    return { jsonrpc: "2.0", id, result: toolResult({ text: why, isError: true }) };
+    return { ok: true, result: toolResult({ text: why, isError: true }) };
   }
   const parsed = tool.input.safeParse(params?.arguments ?? {});
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join(".") || "arguments"}: ${i.message}`).join("; ");
-    return { jsonrpc: "2.0", id, result: toolResult({ text: `Invalid arguments. ${issues}`, isError: true }) };
+    return { ok: true, result: toolResult({ text: `Invalid arguments. ${issues}`, isError: true }) };
   }
-  return { jsonrpc: "2.0", id, result: toolResult(await tool.run(actor, parsed.data)) };
+  return { ok: true, result: toolResult(await tool.run(actor, parsed.data)) };
 }
 
-function toolResult(out: ToolOutput) {
+function toolResult(out: ToolOutput): Record<string, unknown> {
   const text = out.data === undefined ? out.text : `${out.text}\n\n${JSON.stringify(out.data)}`;
   return {
     content: [{ type: "text", text }],
