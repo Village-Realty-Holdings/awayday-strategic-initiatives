@@ -122,6 +122,79 @@ npx wrangler secret put AI_BUDGET_ALERT_TO
 
 **Order of operations for a release with a schema change:** apply the migration to the Neon branch first, then merge so that Workers Builds deploys.
 
+## Connecting Claude (MCP)
+
+The app is an MCP server at **`https://awayday-strategic-initiatives.tech-dd8.workers.dev/api/mcp`** (locally `http://localhost:3000/api/mcp`). With it, Claude can read a month's Strategy Review and update it. Every change goes through the same code as Edit Mode, so the same permissions apply, published months stay locked, and every change is in the audit log.
+
+| Tool | Who can use it | What it does |
+| --- | --- | --- |
+| `list_review_periods` | everyone | Lists review months, with whether each is a draft or published |
+| `get_review` | everyone | Returns one month: header, so-whats, pillars (value, target, status) and SIs (status, progress, next steps, open milestones, asks) |
+| `update_review_details` | editors, admins | Sets prepared by, meeting date, updates due and data as of |
+| `set_so_whats` | editors, admins | Replaces the so-whats for the summary or for one pillar |
+| `set_pillar_measure` | editors, admins | Sets a pillar's value for the month and/or its status (Ahead / On track / Behind / calculated) |
+| `add_si_update` | editors, admins, the SI's lead | Records an SI's monthly status, progress and next steps |
+
+Publishing and unpublishing a month stay in the app.
+
+### 1. Create a token
+
+In the app, open **Settings → API tokens**, name the token (e.g. "Claude on my laptop"), choose an access level and an expiry, and click **Create token**.
+- **Access levels:** *Read and update* lets Claude make the changes you're allowed to make. *Read only* limits it to the first two tools.
+- **Copy it now:** the token (`asi_…`) is shown once. The page also shows a ready-made Claude Code command with the token filled in.
+- **What a token can do:** exactly what you can do in the app. If your role changes or your account is suspended, the token follows straight away.
+- **If a token leaks:** revoke it on the same page, and it stops working on its next request.
+
+### 2a. Claude Code
+
+```bash
+claude mcp add --transport http awayday \
+  https://awayday-strategic-initiatives.tech-dd8.workers.dev/api/mcp \
+  --header "Authorization: Bearer asi_…"
+```
+
+Add `--scope user` to make it available in every project. Run `/mcp` in Claude Code to check that `awayday` is connected.
+
+### 2b. Claude Desktop
+
+Claude Desktop runs local MCP servers, so it connects through [`mcp-remote`](https://www.npmjs.com/package/mcp-remote), which needs Node 20 or later. Open **Settings → Developer → Edit Config** and add the server to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "awayday": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote@0.15.2",
+        "https://awayday-strategic-initiatives.tech-dd8.workers.dev/api/mcp",
+        "--header",
+        "Authorization:${AWAYDAY_AUTH}"
+      ],
+      "env": { "AWAYDAY_AUTH": "Bearer asi_…" }
+    }
+  }
+}
+```
+
+The header value is passed through `env` because some clients split arguments on spaces. Restart Claude Desktop afterwards; the Awayday tools appear under the tools (🔨) menu.
+
+### Not supported: claude.ai custom connectors
+
+Custom connectors on claude.ai (and Claude Desktop's **Settings → Connectors**) sign in with OAuth and can't send a static token. Use Claude Code or the Desktop config above instead.
+
+### Try it
+
+- "What's the status of each pillar in the October 2026 review?"
+- "Set the GROW pillar to Ahead for 2026-10 and add a so-what: 'Unit adds beat budget for the third month running'."
+- "Add my update for M&A-01 for 2026-10: on track, LOI signed, closing in December."
+
+### Protocol notes
+
+- **Transport:** stateless Streamable HTTP. Each POST carries one JSON-RPC message and gets a JSON reply. `GET` returns 405, because there is no server-to-client stream.
+- **Auth and errors:** a missing or bad token gets a 401. Each token is limited to 120 requests a minute. Requests with an `Origin` header from another site are refused.
+- **Why not the official SDK:** `@modelcontextprotocol/sdk` isn't used, because its Ajv validator compiles code at runtime, which Workers forbid. See `src/lib/mcp.ts`.
+
 ## Notes
 
 - **Attachments:** files are stored at `attachments/<initiativeId>/<attachmentId>` in R2. They are served only through `/api/attachments/<id>`, which checks the session, always downloads rather than displaying inline, and is audited. The `imports/` prefix is reserved for FY27 imports.

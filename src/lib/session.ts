@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { exemptFromAppTotp } from "@/lib/mfa-policy";
 import { hasApp, type AppKey } from "@/lib/apps";
 import { devAuthEmail } from "@/lib/dev-auth";
+import { canEdit } from "@/lib/roles";
 
 // Per-request memoized user row (role + app entitlement). React's cache() dedupes
 // repeated calls within a single request, so the app layout and requireApp (and
@@ -85,10 +86,7 @@ export async function requireSession(options: RequireOptions = {}) {
   return session;
 }
 
-/** Write access: admins and editors can modify; viewers are read-only. */
-export function canEdit(role?: string | null): boolean {
-  return role === "admin" || role === "editor";
-}
+export { canEdit };
 
 /** Require an authenticated, MFA'd session with write access, or redirect home. */
 export async function requireEditor() {

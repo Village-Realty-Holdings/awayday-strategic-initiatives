@@ -775,6 +775,7 @@ model User {
   sessions           Session[]
   accounts           Account[]
   twofactors         TwoFactor[]
+  apiTokens          ApiToken[]
 
   @@unique([email])
   @@map("user")
@@ -856,4 +857,25 @@ model RateLimit {
   lastRequest BigInt
 
   @@map("rateLimit")
+}
+
+// Personal API tokens for the MCP endpoint (/api/mcp). A token acts as its user
+// with the user's live role, so it can never do more than they can in the app;
+// "read" tokens are further limited to read-only tools. Only the SHA-256 hash is
+// stored; the token itself is shown once, when created.
+model ApiToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  // First characters of the token, shown in the list so people can tell them apart.
+  prefix     String
+  hash       String    @unique
+  scope      String    @default("write") // read | write
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
 }

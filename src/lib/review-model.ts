@@ -278,6 +278,11 @@ export function parseSoWhats(json: string | null, scopes: readonly string[]): So
   } catch {
     return [];
   }
+  return normalizeSoWhats(raw, scopes);
+}
+
+/** As parseSoWhats, for a list that is already parsed (e.g. MCP tool input). */
+export function normalizeSoWhats(raw: unknown, scopes: readonly string[]): SoWhatInput[] {
   if (!Array.isArray(raw)) return [];
   const allowed = new Set(scopes);
   const count = new Map<string, number>();

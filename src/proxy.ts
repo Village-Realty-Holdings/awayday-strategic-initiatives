@@ -30,10 +30,10 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Protect everything except the login page, auth API, Next internals, and
-  // static assets (files with an extension, e.g. the logo png, fonts, icons).
+  // Protect everything except the login page, auth API, the MCP endpoint (it
+  // authenticates its own bearer tokens), Next internals, and static assets (files with an extension, e.g. the logo png, fonts, icons).
   // tests/proxy-matcher.test.ts is the regression guard.
   matcher: [
-    "/((?!login|api/auth|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|map)).*)",
+    "/((?!login|api/auth|api/mcp|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|map)).*)",
   ],
 };

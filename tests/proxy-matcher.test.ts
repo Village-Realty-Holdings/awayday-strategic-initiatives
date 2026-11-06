@@ -18,6 +18,10 @@ describe("proxy matcher", () => {
     }
   });
 
+  it("lets the MCP endpoint through: it checks its own bearer token", () => {
+    expect(matches("/api/mcp")).toBe(false);
+  });
+
   it("lets static assets through", () => {
     for (const p of ["/awayday-logo.png", "/board-goals.jpg", "/favicon.ico", "/_next/static/chunks/a.js"]) {
       expect(matches(p)).toBe(false);
