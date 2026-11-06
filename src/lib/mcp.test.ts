@@ -14,6 +14,13 @@ const m = vi.hoisted(() => ({
   getReviewPlan: vi.fn(),
   getReviewPeriod: vi.fn(),
   resolvePeriod: vi.fn(async () => ({ id: "2026-10", periods: ["2026-10", "2026-09"], home: "2026-10", published: ["2026-09"] })),
+  updateInitiativeCharter: vi.fn(async () => ({ ok: true })),
+  createInitiative: vi.fn(async () => ({ ok: true, id: "i9" })),
+  updateInitiativeProgress: vi.fn(async () => ({ ok: true })),
+  setMilestoneDone: vi.fn(async () => ({ ok: true })),
+  addActionItem: vi.fn(async () => ({ ok: true, id: "ai1" })),
+  addEltRequest: vi.fn(async () => ({ ok: true, id: "e1" })),
+  addMeasureReading: vi.fn(async () => ({ ok: true, id: "r1" })),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -25,6 +32,16 @@ vi.mock("@/lib/review-edits", () => ({
   setPillarMeasure: m.setPillarMeasure,
   addSiUpdate: m.addSiUpdate,
 }));
+vi.mock("@/lib/initiative-edits", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/initiative-edits")>()),
+  updateInitiativeCharter: m.updateInitiativeCharter,
+  createInitiative: m.createInitiative,
+  updateInitiativeProgress: m.updateInitiativeProgress,
+  setMilestoneDone: m.setMilestoneDone,
+  addActionItem: m.addActionItem,
+  addEltRequest: m.addEltRequest,
+  addMeasureReading: m.addMeasureReading,
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: { strategicArea: { findMany: m.areaFindMany }, initiative: { findFirst: m.initiativeFindFirst } },
 }));
@@ -35,6 +52,12 @@ import type { TokenActor } from "@/lib/api-tokens";
 const editor: TokenActor = { id: "u1", name: "Erin Editor", role: "editor", scope: "write", tokenId: "t1" };
 const viewer: TokenActor = { ...editor, role: "user" };
 const readOnly: TokenActor = { ...editor, scope: "read" };
+const admin: TokenActor = { ...editor, role: "admin" };
+
+const REVIEW_READ = ["list_review_periods", "get_review"];
+const SI_READ = ["list_initiatives", "get_initiative"];
+const SI_OWNER = ["set_milestone_done", "set_action_item_done", "add_measure", "update_measure", "set_primary_measure", "remove_measure", "add_measure_reading", "remove_measure_reading"];
+const SI_EDITOR = ["update_initiative", "update_initiative_progress", "add_milestone", "update_milestone", "remove_milestone", "add_action_item", "remove_action_item", "add_elt_ask", "update_elt_ask", "remove_elt_ask"];
 
 const VERSION = "2026-07-28";
 const meta = { "io.modelcontextprotocol/protocolVersion": VERSION, "io.modelcontextprotocol/clientCapabilities": {}, "io.modelcontextprotocol/clientInfo": { name: "test", version: "1" } };
@@ -148,8 +171,11 @@ describe("2025 handshake", () => {
 });
 
 describe("tools/list", () => {
-  it("shows editors every tool, in a fixed order, with object input schemas", async () => {
-    expect(await toolNames(editor)).toEqual(["list_review_periods", "get_review", "update_review_details", "set_so_whats", "set_pillar_measure", "add_si_update"]);
+  it("shows editors every tool but create_initiative, with object input schemas", async () => {
+    const names = await toolNames(editor);
+    expect(names.slice(0, 6)).toEqual(["list_review_periods", "get_review", "update_review_details", "set_so_whats", "set_pillar_measure", "add_si_update"]);
+    expect(names.slice(6).sort()).toEqual([...SI_READ, ...SI_OWNER, ...SI_EDITOR].sort());
+    expect(await toolNames(admin)).toContain("create_initiative");
     for (const t of (await modern(editor, "tools/list")).body!.result!.tools as { inputSchema: Record<string, unknown> }[]) {
       expect(t.inputSchema.type).toBe("object");
       expect(t.inputSchema.$schema).toBeUndefined();
@@ -157,8 +183,16 @@ describe("tools/list", () => {
   });
 
   it("shows viewers the read tools and SI updates, and read-only tokens the read tools", async () => {
-    expect(await toolNames(viewer)).toEqual(["list_review_periods", "get_review", "add_si_update"]);
-    expect(await toolNames(readOnly)).toEqual(["list_review_periods", "get_review"]);
+    expect((await toolNames(viewer)).sort()).toEqual([...REVIEW_READ, "add_si_update", ...SI_READ, ...SI_OWNER].sort());
+    expect((await toolNames(readOnly)).sort()).toEqual([...REVIEW_READ, ...SI_READ].sort());
+  });
+
+  it("marks remove tools destructive and the rest not", async () => {
+    const tools = (await modern(admin, "tools/list")).body!.result!.tools as { name: string; annotations: { destructiveHint?: boolean; readOnlyHint?: boolean } }[];
+    for (const t of tools) {
+      if (t.annotations.readOnlyHint) continue;
+      expect(t.annotations.destructiveHint, t.name).toBe(t.name.startsWith("remove_"));
+    }
   });
 });
 
@@ -230,5 +264,54 @@ describe("tools/call", () => {
     await call(viewer, "add_si_update", { period: "2026-10", initiative: "M&A-01", status: "AT_RISK", update: "Slipped" });
     expect(m.addSiUpdate).toHaveBeenCalledWith(viewer, { periodId: "2026-10", initiativeId: "i1", status: "AT_RISK", update: "Slipped", pathForward: undefined });
     expect((await call(viewer, "add_si_update", { period: "2026-10", initiative: "M&A-01", status: "GREAT" })).body!.result!.isError).toBe(true);
+  });
+});
+
+describe("initiative tools", () => {
+  beforeEach(() => m.initiativeFindFirst.mockResolvedValue({ id: "i1" }));
+
+  it("resolves an initiative by code and passes only the charter fields given", async () => {
+    const reply = await call(editor, "update_initiative", { initiative: "m&a-01", teamLead: "Dana", baseline: null });
+    expect(reply.body!.result!.isError).toBe(false);
+    expect(m.updateInitiativeCharter).toHaveBeenCalledWith(editor, "i1", { teamLead: "Dana", baseline: null });
+  });
+
+  it("names an unknown initiative instead of editing", async () => {
+    m.initiativeFindFirst.mockResolvedValue(null);
+    const reply = await call(editor, "update_initiative", { initiative: "NOPE-1", teamLead: "Dana" });
+    expect(reply.body!.result).toMatchObject({ isError: true });
+    expect(reply.body!.result!.content[0].text).toContain("NOPE-1");
+    expect(m.updateInitiativeCharter).not.toHaveBeenCalled();
+  });
+
+  it("reads dollars from numbers or text, and refuses unreadable amounts", async () => {
+    await call(editor, "update_initiative_progress", { initiative: "M&A-01", actual: "$1.5M", target: 3000000 });
+    expect(m.updateInitiativeProgress).toHaveBeenCalledWith(editor, "i1", { actual: 1500000, target: 3000000 });
+    expect((await call(editor, "update_initiative_progress", { initiative: "M&A-01", actual: "lots", target: null })).body!.result!.isError).toBe(true);
+    await call(editor, "add_elt_ask", { initiative: "M&A-01", request: "Two analysts", kind: "INVESTMENT", amount: "$250K" });
+    expect(m.addEltRequest).toHaveBeenCalledWith(editor, "i1", { request: "Two analysts", kind: "INVESTMENT", amount: 250000 });
+  });
+
+  it("returns new item ids so the model can follow up", async () => {
+    const reply = await call(editor, "add_action_item", { initiative: "M&A-01", title: "Data room", owner: "Legal", kind: "DEPENDENCY", due: "2026-12-01" });
+    expect(reply.body!.result!.structuredContent).toEqual({ id: "ai1" });
+    expect(m.addActionItem).toHaveBeenCalledWith(editor, "i1", { title: "Data room", owner: "Legal", kind: "DEPENDENCY", dueAt: "2026-12-01" });
+  });
+
+  it("lets a viewer complete a milestone or log a value; the edit decides if they may", async () => {
+    await call(viewer, "set_milestone_done", { milestone: "ms1", done: true });
+    expect(m.setMilestoneDone).toHaveBeenCalledWith(viewer, "ms1", true);
+    m.addMeasureReading.mockResolvedValueOnce({ ok: false, error: "Only editors and the SI's lead can log values." } as never);
+    const reply = await call(viewer, "add_measure_reading", { measure: "me1", value: "12.5%" });
+    expect(reply.body!.result).toMatchObject({ isError: true, content: [{ text: "Only editors and the SI's lead can log values." }] });
+  });
+
+  it("keeps editor tools from viewers and create_initiative from editors", async () => {
+    expect((await call(viewer, "add_milestone", { initiative: "M&A-01", title: "Close" })).body!.result!.isError).toBe(true);
+    expect((await call(editor, "create_initiative", { code: "GROW-09", name: "New" })).body!.result!.isError).toBe(true);
+    expect(m.createInitiative).not.toHaveBeenCalled();
+    const reply = await call(admin, "create_initiative", { code: "grow-09", name: "New", pillar: "GROW" });
+    expect(reply.body!.result!.structuredContent).toEqual({ id: "i9" });
+    expect(m.createInitiative).toHaveBeenCalledWith(admin, { code: "grow-09", name: "New", cimDriver: undefined, strategicAreaId: "a1" });
   });
 });

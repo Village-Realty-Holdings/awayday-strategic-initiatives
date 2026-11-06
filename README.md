@@ -124,7 +124,7 @@ npx wrangler secret put AI_BUDGET_ALERT_TO
 
 ## Connecting Claude (MCP)
 
-The app is an MCP server at **`https://awayday-strategic-initiatives.tech-dd8.workers.dev/api/mcp`** (locally `http://localhost:3000/api/mcp`). With it, Claude can read a month's Strategy Review and update it. Every change goes through the same code as Edit Mode, so the same permissions apply, published months stay locked, and every change is in the audit log.
+The app is an MCP server at **`https://awayday-strategic-initiatives.tech-dd8.workers.dev/api/mcp`** (locally `http://localhost:3000/api/mcp`). With it, Claude can read and update a month's Strategy Review and the initiatives themselves. Every change goes through the same code as Edit Mode and the initiative pages, so the same permissions apply, published months stay locked, and every change is in the audit log.
 
 | Tool | Who can use it | What it does |
 | --- | --- | --- |
@@ -134,8 +134,20 @@ The app is an MCP server at **`https://awayday-strategic-initiatives.tech-dd8.wo
 | `set_so_whats` | editors, admins | Replaces the so-whats for the summary or for one pillar |
 | `set_pillar_measure` | editors, admins | Sets a pillar's value for the month and/or its status (Ahead / On track / Behind / calculated) |
 | `add_si_update` | editors, admins, the SI's lead | Records an SI's monthly status, progress and next steps |
+| `list_initiatives` | everyone | Lists the active plan's SIs (code, pillar, lead, status, % complete), optionally for one pillar |
+| `get_initiative` | everyone | Returns one SI in full: charter, progress, milestones, action items, ELT asks, measures with recent values, latest updates, and the item ids the other tools take |
+| `create_initiative` | admins | Adds an SI to the active plan |
+| `update_initiative` | editors, admins | Edits the charter: name, leads, objective, KPI and target, baseline, EBITDA value, investment cost |
+| `update_initiative_progress` | editors, admins | Sets value created and value to create (e.g. "$1.5M") |
+| `add_milestone`, `update_milestone`, `remove_milestone` | editors, admins | Manages milestones |
+| `set_milestone_done` | editors, admins, the milestone's owner, the SI's lead | Marks a milestone done or reopens it |
+| `add_action_item`, `remove_action_item` | editors, admins | Manages actions and dependencies |
+| `set_action_item_done` | editors, admins, the item's owner, the SI's lead | Marks an action item done or reopens it |
+| `add_elt_ask`, `update_elt_ask`, `remove_elt_ask` | editors, admins | Manages ELT asks and records decisions |
+| `add_measure`, `update_measure`, `set_primary_measure`, `remove_measure` | editors, admins, the SI's lead | Manages KPIs and leading measures, and which KPI drives % complete |
+| `add_measure_reading`, `remove_measure_reading` | editors, admins, the SI's lead | Logs or removes a measure's value |
 
-Publishing and unpublishing a month stay in the app.
+Publishing and unpublishing a month, and deleting an initiative, stay in the app. The `remove_*` tools are marked destructive, so Claude apps can ask before running them.
 
 ### 1. Create a token
 
@@ -173,6 +185,7 @@ Add `--scope user` to make it available in every project. Run `/mcp` in Claude C
 - "What's the status of each pillar in the October 2026 review?"
 - "Set the GROW pillar to Ahead for 2026-10 and add a so-what: 'Unit adds beat budget for the third month running'."
 - "Add my update for M&A-01 for 2026-10: on track, LOI signed, closing in December."
+- "Mark the 'Sign LOI' milestone on M&A-01 done and log owner churn at 13.1% as of today."
 
 ### Protocol notes
 

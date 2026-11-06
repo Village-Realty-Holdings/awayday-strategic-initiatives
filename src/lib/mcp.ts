@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { getActivePlan } from "@/lib/active-plan";
 import { getReviewPeriod, getReviewPlan, resolvePeriod } from "@/lib/review-data";
-import { addSiUpdate, setPillarMeasure, setSoWhats, updateReviewDetails, type EditResult } from "@/lib/review-edits";
-import { initiativeOwnerMatches, PERIOD_PATTERN, PILLAR_STATUSES, ragLabel, shortCode, SO_WHAT_LIMITS, SUMMARY_SCOPE } from "@/lib/review-model";
+import { addSiUpdate, setPillarMeasure, setSoWhats, updateReviewDetails } from "@/lib/review-edits";
+import { initiativeOwnerMatches, PILLAR_STATUSES, ragLabel, shortCode, SO_WHAT_LIMITS, SUMMARY_SCOPE } from "@/lib/review-model";
 import { STATUS_ORDER } from "@/lib/initiatives";
 import { canEdit } from "@/lib/roles";
 import type { TokenActor } from "@/lib/api-tokens";
+import { day, defineTool, fromEdit, norm, period, resolveArea, resolveInitiative, type Tool, type ToolOutput } from "@/lib/mcp-tool";
+import { INITIATIVE_TOOLS } from "@/lib/mcp-initiative-tools";
 
 // ---------------------------------------------------------------------------
 // MCP server for the monthly review, over Streamable HTTP (one JSON-RPC
@@ -213,33 +213,11 @@ function initializeResult(params: Record<string, unknown> | undefined) {
 // Tools
 // ---------------------------------------------------------------------------
 
-/** read: anyone; owner: editors, admins and SI leads; editor: editors and admins. */
-type Access = "read" | "owner" | "editor";
-
-type Tool<S extends z.ZodObject = z.ZodObject> = {
-  name: string;
-  title: string;
-  description: string;
-  access: Access;
-  input: S;
-  run: (actor: TokenActor, args: z.infer<S>) => Promise<ToolOutput>;
-};
-
-type ToolOutput = { text: string; data?: unknown; isError?: boolean };
-
-const defineTool = <S extends z.ZodObject>(tool: Tool<S>) => tool as unknown as Tool;
-
-const period = z.string().regex(PERIOD_PATTERN, "Use a month written YYYY-MM.").describe("Review month, YYYY-MM.");
-const day = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a day written YYYY-MM-DD.")
-  .nullable()
-  .optional();
-
 function visibleTools(actor: TokenActor): Tool[] {
   return TOOLS.filter((t) => {
     if (t.access === "read") return true;
     if (actor.scope === "read") return false;
+    if (t.access === "admin") return actor.role === "admin";
     return t.access === "owner" || canEdit(actor.role);
   });
 }
@@ -252,7 +230,7 @@ function describeTool(tool: Tool) {
     title: tool.title,
     description: tool.description,
     inputSchema,
-    annotations: { title: tool.title, readOnlyHint: tool.access === "read", destructiveHint: false, idempotentHint: tool.access === "read", openWorldHint: false },
+    annotations: { title: tool.title, readOnlyHint: tool.access === "read", destructiveHint: Boolean(tool.destructive), idempotentHint: tool.access === "read", openWorldHint: false },
   };
 }
 
@@ -267,7 +245,7 @@ async function callTool(id: JsonRpcId, params: Record<string, unknown> | undefin
   const tool = TOOLS.find((t) => t.name === name);
   if (!tool) return { ok: false, error: rpcError(id, INVALID_PARAMS, `Unknown tool: ${name || "(none)"}`) };
   if (!visibleTools(actor).includes(tool)) {
-    const why = actor.scope === "read" ? "This API token is read-only." : "Only admins and editors can use this tool.";
+    const why = actor.scope === "read" ? "This API token is read-only." : tool.access === "admin" ? "Only admins can use this tool." : "Only admins and editors can use this tool.";
     return { ok: true, result: toolResult({ text: why, isError: true }) };
   }
   const parsed = tool.input.safeParse(params?.arguments ?? {});
@@ -285,30 +263,6 @@ function toolResult(out: ToolOutput): Record<string, unknown> {
     ...(out.data !== undefined && !Array.isArray(out.data) ? { structuredContent: out.data } : {}),
     isError: Boolean(out.isError),
   };
-}
-
-function fromEdit(result: EditResult, done: string): ToolOutput {
-  return result.ok ? { text: done } : { text: result.error, isError: true };
-}
-
-const norm = (s: string) => s.trim().toLowerCase();
-
-/** A StrategicArea of the active plan by id, code or short code. */
-async function resolveArea(ref: string): Promise<{ id: string; code: string } | null> {
-  const plan = await getActivePlan();
-  if (!plan) return null;
-  const areas = await prisma.strategicArea.findMany({ where: { planVersionId: plan.id }, select: { id: true, code: true } });
-  const key = norm(ref);
-  return areas.find((a) => a.id === ref) ?? areas.find((a) => norm(a.code) === key || norm(shortCode(a.code)) === key) ?? null;
-}
-
-/** An initiative by id, or by code within the active plan. */
-async function resolveInitiative(ref: string): Promise<{ id: string } | null> {
-  const plan = await getActivePlan();
-  return prisma.initiative.findFirst({
-    where: { OR: [{ id: ref }, { code: { equals: ref.trim(), mode: "insensitive" }, ...(plan ? { planVersionId: plan.id } : {}) }] },
-    select: { id: true },
-  });
 }
 
 const TOOLS: Tool[] = [
@@ -466,5 +420,7 @@ const TOOLS: Tool[] = [
     },
   }),
 ];
+
+TOOLS.push(...INITIATIVE_TOOLS);
 
 export const TOOL_NAMES = TOOLS.map((t) => t.name);

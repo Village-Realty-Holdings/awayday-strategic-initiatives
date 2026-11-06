@@ -20,6 +20,7 @@ import {
 } from "@/lib/review-model";
 import { parseStatus } from "@/lib/initiatives";
 import { recordSiUpdate } from "@/lib/si-updates";
+import { setActionItemDone, setMilestoneDone } from "@/lib/initiative-edits";
 
 
 function revalidateReview() {
@@ -62,34 +63,16 @@ export async function saveInitiativeUpdate(formData: FormData) {
   }
 }
 
+// Done/reopen from the review, Inbox and timeline: editors, the item's owner
+// and the SI's lead. See lib/initiative-edits.ts.
 export async function toggleActionItem(formData: FormData) {
   const session = await requireSession();
-  const id = String(formData.get("id") ?? "");
-  const item = await prisma.initiativeActionItem.findUnique({
-    where: { id },
-    select: { id: true, status: true, owner: true, initiative: { select: { ownerUserId: true, teamLead: true } } },
-  });
-  if (!item) return;
-  if (!canEdit(session.user.role) && item.owner !== session.user.name && !initiativeOwnerMatches(item.initiative, session.user)) return;
-  const status = item.status === "DONE" ? "OPEN" : "DONE";
-  await prisma.initiativeActionItem.update({ where: { id }, data: { status } });
-  await audit(session.user.id, "UPDATE", "InitiativeActionItem", id, { before: { status: item.status }, after: { status } });
-  revalidateReview();
+  await setActionItemDone(session.user, String(formData.get("id") ?? ""), "toggle");
 }
 
 export async function toggleMilestone(formData: FormData) {
   const session = await requireSession();
-  const id = String(formData.get("id") ?? "");
-  const milestone = await prisma.initiativeMilestone.findUnique({
-    where: { id },
-    select: { id: true, completedAt: true, owner: true, initiative: { select: { ownerUserId: true, teamLead: true } } },
-  });
-  if (!milestone) return;
-  if (!canEdit(session.user.role) && milestone.owner !== session.user.name && !initiativeOwnerMatches(milestone.initiative, session.user)) return;
-  const completedAt = milestone.completedAt ? null : new Date();
-  await prisma.initiativeMilestone.update({ where: { id }, data: { completedAt } });
-  await audit(session.user.id, "UPDATE", "InitiativeMilestone", id, { before: { completedAt: milestone.completedAt }, after: { completedAt } });
-  revalidateReview();
+  await setMilestoneDone(session.user, String(formData.get("id") ?? ""), "toggle");
 }
 
 export async function createBelowLineProject(formData: FormData) {
