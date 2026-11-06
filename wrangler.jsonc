@@ -1,11 +1,9 @@
 /**
  * Wrangler config: https://developers.cloudflare.com/workers/wrangler/configuration/
  *
- * Top level = production (deploys from `master`). `env.staging` =
- * staging (deploys from `staging`). Bindings and vars are NOT inherited by named
- * environments, so each block lists its own.
+ * Production only; Workers Builds deploys it from `master`.
  *
- * Secrets (never in this file): `npx wrangler secret put <NAME> [--env staging]`
+ * Secrets (never in this file): `npx wrangler secret put <NAME>`
  *   BETTER_AUTH_SECRET, RESEND_API_KEY, ANTHROPIC_API_KEY, AI_BUDGET_ALERT_TO
  *
  * Local dev: Hyperdrive connects to each binding's localConnectionString (the
@@ -29,7 +27,7 @@
 	},
 	"upload_source_maps": true,
 	// Run the Worker near Neon rather than near the user: pages make several
-	// sequential DB round trips, so each one is shorter. Not inherited by env.staging.
+	// sequential DB round trips, so each one is shorter.
 	"placement": { "mode": "smart" },
 	"workers_dev": true,
 	"hyperdrive": [
@@ -54,37 +52,5 @@
 		"EMAIL_FROM": "Awayday <notifications@mail.vacationhr.com>",
 		"ANTHROPIC_MODEL": "claude-sonnet-5-5",
 		"AI_MONTHLY_BUDGET_USD": "250"
-	},
-	"env": {
-		"staging": {
-			"name": "staging-awayday-strategic-initiatives",
-			"placement": { "mode": "smart" },
-			"workers_dev": true,
-			"hyperdrive": [
-				{
-					"binding": "HYPERDRIVE",
-					// dev-awayday-strategic-initiatives (config name kept) → Neon `staging` branch, DIRECT (non-pooler) host.
-					"id": "23af5e39ab084458bd9a44368c7e2ca9",
-					// Local Postgres (compose.yaml). Also lets CI deploys run without a build variable.
-					"localConnectionString": "postgresql://awayday:password@localhost:5432/awayday_strategic_initiatives"
-				}
-			],
-			"r2_buckets": [
-				{
-					"binding": "ATTACHMENTS",
-					// R2 buckets can't be renamed: staging keeps the old `dev-` bucket name.
-					"bucket_name": "dev-awayday-strategic-initiatives"
-				}
-			],
-			"vars": {
-				"APP_URL": "https://staging-awayday-strategic-initiatives.tech-dd8.workers.dev",
-				"BETTER_AUTH_URL": "https://staging-awayday-strategic-initiatives.tech-dd8.workers.dev",
-				// Entra tenant (not a secret). Client ID/secret are Worker secrets.
-				"MICROSOFT_TENANT_ID": "34b336e5-1f8c-4a90-ab9d-819749be6b27",
-				"EMAIL_FROM": "Awayday <notifications@mail.vacationhr.com>",
-				"ANTHROPIC_MODEL": "claude-sonnet-5-5",
-				"AI_MONTHLY_BUDGET_USD": "250"
-			}
-		}
 	}
 }

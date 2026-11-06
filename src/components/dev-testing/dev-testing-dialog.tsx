@@ -96,7 +96,7 @@ export function DevTestingDialog({
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Dev testing</DialogTitle>
-            <DialogDescription>Local only. These change your local database, never staging or production.</DialogDescription>
+            <DialogDescription>Local only. These change your local database, never production.</DialogDescription>
           </DialogHeader>
 
           {result && (

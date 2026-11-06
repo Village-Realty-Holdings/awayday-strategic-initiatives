@@ -209,3 +209,6 @@ prisma/generated/
 
 # Local testing tool: your account as it was before switching
 .dev-testing/
+
+# Claude Code: personal settings
+.claude/settings.local.json

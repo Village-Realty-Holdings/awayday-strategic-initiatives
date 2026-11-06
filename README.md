@@ -5,8 +5,8 @@ The strategic-initiatives tracker and CIM risk register, extracted from `awayday
 Next.js 16 on **Cloudflare Workers** (via [OpenNext](https://opennext.js.org/cloudflare)), **Neon Postgres** through **Hyperdrive**, files in **R2**, auth by **Better Auth** (invite-only email/password + TOTP MFA, magic link via Resend).
 
 ```
-GitHub → Workers Builds → Worker (Next.js) ─┬─ HYPERDRIVE → Neon (production / staging branch)
-                                            └─ ATTACHMENTS → R2 (live-awayday-strategic-initiatives / dev-awayday-strategic-initiatives for staging)
+GitHub (master) → Workers Builds → Worker (Next.js) ─┬─ HYPERDRIVE → Neon (production branch)
+                                                     └─ ATTACHMENTS → R2 (live-awayday-strategic-initiatives)
 ```
 
 ## Environments
@@ -14,14 +14,11 @@ GitHub → Workers Builds → Worker (Next.js) ─┬─ HYPERDRIVE → Neon (pr
 | | Worker | Git branch | Neon branch | R2 bucket |
 | --- | --- | --- | --- | --- |
 | production | `awayday-strategic-initiatives` | `master` | `production` | `live-awayday-strategic-initiatives` |
-| staging | `staging-awayday-strategic-initiatives` | `staging` | `staging` | `dev-awayday-strategic-initiatives` (R2 buckets can't be renamed) |
 | local | `npm run dev` | any | none: local Postgres (`compose.yaml`) | local, in-memory |
 
-Hyperdrive configs (Cloudflare account in `wrangler.jsonc`): `live-awayday-strategic-initiatives` → Neon `production`, `dev-awayday-strategic-initiatives` (name kept) → Neon `staging`. Both use the direct (non-pooler) host with caching disabled. The Neon `production` branch is protected.
+The Hyperdrive config `live-awayday-strategic-initiatives` points at Neon `production` (direct, non-pooler host, caching disabled). The Neon `production` branch is protected.
 
-> Rename in progress: the Neon branch and Git branch are still named `development` until renamed to `staging`, and the Workers Builds staging Worker must be pointed at `staging-awayday-strategic-initiatives` / branch `staging`.
-
-Bindings and non-secret vars live in `wrangler.jsonc` (top level = production, `env.staging`). After editing it, run `npm run cf-typegen`.
+Bindings and non-secret vars live in `wrangler.jsonc`. After editing it, run `npm run cf-typegen`.
 
 ## Local development
 
@@ -60,7 +57,7 @@ Only after approving the target database and the changes, run `npm run db:migrat
 
 The standalone app includes the original password login, TOTP enrollment and verification, Microsoft Entra SSO, email sign-in links with a scanner-safe confirmation page, password changes, sign-out, and role/app-access guards. Successful sign-in links (and Microsoft sign-in) default to `/`, this app's Initiatives overview (users without the grant see a no-access page with sign-out), never the original Talent module. Magic links are restricted to existing users; Talent employee and reviewer provisioning is not part of this app.
 
-Fill the placeholders in `.env` for local development. `.env.example` documents the same variables without secrets. Restart the dev server after changing them. Keep `.env` pointed at local Postgres. To run a `prisma/` script or Prisma command against Neon, use `DOTENV_CONFIG_PATH=.env.staging.local` (or `.env.production.local`), or pass `DIRECT_URL=…` on the command line, which takes priority over any file.
+Fill the placeholders in `.env` for local development. `.env.example` documents the same variables without secrets. Restart the dev server after changing them. Keep `.env` pointed at local Postgres. To run a `prisma/` script or Prisma command against Neon, use `DOTENV_CONFIG_PATH=.env.production.local`, or pass `DIRECT_URL=…` on the command line, which takes priority over any file.
 
 | Variable | Purpose |
 | --- | --- |
@@ -75,7 +72,7 @@ Fill the placeholders in `.env` for local development. `.env.example` documents 
 | `DEV_AUTH_AS` | Optional local-only bypass for an already-existing user. Leave unset when testing the actual login flow. |
 | `ENABLE_DEV_TESTING` | Set to `true` for the local **Dev testing** button: change your role, act as an SI lead, load or clear test data, publish a month, pretend it's another date. Only works outside a production build and with a local database. |
 
-For Microsoft sign-in, the Entra web redirect URI is `<BETTER_AUTH_URL>/api/auth/callback/microsoft`, including `http://localhost:3000/api/auth/callback/microsoft` for local testing. Registering redirect URIs, creating credentials, verifying a Resend domain, and configuring Worker secrets/vars are external settings changes requiring approval. Local `.env` values are not automatically deployed to Workers. The deployed origins are set in `wrangler.jsonc`: `https://awayday-strategic-initiatives.tech-dd8.workers.dev` (production) and `https://staging-awayday-strategic-initiatives.tech-dd8.workers.dev` (staging).
+For Microsoft sign-in, the Entra web redirect URI is `<BETTER_AUTH_URL>/api/auth/callback/microsoft`, including `http://localhost:3000/api/auth/callback/microsoft` for local testing. Registering redirect URIs, creating credentials, verifying a Resend domain, and configuring Worker secrets/vars are external settings changes requiring approval. Local `.env` values are not automatically deployed to Workers. The deployed origin, `https://awayday-strategic-initiatives.tech-dd8.workers.dev`, is set in `wrangler.jsonc`.
 
 The inherited MFA policy requires app TOTP for accounts with a password; passwordless accounts are exempt, and Microsoft-only accounts rely on Entra enforcing MFA. Entra can create a new least-privileged Initiatives user on first sign-in. Test SSO only after approving account creation and confirming the tenant's MFA policy. Password sign-up is disabled.
 
@@ -95,7 +92,7 @@ DIRECT_URL=postgresql://… npm run db:migrate:deploy
 DIRECT_URL=postgresql://… npm run db:migrate:status
 ```
 
-To create a migration: edit the schema, then `npx prisma migrate dev --name <change>` against local Postgres. Apply it to the Neon `staging` branch, then `production`, with `migrate deploy`.
+To create a migration: edit the schema, then `npx prisma migrate dev --name <change>` against local Postgres. Apply it to Neon `production` with `migrate deploy`.
 
 ### First admin
 
@@ -109,13 +106,12 @@ Break-glass password reset: `DIRECT_URL=… PW_EMAIL=… PW_NEW=… npm run db:s
 
 ## Deploying
 
-Each Worker is connected to this repo in Cloudflare **Workers Builds**:
+The Worker is connected to this repo in Cloudflare **Workers Builds** and deploys from `master`:
 
 - Build command: `npm ci && npx opennextjs-cloudflare build`
-- Deploy command (production): `npx opennextjs-cloudflare deploy`
-- Deploy command (staging): `npx opennextjs-cloudflare deploy -- --env staging` (or `npm run deploy:staging` from a workstation)
+- Deploy command: `npx opennextjs-cloudflare deploy`
 
-Secrets, per environment (add `--env staging` for staging):
+Secrets:
 
 ```bash
 npx wrangler secret put BETTER_AUTH_SECRET
