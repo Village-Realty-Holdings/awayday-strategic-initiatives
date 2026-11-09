@@ -4,7 +4,7 @@ import { addSiUpdate, setPillarMeasure, setSoWhats, updateReviewDetails } from "
 import { initiativeOwnerMatches, PILLAR_STATUSES, ragLabel, shortCode, SO_WHAT_LIMITS, SUMMARY_SCOPE } from "@/lib/review-model";
 import { STATUS_ORDER } from "@/lib/initiatives";
 import { canEdit } from "@/lib/roles";
-import type { TokenActor } from "@/lib/api-tokens";
+import type { McpActor } from "@/lib/mcp-auth";
 import { day, defineTool, fromEdit, norm, period, resolveArea, resolveInitiative, type Tool, type ToolOutput } from "@/lib/mcp-tool";
 import { INITIATIVE_TOOLS } from "@/lib/mcp-initiative-tools";
 
@@ -85,7 +85,7 @@ type MethodResult = { ok: true; result: Record<string, unknown> } | { ok: false;
  * header) is 2026-07-28; anything else, `initialize` included, is legacy.
  * Notifications and client responses need no reply (202).
  */
-export async function handleMcpMessage(body: unknown, headers: Headers, actor: TokenActor): Promise<McpHttpReply> {
+export async function handleMcpMessage(body: unknown, headers: Headers, actor: McpActor): Promise<McpHttpReply> {
   if (Array.isArray(body)) return { status: 400, body: rpcError(null, INVALID_REQUEST, "Batches are not supported. Send one JSON-RPC message per request.") };
   if (!isRequest(body)) {
     // A response from the client (we never send requests) needs no reply.
@@ -117,7 +117,7 @@ function isModern(msg: JsonRpcRequest, headers: Headers): boolean {
 
 // --- 2026-07-28 -------------------------------------------------------------
 
-async function handleModern(msg: JsonRpcRequest, id: JsonRpcId, headers: Headers, actor: TokenActor): Promise<McpHttpReply> {
+async function handleModern(msg: JsonRpcRequest, id: JsonRpcId, headers: Headers, actor: McpActor): Promise<McpHttpReply> {
   const meta = metaOf(msg);
   const version = meta?.[META.protocolVersion];
   const capabilities = meta?.[META.clientCapabilities];
@@ -181,7 +181,7 @@ function decodeHeaderValue(value: string): string | null {
 
 // --- 2025 (initialize handshake) --------------------------------------------
 
-async function handleLegacy(msg: JsonRpcRequest, id: JsonRpcId, actor: TokenActor): Promise<McpHttpReply> {
+async function handleLegacy(msg: JsonRpcRequest, id: JsonRpcId, actor: McpActor): Promise<McpHttpReply> {
   let out: MethodResult;
   switch (msg.method) {
     case "initialize":
@@ -213,7 +213,7 @@ function initializeResult(params: Record<string, unknown> | undefined) {
 // Tools
 // ---------------------------------------------------------------------------
 
-function visibleTools(actor: TokenActor): Tool[] {
+function visibleTools(actor: McpActor): Tool[] {
   return TOOLS.filter((t) => {
     if (t.access === "read") return true;
     if (actor.scope === "read") return false;
@@ -234,18 +234,18 @@ function describeTool(tool: Tool) {
   };
 }
 
-function listTools(id: JsonRpcId, params: Record<string, unknown> | undefined, actor: TokenActor): MethodResult {
+function listTools(id: JsonRpcId, params: Record<string, unknown> | undefined, actor: McpActor): MethodResult {
   // One page holds every tool, so the only valid cursor is none.
   if (params?.cursor !== undefined) return { ok: false, error: rpcError(id, INVALID_PARAMS, "Invalid cursor.") };
   return { ok: true, result: { tools: visibleTools(actor).map(describeTool) } };
 }
 
-async function callTool(id: JsonRpcId, params: Record<string, unknown> | undefined, actor: TokenActor): Promise<MethodResult> {
+async function callTool(id: JsonRpcId, params: Record<string, unknown> | undefined, actor: McpActor): Promise<MethodResult> {
   const name = typeof params?.name === "string" ? params.name : "";
   const tool = TOOLS.find((t) => t.name === name);
   if (!tool) return { ok: false, error: rpcError(id, INVALID_PARAMS, `Unknown tool: ${name || "(none)"}`) };
   if (!visibleTools(actor).includes(tool)) {
-    const why = actor.scope === "read" ? "This API token is read-only." : tool.access === "admin" ? "Only admins can use this tool." : "Only admins and editors can use this tool.";
+    const why = actor.scope === "read" ? "This connection is read-only. Reconnect Claude and allow editing to use this tool." : tool.access === "admin" ? "Only admins can use this tool." : "Only admins and editors can use this tool.";
     return { ok: true, result: toolResult({ text: why, isError: true }) };
   }
   const parsed = tool.input.safeParse(params?.arguments ?? {});

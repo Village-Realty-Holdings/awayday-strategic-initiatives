@@ -1,13 +1,15 @@
-import { authenticateToken } from "@/lib/api-tokens";
+import { authenticateMcpRequest } from "@/lib/mcp-auth";
 import { handleMcpMessage, PARSE_ERROR, rpcError } from "@/lib/mcp";
+import { bearerChallenge } from "@/lib/mcp-oauth";
 import { buildTrustedOrigins } from "@/lib/trusted-origins";
 
 // MCP endpoint (Streamable HTTP; MCP 2026-07-28, with the 2025 handshake for
-// older clients). Authenticated by a personal API token from Settings > API
-// tokens, sent as `Authorization: Bearer asi_…` (a Claude custom connector's
-// request header, or `claude mcp add --header`).
+// older clients). Authenticated by an OAuth access token from the app's own
+// authorization server (ADR 0001): add the server in Claude by URL, and Claude
+// discovers the OAuth endpoints from the 401 below and walks the person
+// through Microsoft sign-in and consent.
 // It sits outside the cookie gate in proxy.ts: a token, not a session, is the
-// credential here, and authenticateToken checks it on every request.
+// credential here, and authenticateMcpRequest checks it on every request.
 
 const NO_STORE = { "Cache-Control": "no-store" };
 const trustedOrigins = buildTrustedOrigins(process.env);
@@ -22,10 +24,11 @@ export async function POST(request: Request) {
   const origin = request.headers.get("origin");
   if (origin && !trustedOrigins.includes(origin)) return json({ error: "Origin not allowed." }, 403);
 
-  const auth = await authenticateToken(request.headers.get("authorization"));
+  const auth = await authenticateMcpRequest(request.headers.get("authorization"));
   if (!auth.ok) {
     const headers: Record<string, string> = {};
-    if (auth.status === 401) headers["WWW-Authenticate"] = 'Bearer realm="awayday", error="invalid_token"';
+    // RFC 9728: point the client at the protected resource metadata so it can start OAuth.
+    if (auth.status === 401) headers["WWW-Authenticate"] = bearerChallenge(process.env, auth.challenge === "invalid_token" ? "invalid_token" : undefined);
     if (auth.retryAfterSec) headers["Retry-After"] = String(auth.retryAfterSec);
     return json({ error: auth.error }, auth.status, headers);
   }

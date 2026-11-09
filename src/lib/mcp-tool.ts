@@ -2,7 +2,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getActivePlan } from "@/lib/active-plan";
 import { PERIOD_PATTERN, shortCode } from "@/lib/review-model";
-import type { TokenActor } from "@/lib/api-tokens";
+import type { McpActor } from "@/lib/mcp-auth";
 
 // Shared pieces for the MCP tools in lib/mcp.ts and lib/mcp-initiative-tools.ts.
 
@@ -23,7 +23,7 @@ export type Tool<S extends z.ZodObject = z.ZodObject> = {
   /** Removes something (shown to clients as destructive). */
   destructive?: boolean;
   input: S;
-  run: (actor: TokenActor, args: z.infer<S>) => Promise<ToolOutput>;
+  run: (actor: McpActor, args: z.infer<S>) => Promise<ToolOutput>;
 };
 
 export const defineTool = <S extends z.ZodObject>(tool: Tool<S>) => tool as unknown as Tool;

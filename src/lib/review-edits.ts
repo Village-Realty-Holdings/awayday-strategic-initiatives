@@ -12,7 +12,7 @@ import { recordSiUpdate } from "@/lib/si-updates";
 
 // ---------------------------------------------------------------------------
 // Monthly review edits, shared by Edit Mode's server actions and the MCP
-// endpoint. Callers authenticate (cookie session or API token) and pass the
+// endpoint. Callers authenticate (cookie session or MCP OAuth token) and pass the
 // actor; everything after that (permission, the published-month lock, plan
 // membership, audit and revalidation) happens here, so the two can't drift.
 // ---------------------------------------------------------------------------

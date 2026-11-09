@@ -26,7 +26,7 @@ const LABELS: Record<string, string> = {
   scorecard: "Owner Scorecard",
   settings: "Settings",
   password: "Change password",
-  "api-tokens": "API tokens",
+  "connected-apps": "Connected apps",
   people: "People & access",
   roster: "Directory",
   lists: "Manage lists",
