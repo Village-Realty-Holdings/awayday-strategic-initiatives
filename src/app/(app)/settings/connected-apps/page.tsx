@@ -4,6 +4,7 @@ import { canonicalAppUrl } from "@/lib/app-url";
 import { MCP_WRITE_SCOPE } from "@/lib/mcp-oauth";
 import { fmtDay, isoDay } from "@/lib/review-model";
 import { ConfirmAction } from "@/components/confirm-action";
+import { CopyField } from "@/components/copy-field";
 import { disconnectApp } from "./actions";
 
 // The apps (Claude) the signed-in user has connected to /api/mcp through
@@ -23,11 +24,46 @@ export default async function ConnectedAppsPage() {
       <div>
         <h1 className="text-xl font-semibold tracking-tight text-ink">Connected apps</h1>
         <p className="mt-1 text-xs text-ink-muted">
-          To connect Claude, add a custom connector with the URL <code className="font-mono">{mcpUrl}</code>. Claude sends you here to
-          sign in with Microsoft and approve it. It can then read and update exactly what you can in the app, and nothing more.
-          Published months stay locked.
+          Claude can read and update exactly what you can in the app, and nothing more. Published months stay locked. Connecting
+          needs a Microsoft sign-in.
         </p>
       </div>
+
+      <section aria-labelledby="connect-claude" className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-6">
+        <h2 id="connect-claude" className="text-sm font-semibold text-ink">Connect Claude</h2>
+
+        <div className="flex flex-col gap-2">
+          <h3 className="text-xs font-semibold text-ink">claude.ai, Claude Desktop and the mobile apps</h3>
+          <ol className="list-decimal space-y-1.5 pl-5 text-xs text-ink-muted">
+            <li>
+              In Claude, open <strong className="text-ink">Customize → Connectors</strong>, click <strong className="text-ink">+ Add</strong>,
+              then <strong className="text-ink">Add custom connector</strong>.
+            </li>
+            <li>
+              Name it <strong className="text-ink">Awayday</strong> and paste this URL. Leave the OAuth client ID and secret empty, then
+              click <strong className="text-ink">Add</strong>.
+            </li>
+          </ol>
+          <CopyField value={mcpUrl} label="Connector URL" />
+          <ol start={3} className="list-decimal space-y-1.5 pl-5 text-xs text-ink-muted">
+            <li>
+              Click <strong className="text-ink">Connect</strong>. Sign in with Microsoft, then choose{" "}
+              <strong className="text-ink">Allow editing</strong> or <strong className="text-ink">Allow read only</strong>. The
+              connection shows up below.
+            </li>
+          </ol>
+          <p className="text-xs text-ink-muted">
+            On a Team or Enterprise plan, an owner adds the connector once for the organization; each person then clicks Connect and
+            signs in as themselves.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <h3 className="text-xs font-semibold text-ink">Claude Code</h3>
+          <p className="text-xs text-ink-muted">Run this, then run <code className="font-mono">/mcp</code> in Claude Code and choose Authenticate.</p>
+          <CopyField value={`claude mcp add --transport http awayday ${mcpUrl}`} label="Claude Code command" />
+        </div>
+      </section>
 
       <div className="rounded-xl border border-border bg-surface">
         {consents.length === 0 ? (
