@@ -1,0 +1,31 @@
+# Copy to <project>/.gitea/workflows/pr-review.yml to turn on PR reviews for that project.
+# Runs on the Nitro's host runner. The review logic lives in ~/bitcaroa-agents/environments/nitro/bin/pr-review.sh.
+name: pr-review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  checks:
+    runs-on: nitro-host
+    steps:
+      - uses: actions/checkout@v4
+      # Edit per project: install, lint, typecheck, test.
+      - run: npm ci && npm run lint && npm run typecheck && npm test
+
+  review:
+    runs-on: nitro-host
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: ~/bitcaroa-agents/environments/nitro/bin/pr-review.sh
+        env:
+          REVIEW_TOKEN: ${{ secrets.REVIEW_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # REVIEW_MODEL: claude-opus-5-5
+          # REVIEW_EFFORT: high
