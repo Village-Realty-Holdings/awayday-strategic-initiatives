@@ -5,6 +5,7 @@ import { mcp } from "@better-auth/mcp";
 import { nextCookies } from "better-auth/next-js";
 import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
 import { audit } from "@/lib/audit";
+import { disconnectMcpConnections } from "@/lib/mcp-connections";
 import { prisma } from "@/lib/prisma";
 import { buildTrustedOrigins } from "@/lib/trusted-origins";
 import { magicLinkAllowed } from "@/lib/magic-link-policy";
@@ -174,6 +175,15 @@ export const auth = betterAuth({
     // itself, so a signed query lifted from an earlier step can't be replayed
     // against /oauth2/consent from a password or sign-in-link session.
     before: createAuthMiddleware(async (ctx) => {
+      // Signing out disconnects Claude too: a connection should never outlive
+      // the person deliberately ending their session. Runs before the session
+      // is deleted, while we can still tell whose it is. (A session that just
+      // expires doesn't count; that is inactivity, not a decision.)
+      if (ctx.path === "/sign-out") {
+        const session = await getSessionFromCtx(ctx);
+        if (session) await disconnectMcpConnections({ userId: session.user.id, actorId: session.user.id, reason: "sign-out" });
+        return;
+      }
       if (ctx.path !== "/oauth2/consent") return;
       const session = await getSessionFromCtx(ctx);
       if (session && needsEntraSignIn(session.session)) {
@@ -183,6 +193,16 @@ export const auth = betterAuth({
     // Connecting Claude is audited like other access grants (disconnecting is
     // audited in Settings > Connected apps).
     after: createAuthMiddleware(async (ctx) => {
+      // Better Auth's own admin endpoints that end someone's access also cut
+      // their Claude connections (the app's admin actions do the same directly).
+      if ((ctx.path === "/admin/ban-user" || ctx.path === "/admin/revoke-user-sessions") && !isAPIError(ctx.context.returned)) {
+        const userId = typeof ctx.body?.userId === "string" ? ctx.body.userId : null;
+        const admin = await getSessionFromCtx(ctx);
+        if (userId) {
+          await disconnectMcpConnections({ userId, actorId: admin?.user.id ?? null, reason: ctx.path === "/admin/ban-user" ? "banned" : "sessions-revoked" });
+        }
+        return;
+      }
       if (ctx.path !== "/oauth2/consent" || ctx.body?.accept !== true || isAPIError(ctx.context.returned)) return;
       const clientId = new URLSearchParams(typeof ctx.body?.oauth_query === "string" ? ctx.body.oauth_query : "").get("client_id");
       const session = await getSessionFromCtx(ctx);

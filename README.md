@@ -174,7 +174,7 @@ Then run `/mcp` in Claude Code and choose **Authenticate** for `awayday`. Your b
 
 - **Exactly what you can do in the app.** Your role, suspension and app access are checked on every request, so a change applies straight away. Published months stay locked.
 - **Read only** connections see only the read tools.
-- **Disconnect** in **Settings → Connected apps**. Claude loses access on its next request. Without use, a connection lapses after 30 days.
+- **Disconnect** in **Settings → Connected apps**: Claude loses access on its next request. **Signing out of the app disconnects Claude too**, and so does an admin resetting your password or MFA. Admins can see and disconnect everyone's connections in **Admin → Connected apps**. Unused connections lapse after 30 days.
 
 ### Try it
 
