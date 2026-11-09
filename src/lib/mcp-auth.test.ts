@@ -27,7 +27,7 @@ const user = (over: Record<string, unknown> = {}) => ({ id: "u1", name: "Erin Ed
 beforeEach(() => {
   vi.clearAllMocks();
   m.verify.mockResolvedValue(claims());
-  m.consent.mockResolvedValue({ id: "consent1" });
+  m.consent.mockResolvedValue({ scopes: ["openid", "mcp:read", "mcp:write", "offline_access"] });
   m.user.mockResolvedValue(user());
   m.rateLimit.mockResolvedValue({ allowed: true, retryAfterSec: 0 });
 });
@@ -50,7 +50,7 @@ describe("authenticateMcpRequest", () => {
     expect(opts.verifyOptions.requiredClaims).toEqual(expect.arrayContaining(["sub", "azp", "exp"]));
     // Keys come from the app itself, not an HTTP fetch of its own URL.
     expect(typeof opts.jwksFetch).toBe("function");
-    expect(m.consent).toHaveBeenCalledWith({ where: { userId: "u1", clientId: "client1" }, select: { id: true } });
+    expect(m.consent).toHaveBeenCalledWith({ where: { userId: "u1", clientId: "client1" }, select: { scopes: true } });
     expect(m.rateLimit).toHaveBeenCalledWith("mcp-oauth:client1:u1", 120, 60_000);
   });
 
@@ -79,6 +79,13 @@ describe("authenticateMcpRequest", () => {
   it("stops working as soon as the app is disconnected (consent deleted)", async () => {
     m.consent.mockResolvedValue(null);
     expect(await authenticateMcpRequest(header)).toMatchObject({ ok: false, status: 401, challenge: "invalid_token" });
+  });
+
+  it("limits an older write token to what the current consent allows", async () => {
+    m.consent.mockResolvedValue({ scopes: ["openid", "mcp:read", "offline_access"] });
+    expect(await authenticateMcpRequest(header)).toMatchObject({ ok: true, actor: { scope: "read" } });
+    m.consent.mockResolvedValue({ scopes: ["openid", "offline_access"] });
+    expect(await authenticateMcpRequest(header)).toMatchObject({ ok: false, status: 403 });
   });
 
   it("applies a ban, a removed app grant and a deleted user on the next call", async () => {

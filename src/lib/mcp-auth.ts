@@ -35,6 +35,14 @@ export const MCP_RATE_LIMIT = 120;
 const MISSING: McpAuth = { ok: false, status: 401, error: "Sign in to connect: this endpoint needs an OAuth access token.", challenge: "missing" };
 const INVALID: McpAuth = { ok: false, status: 401, error: "The access token is invalid, expired or no longer approved.", challenge: "invalid_token" };
 
+const NOT_GRANTED: McpAuth = { ok: false, status: 403, error: "This connection was not granted access to the review." };
+
+/** The lesser of two grants: write only when both allow write. */
+function narrowerAccess(a: McpAccess, b: McpAccess | null): McpAccess | null {
+  if (!b) return null;
+  return a === "write" && b === "write" ? "write" : "read";
+}
+
 /** Bearer token from an Authorization header, or null. */
 export function bearerToken(authorization: string | null): string | null {
   const match = authorization?.match(/^Bearer\s+(\S+)\s*$/i);
@@ -70,15 +78,19 @@ export async function authenticateMcpRequest(authorization: string | null, now: 
   if (claims.cnf) return INVALID;
   const userId = typeof claims.sub === "string" ? claims.sub : null;
   const clientId = typeof claims.azp === "string" ? claims.azp : null;
-  const scope = mcpAccessFromScopes(claims.scope);
+  const tokenScope = mcpAccessFromScopes(claims.scope);
   if (!userId || !clientId) return INVALID;
-  if (!scope) return { ok: false, status: 403, error: "This connection was not granted access to the review." };
+  if (!tokenScope) return NOT_GRANTED;
 
   const [consent, user] = await Promise.all([
-    prisma.oauthConsent.findFirst({ where: { userId, clientId }, select: { id: true } }),
+    prisma.oauthConsent.findFirst({ where: { userId, clientId }, select: { scopes: true } }),
     prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, role: true, banned: true, banExpires: true, appAccess: true } }),
   ]);
   if (!consent || !user) return INVALID;
+  // The consent is the source of truth: re-approving as read only must also
+  // downgrade tokens issued under an earlier write approval.
+  const scope = narrowerAccess(tokenScope, mcpAccessFromScopes(consent.scopes.join(" ")));
+  if (!scope) return NOT_GRANTED;
   if (user.banned && (!user.banExpires || user.banExpires > now)) return { ok: false, status: 403, error: "This account is suspended." };
   if (!hasApp(user.role, user.appAccess, "initiatives")) return { ok: false, status: 403, error: "This account does not have access to Strategic Initiatives." };
 
