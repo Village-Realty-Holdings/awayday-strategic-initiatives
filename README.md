@@ -14,9 +14,12 @@ GitHub (master) → Workers Builds → Worker (Next.js) ─┬─ HYPERDRIVE →
 | | Worker | Git branch | Neon branch | R2 bucket |
 | --- | --- | --- | --- | --- |
 | production | `awayday-strategic-initiatives` | `master` | `production` | `live-awayday-strategic-initiatives` |
+| staging (Preview) | `awayday-strategic-initiatives`, Preview of the `staging` branch: https://staging-awayday-strategic-initiatives.tech-dd8.workers.dev | `staging` (and any other non-`master` branch) | `staging` | `staging-awayday-strategic-initiatives` |
 | local | `npm run dev` | any | none: local Postgres (`compose.yaml`) | local, in-memory |
 
 The Hyperdrive config `live-awayday-strategic-initiatives` points at Neon `production` (direct, non-pooler host, caching disabled). The Neon `production` branch is protected.
+
+Every non-`master` branch builds a Workers Preview from the `previews` block in `wrangler.jsonc`. It uses Hyperdrive `staging-awayday-strategic-initiatives` (Neon `staging`, direct host, caching disabled) and R2 `staging-awayday-strategic-initiatives`, never production's. The `staging` branch is the shared staging environment. Neon `staging` was branched from `production` on 2026-11-09, so it holds a copy of production data; apply migrations to it before pushing a schema change to `staging`. Microsoft sign-in on staging needs `<staging URL>/api/auth/callback/microsoft` registered as a redirect URI in Entra.
 
 Bindings and non-secret vars live in `wrangler.jsonc`. After editing it, run `npm run cf-typegen`.
 

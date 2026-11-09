@@ -1,7 +1,10 @@
 /**
  * Wrangler config: https://developers.cloudflare.com/workers/wrangler/configuration/
  *
- * Production only; Workers Builds deploys it from `master`.
+ * Workers Builds deploys `master` to production. Every other branch builds a
+ * Preview with the `previews` block below: staging database, bucket and URL,
+ * never production's. The `staging` branch is the staging environment, at
+ * https://staging-awayday-strategic-initiatives.tech-dd8.workers.dev.
  *
  * Secrets (never in this file): `npx wrangler secret put <NAME>`
  *   BETTER_AUTH_SECRET, RESEND_API_KEY, ANTHROPIC_API_KEY, AI_BUDGET_ALERT_TO
@@ -52,5 +55,30 @@
 		"EMAIL_FROM": "Awayday <notifications@mail.vacationhr.com>",
 		"ANTHROPIC_MODEL": "claude-sonnet-5-5",
 		"AI_MONTHLY_BUDGET_USD": "250"
+	},
+	// Previews (every branch except master). Every binding and var is restated
+	// here, pointing at staging, so a preview never reaches production data.
+	"previews": {
+		"hyperdrive": [
+			{
+				"binding": "HYPERDRIVE",
+				// staging-awayday-strategic-initiatives → Neon `staging` branch, DIRECT (non-pooler) host.
+				"id": "16066b525acd4892a360d3c3081b84da",
+				"localConnectionString": "postgresql://awayday:password@localhost:5432/awayday_strategic_initiatives"
+			}
+		],
+		"r2_buckets": [
+			{
+				"binding": "ATTACHMENTS",
+				"bucket_name": "staging-awayday-strategic-initiatives"
+			}
+		],
+		"vars": {
+			"APP_URL": "https://staging-awayday-strategic-initiatives.tech-dd8.workers.dev",
+			"BETTER_AUTH_URL": "https://staging-awayday-strategic-initiatives.tech-dd8.workers.dev",
+			"EMAIL_FROM": "Awayday <notifications@mail.vacationhr.com>",
+			"ANTHROPIC_MODEL": "claude-sonnet-5-5",
+			"AI_MONTHLY_BUDGET_USD": "250"
+		}
 	}
 }
