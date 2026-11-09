@@ -149,36 +149,32 @@ The app is an MCP server at **`https://awayday-strategic-initiatives.tech-dd8.wo
 
 Publishing and unpublishing a month, and deleting an initiative, stay in the app. The `remove_*` tools are marked destructive, so Claude apps can ask before running them.
 
-### 1. Create a token
+### Before you start
 
-In the app, open **Settings → API tokens**, name the token (e.g. "Claude on my laptop"), choose an access level and an expiry, and click **Create token**.
-- **Access levels:** *Read and update* lets Claude make the changes you're allowed to make. *Read only* limits it to the first two tools.
-- **Copy it now:** the token (`asi_…`) is shown once. The page also shows the connector settings and a Claude Code command with the token filled in.
-- **What a token can do:** exactly what you can do in the app. If your role changes or your account is suspended, the token follows straight away.
-- **If a token leaks:** revoke it on the same page, and it stops working on its next request.
+Connecting Claude needs **Microsoft Entra sign-in** on the site (`MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` and `MICROSOFT_TENANT_ID` set). It reuses the app's existing Entra app registration and callback, so nothing new is needed in Entra. Without those settings the sign-in step says Microsoft sign-in isn't set up, and Claude can't connect. Password and sign-in-link sessions can't be used to connect Claude. Why: [ADR 0001](docs/adr/0001-mcp-oauth-with-entra.md).
 
-### 2a. Claude Desktop, claude.ai and the mobile apps (custom connector)
-
-Nothing to install. These apps connect from Anthropic's cloud, so the server only needs to be reachable on the public internet, which it is.
+### 1a. claude.ai, Claude Desktop and the mobile apps (custom connector)
 
 1. In Claude, open **Customize → Connectors**, click **+ Add**, then **Add custom connector**.
-2. Name it `Awayday` and paste the server URL: `https://awayday-strategic-initiatives.tech-dd8.workers.dev/api/mcp`. Click **Continue**.
-3. Under **Authentication**, choose **No sign in**.
-4. Under **Request headers**, add a header named `Authorization` with the value `Bearer asi_…` (your token). Click **Add**.
+2. Name it `Awayday` and paste the server URL: `https://awayday-strategic-initiatives.tech-dd8.workers.dev/api/mcp`. Leave the OAuth client ID and secret empty. Click **Add**.
+3. Click **Connect**. Claude opens the app's sign-in page. Sign in with Microsoft, then choose **Allow editing** or **Allow read only**.
 
-The connector, and its tools, are then available in every Claude app signed in to your account. Turn it on per chat from the tools menu.
+**Team and Enterprise plans:** an owner adds the connector once for the organization. Each person then clicks **Connect** and signs in as themselves, so Claude only ever acts as that person, with their role and access. No shared credentials.
 
-**Team and Enterprise plans:** only owners can add custom connectors there, and a request header is shared by everyone in the organization who uses the connector. Don't put a personal token in an organization connector. Instead, each person uses their own token in Claude Code, or on a personal plan.
-
-### 2b. Claude Code
+### 1b. Claude Code
 
 ```bash
 claude mcp add --transport http awayday \
-  https://awayday-strategic-initiatives.tech-dd8.workers.dev/api/mcp \
-  --header "Authorization: Bearer asi_…"
+  https://awayday-strategic-initiatives.tech-dd8.workers.dev/api/mcp
 ```
 
-Add `--scope user` to make it available in every project. Run `/mcp` in Claude Code to check that `awayday` is connected.
+Then run `/mcp` in Claude Code and choose **Authenticate** for `awayday`. Your browser opens the same Microsoft sign-in and approval. Add `--scope user` to make it available in every project.
+
+### What a connection can do
+
+- **Exactly what you can do in the app.** Your role, suspension and app access are checked on every request, so a change applies straight away. Published months stay locked.
+- **Read only** connections see only the read tools.
+- **Disconnect** in **Settings → Connected apps**: Claude loses access on its next request. **Signing out of the app disconnects Claude too**, and so does an admin resetting your password or MFA. Admins can see and disconnect everyone's connections in **Admin → Connected apps**. Unused connections lapse after 30 days.
 
 ### Try it
 
@@ -191,7 +187,8 @@ Add `--scope user` to make it available in every project. Run `/mcp` in Claude C
 
 - **Protocol versions:** MCP `2026-07-28`, which is stateless: `server/discover`, the version in each request's `_meta`, and the `MCP-Protocol-Version`, `Mcp-Method` and `Mcp-Name` headers checked against the body. Older clients that open with `initialize` (2025-03-26 to 2025-11-25) still work.
 - **Transport:** Streamable HTTP. Each POST carries one JSON-RPC message and gets a JSON reply. `GET` returns 405, because there is no server-to-client stream.
-- **Auth and errors:** a missing or bad token gets a 401. Each token is limited to 120 requests a minute. Requests with an `Origin` header from another site are refused.
+- **Auth:** OAuth 2.1 with the app as its own authorization server (Better Auth `mcp()` plugin): RFC 9728 protected resource metadata at `/.well-known/oauth-protected-resource/api/mcp`, RFC 8414 metadata at `/.well-known/oauth-authorization-server/api/auth`, open dynamic client registration (RFC 7591), PKCE, and resource-bound (RFC 8707) 15-minute JWT access tokens with rotating 30-day refresh tokens. Authorization codes go only to Claude's callbacks (`https://claude.ai/api/mcp/auth_callback`, `https://claude.com/api/mcp/auth_callback`, and loopback `/callback` for Claude Code and Desktop). Personal API tokens (`asi_…`) are no longer accepted.
+- **Errors:** a missing or bad token gets a 401 with a `WWW-Authenticate` header pointing at the resource metadata. Each connection is limited to 120 requests a minute. Requests with an `Origin` header from another site are refused.
 - **Why not the official SDK:** `@modelcontextprotocol/sdk` isn't used, because its Ajv validator compiles code at runtime, which Workers forbid. See `src/lib/mcp.ts`.
 
 ## Notes

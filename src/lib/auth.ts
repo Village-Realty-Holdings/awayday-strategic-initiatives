@@ -1,7 +1,11 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { twoFactor, admin, magicLink } from "better-auth/plugins";
+import { twoFactor, admin, magicLink, jwt } from "better-auth/plugins";
+import { mcp } from "@better-auth/mcp";
 import { nextCookies } from "better-auth/next-js";
+import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
+import { audit } from "@/lib/audit";
+import { disconnectMcpConnections } from "@/lib/mcp-connections";
 import { prisma } from "@/lib/prisma";
 import { buildTrustedOrigins } from "@/lib/trusted-origins";
 import { magicLinkAllowed } from "@/lib/magic-link-policy";
@@ -10,6 +14,18 @@ import { canonicalAppUrl } from "@/lib/app-url";
 import { sendEmail } from "@/lib/email";
 import { buildSignInLinkEmail } from "@/lib/sign-in-email";
 import { microsoftProviderFromEnv } from "@/lib/sso";
+import {
+  isAllowedRedirectUri,
+  mcpResourceUrl,
+  MCP_ACCESS_TOKEN_TTL_SECONDS,
+  MCP_REFRESH_TOKEN_TTL_SECONDS,
+  needsEntraSignIn,
+  oauthIssuer,
+  OAUTH_CONSENT_PAGE,
+  OAUTH_SCOPES,
+  OAUTH_SIGN_IN_PAGE,
+  signInMethodFromPath,
+} from "@/lib/mcp-oauth";
 
 // Origins allowed to call the auth endpoints (CSRF origin check): this
 // deployment's configured URLs + localhost. See trusted-origins.ts.
@@ -35,9 +51,15 @@ export const sessionConfig = {
   cookieCache: { enabled: true, maxAge: 60 },
 };
 
+// The MCP endpoint's resource identifier; access tokens are bound to it (aud).
+const mcpResource = mcpResourceUrl(process.env);
+
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   trustedOrigins,
+  // The jwt plugin's /token hands the browser a JWT for its session. Nothing
+  // here uses it, and the OAuth provider issues its own tokens, so it is off.
+  disabledPaths: ["/token"],
   emailAndPassword: {
     enabled: true,
     // Invite-only: no public registration. Admins create accounts.
@@ -75,6 +97,43 @@ export const auth = betterAuth({
     // any account that HAS one, so nothing changes for password holders. For an
     // account without one, holding a live session is the proof, which is the
     // same standard the magic link already met.
+    // Signing keys for OAuth access tokens (EdDSA; private key encrypted at rest
+    // with BETTER_AUTH_SECRET), published at /api/auth/jwks. No JWT header on
+    // get-session: browser sessions stay cookie-only.
+    // The issuer is set explicitly so it is the same value /api/mcp verifies
+    // against (mcp-auth.ts), rather than whatever base URL is inferred.
+    jwt({ disableSettingJwtHeader: true, jwt: { issuer: oauthIssuer(process.env) } }),
+    // OAuth 2.1 authorization server for the MCP endpoint (ADR 0001). Claude
+    // registers itself (dynamic client registration), the person signs in with
+    // Microsoft Entra and approves, and Claude gets a 15-minute access token
+    // bound to /api/mcp plus a rotating refresh token. /api/mcp re-checks the
+    // user's role, ban and app access on every call (mcp-auth.ts).
+    mcp({
+      resource: mcpResource,
+      loginPage: OAUTH_SIGN_IN_PAGE,
+      consentPage: OAUTH_CONSENT_PAGE,
+      scopes: OAUTH_SCOPES,
+      // Prisma can't store a resource without allowedScopes (see the plugin docs).
+      resources: [{ identifier: mcpResource, allowedScopes: OAUTH_SCOPES, accessTokenTtl: MCP_ACCESS_TOKEN_TTL_SECONDS }],
+      accessTokenExpiresIn: MCP_ACCESS_TOKEN_TTL_SECONDS,
+      refreshTokenExpiresIn: MCP_REFRESH_TOKEN_TTL_SECONDS,
+      // claude.ai connectors register through RFC 7591 without credentials.
+      // Open registration is safe only because authorization codes go solely
+      // to Claude's own callbacks (isAllowedRedirectUri) and every grant needs
+      // an Entra sign-in and explicit consent.
+      allowDynamicClientRegistration: true,
+      allowUnauthenticatedClientRegistration: true,
+      clientRegistrationDefaultApplicationType: "infer",
+      validateRedirectUri: (uri, _registered, defaultResult) => defaultResult && isAllowedRedirectUri(uri),
+      // Entra only: a session made with a password or a sign-in link is sent to
+      // the sign-in page, which offers Microsoft and nothing else.
+      postLogin: {
+        page: OAUTH_SIGN_IN_PAGE,
+        shouldRedirect: async ({ session }) => needsEntraSignIn(session),
+        consentReferenceId: () => undefined,
+      },
+      prefix: { refreshToken: "asi_rt_" },
+    }),
     twoFactor({ issuer: "Awayday Strategic Initiatives", allowPasswordless: true }),
     admin(),
     // Passwordless sign-in for existing accounts. Possession of the mailbox
@@ -110,7 +169,62 @@ export const auth = betterAuth({
     // so SessionKeepalive in the shell covers people who only read.
     nextCookies(),
   ],
+  hooks: {
+    // Belt and braces for "Entra only": postLogin (above) keeps a non-Entra
+    // session away from the consent page, and this refuses the consent call
+    // itself, so a signed query lifted from an earlier step can't be replayed
+    // against /oauth2/consent from a password or sign-in-link session.
+    before: createAuthMiddleware(async (ctx) => {
+      // Signing out disconnects Claude too: a connection should never outlive
+      // the person deliberately ending their session. Runs before the session
+      // is deleted, while we can still tell whose it is. (A session that just
+      // expires doesn't count; that is inactivity, not a decision.)
+      if (ctx.path === "/sign-out") {
+        const session = await getSessionFromCtx(ctx);
+        if (session) await disconnectMcpConnections({ userId: session.user.id, actorId: session.user.id, reason: "sign-out" });
+        return;
+      }
+      if (ctx.path !== "/oauth2/consent") return;
+      const session = await getSessionFromCtx(ctx);
+      if (session && needsEntraSignIn(session.session)) {
+        throw new APIError("FORBIDDEN", { message: "Sign in with Microsoft to connect Claude." });
+      }
+    }),
+    // Connecting Claude is audited like other access grants (disconnecting is
+    // audited in Settings > Connected apps).
+    after: createAuthMiddleware(async (ctx) => {
+      // Better Auth's own admin endpoints that end someone's access also cut
+      // their Claude connections (the app's admin actions do the same directly).
+      if ((ctx.path === "/admin/ban-user" || ctx.path === "/admin/revoke-user-sessions") && !isAPIError(ctx.context.returned)) {
+        const userId = typeof ctx.body?.userId === "string" ? ctx.body.userId : null;
+        const admin = await getSessionFromCtx(ctx);
+        if (userId) {
+          await disconnectMcpConnections({ userId, actorId: admin?.user.id ?? null, reason: ctx.path === "/admin/ban-user" ? "banned" : "sessions-revoked" });
+        }
+        return;
+      }
+      if (ctx.path !== "/oauth2/consent" || ctx.body?.accept !== true || isAPIError(ctx.context.returned)) return;
+      const clientId = new URLSearchParams(typeof ctx.body?.oauth_query === "string" ? ctx.body.oauth_query : "").get("client_id");
+      const session = await getSessionFromCtx(ctx);
+      if (!clientId || !session) return;
+      const consent = await prisma.oauthConsent.findFirst({
+        where: { userId: session.user.id, clientId },
+        select: { id: true, scopes: true, oauthclient: { select: { name: true } } },
+      });
+      if (consent) await audit(session.user.id, "CREATE", "OAuthConsent", consent.id, { after: { clientId, app: consent.oauthclient.name, scopes: consent.scopes } });
+    }),
+  },
   databaseHooks: {
+    session: {
+      create: {
+        // Record how the session was signed in, so the MCP OAuth flow can tell
+        // an Entra session from a password or sign-in-link one.
+        before: async (session, ctx) => {
+          const signInMethod = signInMethodFromPath(ctx?.path, ctx?.params as Record<string, unknown> | undefined);
+          return { data: { ...session, signInMethod } };
+        },
+      },
+    },
     user: {
       create: {
         before: async (user) => {
@@ -124,7 +238,11 @@ export const auth = betterAuth({
       },
     },
   },
-  session: sessionConfig,
+  session: {
+    ...sessionConfig,
+    // Set by the session create hook above; never accepted from a request.
+    additionalFields: { signInMethod: { type: "string", required: false, input: false } },
+  },
   // Auth-flow failures (an OAuth callback that cannot complete, a bad state
   // cookie) come back to the login page with ?error=<code> so the person sees
   // why. The default sends them to "/?error=", which the proxy turns into a

@@ -13,6 +13,7 @@ import { sendEmail, emailConfigured } from "@/lib/email";
 import { canonicalAppUrl } from "@/lib/app-url";
 import { buildPlatformInviteEmail } from "@/lib/invite-email";
 import { audit } from "@/lib/audit";
+import { disconnectMcpConnections } from "@/lib/mcp-connections";
 import {
   AI_BUDGET_KEY,
   AI_BUDGET_RECIPIENTS_KEY,
@@ -211,10 +212,12 @@ export async function adminSetPassword(fd: FormData): Promise<AdminResult> {
   else await prisma.account.create({ data: { id: crypto.randomUUID(), userId: id, accountId: id, providerId: "credential", ...data } });
 
   await prisma.session.deleteMany({ where: { userId: id } }); // force re-login with the new password
+  // Same for Claude: a reset is a security event, so connections made before it go too.
+  await disconnectMcpConnections({ userId: id, actorId: session.user.id, reason: "sessions-revoked" });
   await audit(session.user.id, "UPDATE", "User", id, { after: { passwordReset: true } });
   revalidatePath("/admin");
   revalidatePath("/admin/people");
-  return { ok: true, message: `Password reset for ${user.email}. Their existing sessions were signed out.` };
+  return { ok: true, message: `Password reset for ${user.email}. Their existing sessions were signed out and Claude was disconnected.` };
 }
 
 export async function adminResetMfa(fd: FormData): Promise<AdminResult> {
@@ -226,6 +229,7 @@ export async function adminResetMfa(fd: FormData): Promise<AdminResult> {
   await prisma.twoFactor.deleteMany({ where: { userId: id } });
   await prisma.user.update({ where: { id }, data: { twoFactorEnabled: false } });
   await prisma.session.deleteMany({ where: { userId: id } });
+  await disconnectMcpConnections({ userId: id, actorId: session.user.id, reason: "sessions-revoked" });
   await audit(session.user.id, "UPDATE", "User", id, { after: { mfaReset: true } });
   revalidatePath("/admin");
   revalidatePath("/admin/people");

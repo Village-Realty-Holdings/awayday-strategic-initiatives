@@ -1,6 +1,6 @@
 "use client";
 
-import { Database, Layers, LineChart, SlidersHorizontal, Target, Users, CalendarCheck, Compass } from "@/components/icons";
+import { Database, KeyRound, Layers, LineChart, SlidersHorizontal, Target, Users, CalendarCheck, Compass } from "@/components/icons";
 import { LinkTabs, type LinkTab } from "@/components/shell/link-tabs";
 
 const TABS: LinkTab[] = [
@@ -12,6 +12,7 @@ const TABS: LinkTab[] = [
   { label: "Plan versions", href: "/admin/plans", icon: CalendarCheck },
   { label: "Strategy reference", href: "/admin/reference", icon: Compass },
   { label: "AI telemetry", href: "/admin/ai-telemetry", icon: LineChart },
+  { label: "Connected apps", href: "/admin/connected-apps", icon: KeyRound },
 ];
 
 export function AdminTabs() {

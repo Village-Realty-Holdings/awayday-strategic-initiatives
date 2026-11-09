@@ -5,7 +5,7 @@ import { LinkTabs, type LinkTab } from "@/components/shell/link-tabs";
 
 const TABS: LinkTab[] = [
   { label: "Change password", href: "/settings/password", icon: Lock },
-  { label: "API tokens", href: "/settings/api-tokens", icon: KeyRound },
+  { label: "Connected apps", href: "/settings/connected-apps", icon: KeyRound },
 ];
 
 export function SettingsTabs() {

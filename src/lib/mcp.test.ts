@@ -47,12 +47,12 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { handleMcpMessage } from "@/lib/mcp";
-import type { TokenActor } from "@/lib/api-tokens";
+import type { McpActor } from "@/lib/mcp-auth";
 
-const editor: TokenActor = { id: "u1", name: "Erin Editor", role: "editor", scope: "write", tokenId: "t1" };
-const viewer: TokenActor = { ...editor, role: "user" };
-const readOnly: TokenActor = { ...editor, scope: "read" };
-const admin: TokenActor = { ...editor, role: "admin" };
+const editor: McpActor = { id: "u1", name: "Erin Editor", role: "editor", scope: "write", clientId: "c1" };
+const viewer: McpActor = { ...editor, role: "user" };
+const readOnly: McpActor = { ...editor, scope: "read" };
+const admin: McpActor = { ...editor, role: "admin" };
 
 const REVIEW_READ = ["list_review_periods", "get_review"];
 const SI_READ = ["list_initiatives", "get_initiative"];
@@ -66,19 +66,19 @@ const headersOf = (h: Record<string, string>) => new Headers(h);
 type Reply = { status: number; body?: { result?: Record<string, unknown> & { isError: boolean; content: { text: string }[]; structuredContent?: Record<string, unknown> }; error?: { code: number; message: string; data?: unknown } } };
 
 /** A 2026-07-28 request with the standard headers filled in from the body (overridable). */
-function modern(actor: TokenActor, method: string, params: Record<string, unknown> = {}, headers: Record<string, string> = {}) {
+function modern(actor: McpActor, method: string, params: Record<string, unknown> = {}, headers: Record<string, string> = {}) {
   const std: Record<string, string> = { "MCP-Protocol-Version": VERSION, "Mcp-Method": method };
   if (method === "tools/call") std["Mcp-Name"] = String(params.name);
   return handleMcpMessage({ jsonrpc: "2.0", id: 1, method, params: { ...params, _meta: meta } }, headersOf({ ...std, ...headers }), actor) as Promise<Reply>;
 }
 
-function legacy(actor: TokenActor, msg: Record<string, unknown>) {
+function legacy(actor: McpActor, msg: Record<string, unknown>) {
   return handleMcpMessage({ jsonrpc: "2.0", ...msg }, headersOf({ "MCP-Protocol-Version": "2025-06-18" }), actor) as Promise<Reply>;
 }
 
-const call = (actor: TokenActor, name: string, args: Record<string, unknown> = {}) => modern(actor, "tools/call", { name, arguments: args });
+const call = (actor: McpActor, name: string, args: Record<string, unknown> = {}) => modern(actor, "tools/call", { name, arguments: args });
 
-const toolNames = async (actor: TokenActor) => ((await modern(actor, "tools/list")).body!.result!.tools as { name: string }[]).map((t) => t.name);
+const toolNames = async (actor: McpActor) => ((await modern(actor, "tools/list")).body!.result!.tools as { name: string }[]).map((t) => t.name);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -199,7 +199,7 @@ describe("tools/list", () => {
 describe("tools/call", () => {
   it("refuses a write tool on a read-only token, and an editor tool for a viewer, as tool errors", async () => {
     const ro = await call(readOnly, "set_pillar_measure", { period: "2026-10", pillar: "GROW", status: "AHEAD" });
-    expect(ro.body!.result).toMatchObject({ isError: true, content: [{ text: "This API token is read-only." }] });
+    expect(ro.body!.result).toMatchObject({ isError: true, content: [{ text: "This connection is read-only. Reconnect Claude and allow editing to use this tool." }] });
     const v = await call(viewer, "update_review_details", { period: "2026-10", preparedBy: "x" });
     expect(v.body!.result!.isError).toBe(true);
     expect(m.setPillarMeasure).not.toHaveBeenCalled();
