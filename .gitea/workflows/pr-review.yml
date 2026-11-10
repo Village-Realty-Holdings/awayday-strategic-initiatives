@@ -1,5 +1,5 @@
 # Copy to <project>/.gitea/workflows/pr-review.yml to turn on PR reviews for that project.
-# Runs on the Nitro's host runner. The review logic lives in ~/bitcaroa-agents/environments/nitro/bin/pr-review.sh.
+# Runs on the Nitro's host runner. The review logic lives in ~/Projects/bitcaroa-agents/environments/nitro/bin/pr-review.sh.
 name: pr-review
 
 on:
@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - run: ~/bitcaroa-agents/environments/nitro/bin/pr-review.sh
+      - run: ~/Projects/bitcaroa-agents/environments/nitro/bin/pr-review.sh
         env:
           REVIEW_TOKEN: ${{ secrets.REVIEW_TOKEN }}
           REPO: ${{ github.repository }}
