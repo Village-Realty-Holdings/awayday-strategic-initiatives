@@ -136,6 +136,32 @@ describe("buildFinanceTable", () => {
     expect(table.rows[1].cells).toEqual({ "MONTHLY:ACTUAL": "38.7%" });
   });
 
+  it("keeps reviewed Base Business and reported values separate from consolidated financials", () => {
+    const reviewed = [
+      { ...base, kpiId: "rev", value: "12000000", reportingPeriod: "2026-10", reportingScope: "BASE_BUSINESS", entityScope: "BASE_BUSINESS", comparisonBasis: "ACTUAL", timeBasis: "MONTHLY" },
+      { ...base, kpiId: "occ", value: "41.4", reportingPeriod: "2026-10", reportingScope: "USER_REVIEWED_REPORTED", entityScope: "REPORTED", comparisonBasis: "ACTUAL", timeBasis: "YTD" },
+      { ...base, kpiId: "rev", value: "24000000", reportingPeriod: "2026-10", comparisonBasis: "ACTUAL", timeBasis: "MONTHLY" },
+    ] satisfies KpiRow[];
+
+    const consolidated = buildFinanceTable(defs, reviewed, "2026-10");
+    expect(consolidated.rows).toHaveLength(1);
+    expect(consolidated.rows[0].cells["MONTHLY:ACTUAL"]).toBe("$24.0M");
+
+    const baseBusiness = buildFinanceTable(defs, reviewed, "2026-10", {
+      reportingScope: "BASE_BUSINESS",
+      entityScope: "BASE_BUSINESS",
+    });
+    expect(baseBusiness.rows).toHaveLength(1);
+    expect(baseBusiness.rows[0].cells["MONTHLY:ACTUAL"]).toBe("$12.0M");
+
+    const operating = buildFinanceTable(defs, reviewed, "2026-10", {
+      reportingScope: "USER_REVIEWED_REPORTED",
+      entityScope: "REPORTED",
+    });
+    expect(operating.rows).toHaveLength(1);
+    expect(operating.rows[0].cells["YTD:ACTUAL"]).toBe("41.4%");
+  });
+
   it("formats values from the definition's unit", () => {
     expect(formatKpiValue("225.76", { unit: "USD", displayFormat: "currency" })).toBe("$225.76");
     expect(formatKpiValue("-3849474.21", { unit: "USD", displayFormat: "currency" })).toBe("−$3.8M");

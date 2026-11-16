@@ -54,7 +54,11 @@ export const TIME_LABEL: Record<string, string> = { MONTHLY: "Month", YTD: "YTD"
 export const BASIS_LABEL: Record<string, string> = { ACTUAL: "Actual", BUDGET: "Budget", FORECAST: "Forecast", PRIOR_YEAR: "PY", VARIANCE: "vs Bud", LTM: "LTM" };
 
 export type FinanceColumn = { key: string; label: string };
-export type FinanceTable = { columns: FinanceColumn[]; rows: { id: string; label: string; cells: Record<string, string> }[] };
+export type FinanceTable = {
+  columns: FinanceColumn[];
+  rows: { id: string; label: string; cells: Record<string, string> }[];
+  supplemental?: { id: string; title: string; description: string; table: FinanceTable }[];
+};
 
 export function formatKpiValue(value: string, def: Pick<KpiDefinitionLite, "unit" | "displayFormat">): string {
   const n = Number(value);
@@ -73,9 +77,17 @@ export function formatKpiValue(value: string, def: Pick<KpiDefinitionLite, "unit
 
 /**
  * One row per metric, one column per (time basis × comparison basis) present in
- * the period. Only current, approved, consolidated values are used.
+ * the period. Only current, approved values within the requested scope are used.
  */
-export function buildFinanceTable(defs: readonly KpiDefinitionLite[], rows: readonly KpiRow[], period: string): FinanceTable {
+export function buildFinanceTable(
+  defs: readonly KpiDefinitionLite[],
+  rows: readonly KpiRow[],
+  period: string,
+  scope: { reportingScope: string; entityScope: string } = {
+    reportingScope: CONSOLIDATED_REPORTING_SCOPE,
+    entityScope: "CONSOLIDATED",
+  },
+): FinanceTable {
   const byKpi = new Map<string, KpiRow[]>();
   for (const r of rows) byKpi.set(r.kpiId, [...(byKpi.get(r.kpiId) ?? []), r]);
 
@@ -84,8 +96,10 @@ export function buildFinanceTable(defs: readonly KpiDefinitionLite[], rows: read
   for (const def of defs) {
     const current = selectCurrentObservations(byKpi.get(def.id) ?? [], {
       reportingPeriod: period,
-      reportingScope: CONSOLIDATED_REPORTING_SCOPE,
-    }).filter((o) => (o.entityScope ?? "CONSOLIDATED") === "CONSOLIDATED");
+    }).filter((o) =>
+      o.reportingScope === scope.reportingScope &&
+      (o.entityScope ?? "CONSOLIDATED") === scope.entityScope
+    );
     if (current.length === 0) continue;
     const cells: Record<string, string> = {};
     for (const o of current) {
