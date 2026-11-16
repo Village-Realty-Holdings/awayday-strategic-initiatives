@@ -1,6 +1,14 @@
 # Status
 
-_Last updated 2026-11-09, on branch `feat/mcp-oauth-entra`._
+_Last updated 2026-11-16, on branch `fix/auth-per-request`._
+
+## Incident 2026-11-16: production returns 500 on signed-in pages
+
+**Symptom.** Inbox, then the overview, returned "Something went wrong" (500) for a signed-in admin. The Worker log showed: "This promise was created by a request that has since ended, so it can never settle", thrown inside Better Auth's API wrapper while it awaited its setup promise.
+
+**Cause.** `auth` (src/lib/auth.ts) was built once at module load, so Better Auth's setup promise belonged to whichever request first loaded the module. If that request ended before setup finished, every later request in the isolate waited on a promise Workers will never settle, and failed until the isolate was recycled. This most likely became visible after the OAuth/MCP release (#18) added plugins with more setup work, but that link hasn't been confirmed.
+
+**Fix (branch `fix/auth-per-request`, PR open, not merged or deployed).** The Better Auth instance is built per request, keyed on the Worker `ExecutionContext` (the same scoping as the Prisma client). `auth` stays a proxy, so call sites are unchanged. Regression test: `src/lib/auth-per-request.test.ts`. typecheck, lint, all 504 unit tests and the Worker build pass. This was not reproduced or verified on a running Worker; confirm on the deployed app after release.
 
 ## Current milestone: connect Claude with OAuth and Entra sign-in
 
