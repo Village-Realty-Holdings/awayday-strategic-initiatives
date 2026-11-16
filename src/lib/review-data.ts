@@ -357,7 +357,41 @@ export const getFinanceTable = cache(async (period: string): Promise<FinanceTabl
       observations: { where: { ...currentObservationWhere, reportingPeriod: period }, select: OBSERVATION_SELECT },
     },
   });
-  return buildFinanceTable(defs, defs.flatMap((d) => d.observations as KpiRow[]), period);
+  const consolidatedDefs = defs.filter((d) => !d.metricKey.startsWith("user_review:"));
+  const reviewedDefs = defs.filter((d) => d.metricKey.startsWith("user_review:"));
+  const consolidated = buildFinanceTable(
+    consolidatedDefs,
+    consolidatedDefs.flatMap((d) => d.observations as KpiRow[]),
+    period,
+  );
+  const reviewedRows = reviewedDefs
+    .flatMap((d) => d.observations as KpiRow[])
+    .filter((row) => row.sourceCategory === "USER_REVIEWED_REPORT");
+  const baseBusiness = buildFinanceTable(reviewedDefs, reviewedRows, period, {
+    reportingScope: "BASE_BUSINESS",
+    entityScope: "BASE_BUSINESS",
+  });
+  const operating = buildFinanceTable(reviewedDefs, reviewedRows, period, {
+    reportingScope: "USER_REVIEWED_REPORTED",
+    entityScope: "REPORTED",
+  });
+  return {
+    ...consolidated,
+    supplemental: [
+      {
+        id: "base-business",
+        title: "Base Business P&L",
+        description: "User-reviewed October strategy report. Base Business only; not directly comparable with consolidated totals.",
+        table: baseBusiness,
+      },
+      {
+        id: "reviewed-operating",
+        title: "Operating, unit economics and other reviewed KPIs",
+        description: "Values from the user-reviewed October strategy report; source definitions and reporting populations vary.",
+        table: operating,
+      },
+    ].filter((section) => section.table.rows.length > 0),
+  };
 });
 
 export function allSis(plan: ReviewPlan): ReviewSi[] {
