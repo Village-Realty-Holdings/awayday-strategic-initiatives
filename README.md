@@ -123,6 +123,10 @@ npx wrangler secret put ANTHROPIC_API_KEY
 npx wrangler secret put AI_BUDGET_ALERT_TO
 ```
 
+**GitHub Actions release workflow:** `.github/workflows/cloudflare-deploy.yml` runs typechecking, linting, unit tests, and a Next.js build on PRs and on pushes to `master`. It also provides a **manual** production deployment via **Actions → Validate and deploy Cloudflare Worker → Run workflow** on `master`, after verification passes. Configure the GitHub Actions secret `CLOUDFLARE_API_TOKEN` with a Cloudflare Workers Editor token scoped to this Worker/account first. The account ID is already declared in `wrangler.jsonc`.
+
+**Important: do not enable automatic GitHub Actions deployment while Workers Builds is connected and automatically deploying `master`.** Both systems would publish independently. To switch ownership fully to GitHub Actions: (1) confirm the token and manually test the Actions workflow; (2) disable the Cloudflare Workers Builds automatic deployment trigger; (3) change the GitHub Actions deploy job to also run after successful `master` verification, via a reviewed PR; (4) verify the deployed commit and rollback path. Do not duplicate or rotate the existing Worker runtime secrets; they remain configured on Cloudflare.
+
 **Order of operations for a release with a schema change:** apply the migration to the Neon branch first, then merge so that Workers Builds deploys.
 
 ## Connecting Claude (MCP)
