@@ -350,6 +350,20 @@ export function ReviewView({
         ) : (
           <NoDataNote>No Finance figures have been loaded for {period.label}.</NoDataNote>
         )}
+        {finance.supplemental?.map((section) => (
+          <Card key={section.id} className="mt-4 gap-0 p-5">
+            <h3 className="mb-3 text-base font-semibold text-ink">{section.title}</h3>
+            <DataTable
+              minWidth="40rem"
+              columns={[{ key: "line", label: "Line" }, ...section.table.columns.map((c) => ({ key: c.key, label: c.label, numeric: true }))]}
+              rows={section.table.rows.map((r) => ({
+                id: r.id,
+                cells: { line: r.label, ...Object.fromEntries(section.table.columns.map((c) => [c.key, r.cells[c.key] ?? "—"])) },
+              }))}
+            />
+            <p className="mt-2 text-note text-ink-faint">{section.description}</p>
+          </Card>
+        ))}
       </section>
 
       <section id="pillars" className="flex scroll-mt-20 flex-col gap-4">
