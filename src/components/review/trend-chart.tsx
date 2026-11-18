@@ -34,6 +34,12 @@ function ticks(min: number, max: number, count = 4): number[] {
   return Array.from({ length: count + 1 }, (_, index) => min + ((max - min) * index) / count);
 }
 
+/** The basis shown for a drawn series, from the chart's own resolution. */
+function basisFor(chart: TrendChart, series: TrendSeries): string | null {
+  const match = chart.basisLabels.find((label) => label.startsWith(`${series.label}: `));
+  return match ? match.slice(series.label.length + 2) : null;
+}
+
 function SeriesLine({
   series,
   periods,
@@ -67,6 +73,7 @@ function SeriesLine({
           fill="none"
           stroke={color}
           strokeWidth={2}
+          strokeDasharray={series.style === "dashed" ? "6 4" : undefined}
           strokeLinejoin="round"
           strokeLinecap="round"
         />
@@ -98,9 +105,13 @@ export function TrendChartCard({ chart, className }: { chart: TrendChart; classN
       <Card className={`gap-2 p-5 ${className ?? ""}`}>
         <h3 className="text-base font-semibold text-ink">{chart.title}</h3>
         <p className="text-note text-ink-faint">{chart.description}</p>
-        <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-ink-muted">
-          No historical observations are loaded for this series. Expected identity: monthly actuals for the chart period, one observation per month.
-        </p>
+        <ul className="flex flex-col gap-2">
+          {chart.notes.map((note) => (
+            <li key={note} className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-ink-muted">
+              {note}
+            </li>
+          ))}
+        </ul>
       </Card>
     );
   }
@@ -136,6 +147,7 @@ export function TrendChartCard({ chart, className }: { chart: TrendChart; classN
             <span aria-hidden className="inline-block h-0.5 w-4 rounded" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
             <span>{series.label}</span>
             <span className="text-ink-faint">· {series.scopeLabel}</span>
+            {basisFor(chart, series) && <span className="text-ink-faint">· {basisFor(chart, series)} basis</span>}
             {series.points.length < 2 && <span className="text-warn">· {series.points.length} month loaded</span>}
           </li>
         ))}
@@ -166,6 +178,12 @@ export function TrendChartCard({ chart, className }: { chart: TrendChart; classN
           <SeriesLine key={series.key} series={series} periods={periods} x={x} y={y} color={COLORS[index % COLORS.length]} />
         ))}
       </svg>
+
+      {chart.notes.map((note) => (
+        <p key={note} className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-ink-muted">
+          {note}
+        </p>
+      ))}
 
       <details className="text-xs text-ink-muted">
         <summary className="cursor-pointer text-note font-semibold text-ink">Show the numbers</summary>

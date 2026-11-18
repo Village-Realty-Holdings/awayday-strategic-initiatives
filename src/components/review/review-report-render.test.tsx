@@ -118,7 +118,10 @@ describe("report component rendering", () => {
     expect(html).toContain("* restated value");
 
     const empty = renderToStaticMarkup(<TrendChartCard chart={buildTrendChart(TREND_CHART_SPECS[0], [], [])} />);
-    expect(empty).toContain("No historical observations are loaded");
+    // Each series says in the review's own terms what it needs; the Base Business
+    // line states that its accounting basis is not confirmed.
+    expect(empty).toContain("LTM actual · LTM Pro Forma Lender EBITDA");
+    expect(empty).toContain("does not state that series&#x27; accounting basis");
   });
 
   it("breaks the chart line where a month is missing instead of interpolating", () => {
@@ -143,7 +146,7 @@ describe("report component rendering", () => {
     const brandRows = [
       observation({ kpiId: "bookable", value: "100", entityId: "Brand A", entityScope: "BRAND", timeBasis: "POINT_IN_TIME" }),
       observation({ kpiId: "month", value: "5", entityId: "Brand A", entityScope: "BRAND", timeBasis: "MONTHLY" }),
-      observation({ kpiId: "ltm-pct", value: "18", entityId: "Brand A", entityScope: "BRAND", timeBasis: "LTM" }),
+      observation({ kpiId: "ltm-pct", value: "25", entityId: "Brand A", entityScope: "BRAND", timeBasis: "LTM" }),
     ];
     const churn = buildBrandChurn(definitions, brandRows, PERIOD);
     const html = renderToStaticMarkup(<BrandChurnTable churn={churn} monthName="October" />);

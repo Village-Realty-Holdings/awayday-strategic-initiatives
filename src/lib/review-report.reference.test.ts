@@ -227,12 +227,15 @@ describe("October 2026 reference pillar lines", () => {
 // ---------------------------------------------------------------------------
 
 /**
- * The reviewed history is published year to date for Base Business Adjusted
- * EBITDA and on LTM for the lender view. NOTE: this reference series gives
- * October 2026 Base Business Adjusted EBITDA as $77.3M while the October
- * headline table gives the same identity as $79.9M YTD. The dashboard shows
- * whatever Neon holds; the two reference numbers are not reconciled here and
- * are flagged as an open question for the reviewer.
+ * The reviewed chart's two series, from the HTML: the dashed "Base business Adj.
+ * EBITDA" line and the solid "LTM pro forma lender EBITDA" line, Dec-25 to Oct-26.
+ *
+ * The HTML states LTM only for the lender line. Its dashed line is a level that
+ * falls each month ("fell $1.3M in the month to $77.3M") and its October point is
+ * $77.3M, which is NOT the $79.9M October YTD headline. So the two are different
+ * published identities, and the dashboard must not reuse the YTD headline for the
+ * chart. Here the history is modelled as its own definition, as Neon would need to
+ * hold it; the basis it declares is what the chart shows.
  */
 const HISTORY: { period: string; baseBusinessYtd: string; lenderLtm: string; restated?: boolean }[] = [
   { period: "2025-12", baseBusinessYtd: "69400000", lenderLtm: "86400000" },
@@ -248,12 +251,19 @@ const HISTORY: { period: string; baseBusinessYtd: string; lenderLtm: string; res
   { period: "2026-10", baseBusinessYtd: "77300000", lenderLtm: "136000000" },
 ];
 
+/** The reviewed history's own definition, separate from the October YTD headline. */
+const historyEbitda = metric({
+  id: "bb-history",
+  name: "Base Business Adjusted EBITDA (reviewed history)",
+  metricKey: "user_review:bb_ebitda_reviewed_history",
+});
+
 function historyRows(): ReportObservation[] {
   return HISTORY.flatMap((point) => [
     observation({
-      kpiId: "ebitda",
+      kpiId: "bb-history",
       value: point.baseBusinessYtd,
-      timeBasis: "YTD",
+      timeBasis: "LTM",
       reportingPeriod: point.period,
     }),
     observation({
@@ -270,7 +280,9 @@ function historyRows(): ReportObservation[] {
 }
 
 describe("October 2026 reference history", () => {
-  const chart = buildTrendChart(TREND_CHART_SPECS.find((spec) => spec.id === "ltm-ebitda")!, [adjustedEbitda, ltmLender], historyRows());
+  const spec = TREND_CHART_SPECS.find((candidate) => candidate.id === "ltm-ebitda")!;
+  const headline = new Set([`${adjustedEbitda.id}\u0000YTD`]);
+  const chart = buildTrendChart(spec, [adjustedEbitda, historyEbitda, ltmLender], historyRows(), { headlineIdentities: headline });
 
   it("plots one point per month for the YTD Base Business series and the LTM lender series", () => {
     const base = chart.series.find((series) => series.key === "base-business");
@@ -280,7 +292,30 @@ describe("October 2026 reference history", () => {
     expect(chart.periods[0]).toBe("2025-12");
     expect(chart.periods[chart.periods.length - 1]).toBe("2026-10");
     expect(base?.points[0].value).toBe(69_400_000);
+    expect(base?.points[base.points.length - 1].value).toBe(77_300_000);
     expect(lender?.points[lender.points.length - 1].value).toBe(136_000_000);
+    // The dashed line the review draws is drawn dashed here too.
+    expect(base?.style).toBe("dashed");
+    expect(chart.basisLabels).toContain("Base Business Adjusted EBITDA: LTM");
+  });
+
+  it("keeps the $77.3M chart point and the $79.9M YTD headline as separate facts", () => {
+    const withHeadline = buildTrendChart(
+      spec,
+      [adjustedEbitda, historyEbitda, ltmLender],
+      [
+        ...historyRows(),
+        observation({ kpiId: "ebitda", value: "79900000", timeBasis: "YTD" }),
+        observation({ kpiId: "ebitda", value: "78500000", timeBasis: "YTD", reportingPeriod: "2026-09" }),
+        observation({ kpiId: "ebitda", value: "-1200000", timeBasis: "MONTHLY" }),
+      ],
+      { headlineIdentities: new Set([`${adjustedEbitda.id}\u0000YTD`, `${adjustedEbitda.id}\u0000MONTHLY`]) },
+    );
+    const base = withHeadline.series.find((series) => series.key === "base-business");
+    expect(base?.points[base.points.length - 1].value).toBe(77_300_000);
+    // Neither the YTD headline nor the monthly loss leaks into the chart.
+    expect(withHeadline.series.some((series) => series.points.some((point) => point.value === 79_900_000))).toBe(false);
+    expect(withHeadline.series.some((series) => series.points.some((point) => point.value === -1_200_000))).toBe(false);
   });
 
   it("keeps each series on its own population and time basis", () => {
@@ -310,7 +345,7 @@ describe("brand churn identity assumptions", () => {
     expect(bases.ltmPct).toEqual(["LTM", "TTM"]);
   });
 
-  it("sums counts only, and shows no percentage total", () => {
+  it("sums counts only, and derives a percentage from them, never from a rate", () => {
     const metrics = [
       metric({ id: "bookable", name: "Bookable units", unit: "count" }),
       metric({ id: "month", name: "Churned units", unit: "count" }),
@@ -325,8 +360,119 @@ describe("brand churn identity assumptions", () => {
 
     expect(churn.totals.bookableUnits).toBe(150);
     expect(churn.totals.monthChurned).toBe(4);
-    expect(churn.totals).not.toHaveProperty("ltmPct");
+    // No trailing count was published, so no trailing percentage is derived.
+    expect(churn.totals.ltmPct).toBeNull();
+    expect(churn.totals.monthAnnualizedPct).toBeCloseTo(((4 * 12) / 150) * 100, 6);
     expect(churn.scopeLabels).toEqual(["Base Business"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The reviewed brand churn table (49 brands + its own totals row)
+// ---------------------------------------------------------------------------
+
+/**
+ * The reviewed table's full contents: brand, bookable units, October churned
+ * units, LTM (Nov-25 – Oct-26) churned units. Its totals row is
+ * `15,324 | 169 | 13% | 1,868 | 12%`, and the review states how both percentages
+ * are derived — "Rates divide by bookable units on 16 Nov". The percentage
+ * columns are therefore reproducible from the counts, which is what this checks.
+ */
+const BRAND_CHURN: readonly (readonly [brand: string, bookable: number, monthChurned: number, ltmChurned: number])[] = [
+  ["Avada Properties", 306, 4, 174],
+  ["Scottsdale Rentals", 85, 0, 36],
+  ["Luxury Beach Rentals", 237, 22, 91],
+  ["Carolina Beach Realty", 172, 4, 55],
+  ["Stay Local Austin", 93, 0, 27],
+  ["Emerald Coast Retreats", 109, 3, 29],
+  ["Big Sky Vacation Rentals", 111, 1, 28],
+  ["Stay Montana", 422, 13, 81],
+  ["Sedona.org", 158, 0, 26],
+  ["SummitCove", 429, 9, 63],
+  ["Emerald Coast Vacation Rentals", 271, 2, 39],
+  ["Oregon Beach Vacations", 201, 3, 28],
+  ["Stay Winter Park", 304, 2, 42],
+  ["Village Realty", 974, 14, 133],
+  ["RealJoy", 1893, 27, 254],
+  ["Sunset Rentals", 281, 5, 36],
+  ["Sun Palace Vacation Homes", 239, 2, 30],
+  ["Park City Rental Properties", 437, 4, 52],
+  ["Kiawah / Seabrook Exclusives", 208, 1, 24],
+  ["Great Ocean Condos", 454, 7, 50],
+  ["Resort Rentals", 474, 3, 51],
+  ["Great Western Lodging", 344, 2, 36],
+  ["Stony Brook Cabins", 197, 1, 19],
+  ["Echelon Luxury Properties", 136, 0, 13],
+  ["Retreatia", 290, 2, 27],
+  ["Lodging in Telluride", 54, 0, 5],
+  ["Stay Better Vacations", 165, 0, 15],
+  ["Pristine Properties Vacation Rentals", 365, 1, 33],
+  ["Vacation Homes Collection", 282, 1, 25],
+  ["Meredith Lodging", 785, 13, 69],
+  ["Bluewater Vacation Rentals", 571, 4, 47],
+  ["Pensacola Beach Properties", 258, 0, 21],
+  ["Gulf Coast Getaways", 70, 0, 5],
+  ["Blue Moon Vacation Rentals", 102, 0, 7],
+  ["Holiday Isle Properties", 442, 2, 30],
+  ["Luxury Coastal Vacations", 587, 1, 39],
+  ["Summit County Mountain Retreats", 639, 1, 41],
+  ["Sand 'N Sea Properties", 201, 2, 12],
+  ["Travel Life Vacations", 156, 2, 9],
+  ["Spinnaker's Reach Realty", 140, 3, 7],
+  ["Ski Country Resorts", 161, 1, 8],
+  ["Arrived", 270, 0, 13],
+  ["Warren Beach Rentals", 261, 0, 11],
+  ["All Seasons", 485, 5, 19],
+  ["Ocracoke Island Realty", 299, 2, 8],
+  ["Element Vacation Homes", 46, 0, 0],
+  ["Steamboat Lodging Company", 55, 0, 0],
+  ["Winter Park Lodging Company", 105, 0, 0],
+  // The review's own note: "Rent Branson shows no bookable units in AwayDNA".
+  ["Rent Branson", 0, 0, 0],
+];
+
+describe("October 2026 reference brand churn table", () => {
+  const metrics = [
+    metric({ id: "bookable", name: "Bookable units", unit: "count", displayFormat: "count" }),
+    metric({ id: "month-churned", name: "Churned units", unit: "count", displayFormat: "count" }),
+    metric({ id: "ltm-churned", name: "LTM churned units", unit: "count", displayFormat: "count" }),
+  ];
+
+  const rows = BRAND_CHURN.flatMap(([brand, bookable, monthChurned, ltmChurned]) => [
+    observation({ kpiId: "bookable", value: String(bookable), entityId: brand, entityScope: "BRAND", timeBasis: "POINT_IN_TIME" }),
+    observation({ kpiId: "month-churned", value: String(monthChurned), entityId: brand, entityScope: "BRAND", timeBasis: "MONTHLY" }),
+    observation({ kpiId: "ltm-churned", value: String(ltmChurned), entityId: brand, entityScope: "BRAND", timeBasis: "LTM" }),
+  ]);
+
+  const churn = buildBrandChurn(metrics, rows, PERIOD);
+
+  it("renders one row per brand in the reviewed table", () => {
+    expect(churn.rows).toHaveLength(49);
+    expect(churn.totals.brands).toBe(49);
+  });
+
+  it("totals the reviewed counts exactly", () => {
+    expect(churn.totals.bookableUnits).toBe(15_324);
+    expect(churn.totals.monthChurned).toBe(169);
+    expect(churn.totals.ltmChurned).toBe(1_868);
+  });
+
+  it("derives the reviewed totals row percentages the way the review derives them", () => {
+    // 169 × 12 ÷ 15,324 = 13.2% and 1,868 ÷ 15,324 = 12.2%: the review prints 13% and 12%.
+    expect(Math.round(churn.totals.monthAnnualizedPct!)).toBe(13);
+    expect(Math.round(churn.totals.ltmPct!)).toBe(12);
+    expect(churn.totals.monthAnnualizedPct).toBeCloseTo(((169 * 12) / 15_324) * 100, 10);
+    expect(churn.totals.ltmPct).toBeCloseTo((1_868 / 15_324) * 100, 10);
+  });
+
+  it("keeps every brand's row readable on its own time basis", () => {
+    const luxury = churn.rows.find((row) => row.brand === "Luxury Beach Rentals");
+    expect(luxury).toMatchObject({ bookableUnits: 237, monthChurned: 22, ltmChurned: 91 });
+    const branson = churn.rows.find((row) => row.brand === "Rent Branson");
+    // No bookable units: the counts stay, and no rate is invented for the row.
+    expect(branson).toMatchObject({ bookableUnits: 0, monthChurned: 0, ltmChurned: 0, monthAnnualizedPct: null, ltmPct: null });
+    expect(churn.ignoredTimeBasis).toBe(0);
+    expect(churn.totalsMixed).toBe(false);
   });
 });
 

@@ -183,12 +183,21 @@ export const getReviewedReport = cache(async (period: string): Promise<ReviewedR
     if (scorecard.loaded > 0) scorecards[code] = scorecard;
   }
 
+  const execCards = buildExecCards(metrics, periodRows, period);
+  // A chart may not reuse a headline's exact identity: the reviewed history and the
+  // headline are different facts even when they share a definition.
+  const headlineIdentities = new Set(
+    execCards.filter((card) => card.metricId).map((card) => `${card.metricId}\u0000${card.timeBasis ?? ""}`),
+  );
+
   return {
     period,
-    execCards: buildExecCards(metrics, periodRows, period),
+    execCards,
     sections,
     scorecards,
-    charts: TREND_CHART_SPECS.map((spec) => buildTrendChart(spec, metrics, [...historyRows, ...periodRows])),
+    charts: TREND_CHART_SPECS.map((spec) =>
+      buildTrendChart(spec, metrics, [...historyRows, ...periodRows], { headlineIdentities }),
+    ),
     brandChurn: buildBrandChurn(metrics, periodRows, period),
     counts: {
       metricsWithValues: defs.filter((def) => def.observations.length > 0).length,

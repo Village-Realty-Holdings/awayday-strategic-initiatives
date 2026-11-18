@@ -22,6 +22,7 @@ import {
   AmbiguousTimeBasisError,
   CONSOLIDATED_REPORTING_SCOPE,
   DEFAULT_TIME_BASIS,
+  compareObservations,
   comparePeriods,
   observationIdentity,
   resolveKpi,
@@ -117,6 +118,67 @@ describe("resolveKpi — publication state", () => {
       publicationState: "APPROVED",
       quality: { notIn: ["INVALID", "UNAVAILABLE"] },
     });
+  });
+});
+
+describe("compareObservations — authority precedence", () => {
+  // The partial unique index orders duplicates by
+  //   authorityRank ASC NULLS LAST, refreshedAt DESC
+  // so a lower rank is stronger and a missing rank is the weakest of all. The
+  // comparator must agree, and must never return NaN.
+  const at = (iso: string) => new Date(`${iso}T00:00:00Z`);
+
+  it("prefers the lower rank when both rows have one", () => {
+    const strong = observation({ authorityRank: 3 });
+    const weak = observation({ authorityRank: 9 });
+    expect(compareObservations(strong, weak)).toBeLessThan(0);
+    expect(compareObservations(weak, strong)).toBeGreaterThan(0);
+  });
+
+  it("puts a ranked row ahead of an unranked one, even when the unranked row is fresher", () => {
+    const ranked = observation({ authorityRank: 9, observedAt: at("2026-11-01"), refreshedAt: at("2026-11-01") });
+    const unranked = observation({ authorityRank: null, observedAt: at("2026-11-10"), refreshedAt: at("2026-11-10") });
+    expect(compareObservations(ranked, unranked)).toBeLessThan(0);
+    expect(compareObservations(unranked, ranked)).toBeGreaterThan(0);
+  });
+
+  it("compares two unranked rows by recency instead of collapsing them", () => {
+    const older = observation({ authorityRank: null, observedAt: at("2026-11-01") });
+    const newer = observation({ authorityRank: null, observedAt: at("2026-11-10") });
+    expect(compareObservations(newer, older)).toBeLessThan(0);
+    expect(compareObservations(older, newer)).toBeGreaterThan(0);
+    // Identical rows must compare equal — never NaN (Infinity − Infinity).
+    const same = compareObservations(older, { ...older });
+    expect(Number.isNaN(same)).toBe(false);
+    expect(same).toBe(0);
+  });
+
+  it("breaks a tie on refresh time, then revision, when ranks are equal", () => {
+    const base = { authorityRank: null, observedAt: at("2026-11-05") };
+    const refreshedEarlier = observation({ ...base, refreshedAt: at("2026-11-06") });
+    const refreshedLater = observation({ ...base, refreshedAt: at("2026-11-08") });
+    expect(compareObservations(refreshedLater, refreshedEarlier)).toBeLessThan(0);
+
+    const revisionOne = observation({ ...base, revision: 1 });
+    const revisionTwo = observation({ ...base, revision: 2 });
+    expect(compareObservations(revisionTwo, revisionOne)).toBeLessThan(0);
+  });
+
+  it("keeps the same winner the selector picks for a mixed-rank duplicate", async () => {
+    const ranked = observation({ value: "ranked", authorityRank: 4, observedAt: at("2026-11-01") });
+    const unrankedNewer = observation({ value: "unranked", authorityRank: null, observedAt: at("2026-11-10") });
+    givenRows([unrankedNewer, ranked]);
+    const resolved = await resolveKpi("revenue", { reportingPeriod: "FY27-P09" });
+    expect(resolved?.value).toBe("ranked");
+  });
+
+  it("still excludes superseded, unapproved and invalid rows before ranking", () => {
+    const approved = observation({ value: "ok", authorityRank: 9 });
+    const superseded = observation({ value: "superseded", publicationState: "SUPERSEDED", authorityRank: 1 });
+    const draft = observation({ value: "draft", publicationState: "DRAFT", authorityRank: 1 });
+    const invalid = observation({ value: "invalid", quality: "INVALID", authorityRank: 1 });
+    const selected = selectCurrentObservations([superseded, draft, invalid, approved], { reportingPeriod: "FY27-P09" });
+    expect(selected.map((row) => row.value)).toEqual(["ok"]);
   });
 });
 

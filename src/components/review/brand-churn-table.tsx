@@ -7,19 +7,29 @@ import { formatValueForKind } from "@/lib/review-format";
 import type { BrandChurn, BrandChurnRow } from "@/lib/review-report";
 
 /**
- * Highlight threshold for a churn column, in percent. It is a display rule for
- * drawing attention, not a business target: the target lives in the metric's
- * definition (KpiDefinition.target) and is never inferred here.
+ * The reviewed brand table's own thresholds: "Red is 20% or more, green under
+ * 10%". They are the source's attention bands, not business targets; a target
+ * still lives in the metric's definition and is never inferred here.
  */
-export const BRAND_CHURN_HIGHLIGHT_PCT = 15;
+export const BRAND_CHURN_RISK_PCT = 20;
+export const BRAND_CHURN_GOOD_PCT = 10;
 
 type NumericKey = "bookableUnits" | "monthChurned" | "monthAnnualizedPct" | "ltmChurned" | "ltmPct";
 type SortKey = "brand" | NumericKey;
 
+/** The column the reviewed table sorts and colours by: trailing churn. */
+function churnBand(row: BrandChurnRow): "risk" | "good" | null {
+  const value = row.ltmPct ?? row.monthAnnualizedPct;
+  if (value == null) return null;
+  if (value >= BRAND_CHURN_RISK_PCT) return "risk";
+  if (value < BRAND_CHURN_GOOD_PCT) return "good";
+  return null;
+}
+
 function isHigh(row: BrandChurnRow): boolean {
   return (
-    (row.ltmPct != null && row.ltmPct >= BRAND_CHURN_HIGHLIGHT_PCT) ||
-    (row.monthAnnualizedPct != null && row.monthAnnualizedPct >= BRAND_CHURN_HIGHLIGHT_PCT)
+    (row.ltmPct != null && row.ltmPct >= BRAND_CHURN_RISK_PCT) ||
+    (row.monthAnnualizedPct != null && row.monthAnnualizedPct >= BRAND_CHURN_RISK_PCT)
   );
 }
 
@@ -84,7 +94,7 @@ export function BrandChurnTable({ churn, monthName }: { churn: BrandChurn; month
         </label>
         <label className="flex items-center gap-2 text-xs text-ink-muted">
           <input type="checkbox" checked={highOnly} onChange={(event) => setHighOnly(event.target.checked)} className="h-3.5 w-3.5" />
-          Only {BRAND_CHURN_HIGHLIGHT_PCT}%+ churn
+          Only {BRAND_CHURN_RISK_PCT}%+ churn
         </label>
         <span className="text-note text-ink-faint">
           {filtered.length} of {churn.rows.length} {churn.totalsMixed ? "brand rows" : "brands"}
@@ -114,7 +124,10 @@ export function BrandChurnTable({ churn, monthName }: { churn: BrandChurn; month
           </thead>
           <tbody>
             {filtered.map((row) => (
-              <tr key={row.id} className={`border-t border-border/60 ${isHigh(row) ? "bg-risk-soft/40" : ""}`}>
+              <tr
+                key={row.id}
+                className={`border-t border-border/60 ${churnBand(row) === "risk" ? "bg-risk-soft/40" : churnBand(row) === "good" ? "bg-ok-soft/40" : ""}`}
+              >
                 <th scope="row" className="whitespace-normal px-3 py-1.5 text-left font-medium text-ink">
                   {row.brand}
                   {churn.totalsMixed && <span className="ml-2 font-normal text-ink-faint">{row.scopeLabel}</span>}
@@ -148,10 +161,29 @@ export function BrandChurnTable({ churn, monthName }: { churn: BrandChurn; month
                 {churn.totalsMixed ? "No total across populations" : `Total · ${churn.totals.brands} brands`}
               </th>
               {churn.columns.map((column) => {
-                const total = column.key === "bookableUnits" ? churn.totals.bookableUnits : column.key === "monthChurned" ? churn.totals.monthChurned : column.key === "ltmChurned" ? churn.totals.ltmChurned : null;
+                const total =
+                  column.key === "bookableUnits"
+                    ? churn.totals.bookableUnits
+                    : column.key === "monthChurned"
+                      ? churn.totals.monthChurned
+                      : column.key === "ltmChurned"
+                        ? churn.totals.ltmChurned
+                        : column.key === "monthAnnualizedPct"
+                          ? churn.totals.monthAnnualizedPct
+                          : column.key === "ltmPct"
+                            ? churn.totals.ltmPct
+                            : null;
                 return (
                   <td key={column.key} className="tabular px-3 py-2 text-right">
-                    {column.count && total != null ? formatValueForKind(column.kind, total) : <span className="font-normal text-ink-faint">—</span>}
+                    {total == null ? (
+                      <span className="font-normal text-ink-faint">—</span>
+                    ) : column.count ? (
+                      formatValueForKind(column.kind, total)
+                    ) : (
+                      // Derived from the counts above and bookable units, as the
+                      // reviewed table does; rounded to a whole percent like it.
+                      <span title="derived: churned units ÷ bookable units">{Math.round(total)}%</span>
+                    )}
                   </td>
                 );
               })}
@@ -161,12 +193,12 @@ export function BrandChurnTable({ churn, monthName }: { churn: BrandChurn; month
       </div>
       <p className="text-note text-ink-faint">
         {churn.totalsMixed
-          ? "These brands are reported under more than one population, so no count is totalled or combined across them. "
-          : "Totals add up the reported counts; "}
-        percentages are not averaged or re-weighted here. Each column reads one time basis and one population, as its header says; a value published on
-        another basis is not moved into it.{" "}
+          ? "These brands are reported under more than one population, so nothing is totalled or combined across them. "
+          : "Totals add up the reported counts, and the percentage totals are derived from those counts and bookable units (monthly churn annualised as × 12): percentages are not averaged or re-weighted here. "}
+        Each column reads one time basis and one population, as its header says; a value published on another basis is not moved into it.{" "}
         {churn.ignoredTimeBasis > 0 ? `${churn.ignoredTimeBasis} churn observation${churn.ignoredTimeBasis === 1 ? " was" : "s were"} not shown because the time basis does not match the column. ` : ""}
-        Rows at or above {BRAND_CHURN_HIGHLIGHT_PCT}% are highlighted for attention only. Month: {monthName}.
+        Rows at {BRAND_CHURN_RISK_PCT}% or more are shaded as the reviewed table shades them, and rows under {BRAND_CHURN_GOOD_PCT}% are shaded as good;
+        the bands are attention only. Month: {monthName}.
       </p>
     </div>
   );

@@ -277,8 +277,8 @@ describe("report table", () => {
       "Revenue",
       "Cost of sales",
       "Shop NOI",
-      "Shop NOI margin (reported)",
-      "Shop NOI margin (ex-OTA)",
+      "Shop NOI margin (reported basis)",
+      "Shop NOI margin (ex-OTA basis)",
       "A brand new measure",
     ]);
     // The ex-OTA line is not swallowed by the generic Shop NOI line.
@@ -335,7 +335,8 @@ describe("executive summary cards", () => {
       observation({ kpiId: "noi", value: "3600000", timeBasis: "MONTHLY", comparisonBasis: "PRIOR_YEAR" }),
     ];
     const cards = buildExecCards(metrics, rows, PERIOD);
-    expect(cards.map((card) => card.title)).toEqual(["Adjusted EBITDA", "Adjusted EBITDA · YTD", "LTM Pro Forma Lender EBITDA", "Shop NOI"]);
+    // The reviewed report's own card names.
+    expect(cards.map((card) => card.title)).toEqual(["Oct Adj. EBITDA (base business)", "YTD Adj. EBITDA", "LTM PF Lender EBITDA", "Oct Shop NOI"]);
     expect(cards[0].value).toBe("\u2212$1.2M");
     expect(cards[0].delta.display).toBe("\u2212$200K");
     expect(cards[0].deltaLabel).toBe("vs budget");
@@ -467,7 +468,16 @@ describe("historical series", () => {
     id: "test",
     title: "Test series",
     description: "",
-    series: [{ key: "lender", label: "Lender", match: (definition) => /lender/.test(definition.name.toLowerCase()), timeBasis: "LTM", scope: null }],
+    series: [
+      {
+        key: "lender",
+        label: "Lender",
+        match: (definition) => /lender/.test(definition.name.toLowerCase()),
+        timeBasis: "LTM",
+        scope: null,
+        missing: "LTM lender series",
+      },
+    ],
   };
 
   it("orders months chronologically and flags a restated point", () => {
@@ -496,77 +506,114 @@ describe("historical series", () => {
     expect(chart.series[0].points[0].value).toBe(1.5);
   });
 
-  it("never mixes two populations in one series", () => {
+  it("refuses to merge two populations into one line and says which ones it found", () => {
     const rows = [
       observation({ kpiId: "lender", value: "1", timeBasis: "LTM", reportingPeriod: "2026-09" }),
       observation({ kpiId: "lender", value: "9", timeBasis: "LTM", reportingPeriod: "2026-10", reportingScope: "USER_REVIEWED_REPORTED", entityScope: "REPORTED" }),
     ];
     const chart = buildTrendChart(spec, [lenderEbitda], rows);
-    // The series picks one population (the one with most points) and stays there.
-    expect(new Set(chart.series.map((series) => series.scopeLabel)).size).toBe(1);
-    expect(chart.series[0].points.every((point) => [1].includes(point.value))).toBe(true);
+    expect(chart.series).toHaveLength(0);
+    expect(chart.notes[0]).toContain("More than one published identity");
   });
 
   it("returns no series when nothing matches", () => {
     const chart = buildTrendChart(spec, [revenue], [observation({ kpiId: "rev", value: "1" })]);
     expect(chart.series).toHaveLength(0);
     expect(chart.periods).toHaveLength(0);
+    expect(chart.notes).toEqual(["LTM lender series"]);
   });
 });
 
-describe("historical chart time bases", () => {
+describe("historical chart as the reviewed report draws it", () => {
   const ebitdaChart = TREND_CHART_SPECS.find((candidate) => candidate.id === "ltm-ebitda")!;
-  const baseBusinessSeries = ebitdaChart.series.find((candidate) => candidate.key === "base-business")!;
-  const lenderSeries = ebitdaChart.series.find((candidate) => candidate.key === "lender")!;
+  const baseSpec = ebitdaChart.series.find((candidate) => candidate.key === "base-business")!;
+  const lenderSpec = ebitdaChart.series.find((candidate) => candidate.key === "lender")!;
+  /** A definition that exists only to publish the reviewed chart series. */
+  const historyDefinition = metric({ id: "bb-history", name: "Base Business Adjusted EBITDA (reviewed history)", metricKey: "user_review:bb_ebitda_history" });
 
-  it("reads Base Business Adjusted EBITDA year to date and Lender EBITDA on LTM", () => {
-    expect(baseBusinessSeries.timeBasis).toBe("YTD");
-    expect(baseBusinessSeries.scope).toEqual(BASE_BUSINESS_SCOPE);
-    expect(lenderSeries.timeBasis).toBe("LTM");
+  it("states LTM for the lender line, and no basis at all for the Base Business line", () => {
+    expect(lenderSpec.timeBasis).toBe("LTM");
+    expect(lenderSpec.label).toBe("LTM Pro Forma Lender EBITDA");
+    // The reviewed report never names the dashed series' accounting basis.
+    expect(baseSpec.timeBasis).toBeNull();
+    expect(baseSpec.label).toBe("Base Business Adjusted EBITDA");
+    expect(baseSpec.style).toBe("dashed");
+    expect(baseSpec.excludeHeadline).toBe(true);
   });
 
-  it("plots the YTD observations, one point per month, and ignores the monthly ones", () => {
-    const ytd = (period: string, value: string) => observation({ kpiId: "ebitda", value, timeBasis: "YTD", reportingPeriod: period });
-    const monthly = (period: string, value: string) => observation({ kpiId: "ebitda", value, timeBasis: "MONTHLY", reportingPeriod: period });
-    const chart = buildTrendChart(ebitdaChart, [adjustedEbitda, lenderEbitda], [
-      ytd("2026-08", "100"), ytd("2026-09", "120"), ytd("2026-10", "130"),
-      // Deliberately conflicting monthly rows: they are a different fact and must
-      // neither replace a YTD point nor be accumulated into one.
-      monthly("2026-08", "7"), monthly("2026-09", "8"), monthly("2026-10", "9"),
+  it("does not substitute the October YTD headline for the historical series", () => {
+    const headline = new Set([`${adjustedEbitda.id}\u0000YTD`]);
+    const chart = buildTrendChart(
+      ebitdaChart,
+      [adjustedEbitda, lenderEbitda],
+      [
+        observation({ kpiId: "ebitda", value: "79900000", timeBasis: "YTD", reportingPeriod: "2026-10" }),
+        observation({ kpiId: "ebitda", value: "78500000", timeBasis: "YTD", reportingPeriod: "2026-09" }),
+      ],
+      { headlineIdentities: headline },
+    );
+
+    const base = chart.series.find((series) => series.key === "base-business");
+    expect(base).toBeUndefined();
+    // And the $79.9M YTD observation appears nowhere in the chart.
+    expect(chart.series.some((series) => series.points.some((point) => point.value === 79_900_000))).toBe(false);
+    expect(chart.notes.join(" ")).toContain("does not state that series' accounting basis");
+  });
+
+  it("draws a separately published history on the basis that definition declares", () => {
+    const chart = buildTrendChart(
+      ebitdaChart,
+      [adjustedEbitda, lenderEbitda, historyDefinition],
+      [
+        observation({ kpiId: "ebitda", value: "79900000", timeBasis: "YTD", reportingPeriod: "2026-10" }),
+        observation({ kpiId: "bb-history", value: "77300000", timeBasis: "LTM", reportingPeriod: "2026-10" }),
+        observation({ kpiId: "bb-history", value: "78500000", timeBasis: "LTM", reportingPeriod: "2026-09" }),
+        observation({ kpiId: "lender", value: "136000000", timeBasis: "LTM", reportingPeriod: "2026-10", reportingScope: "USER_REVIEWED_REPORTED", entityScope: "REPORTED" }),
+      ],
+      { headlineIdentities: new Set([`${adjustedEbitda.id}\u0000YTD`]) },
+    );
+
+    const base = chart.series.find((series) => series.key === "base-business");
+    expect(base?.points.map((point) => point.value)).toEqual([78_500_000, 77_300_000]);
+    expect(base?.style).toBe("dashed");
+    // The basis comes from the published row and is stated, not inferred.
+    expect(chart.basisLabels).toContain("Base Business Adjusted EBITDA: LTM");
+    expect(chart.notes).toHaveLength(0);
+  });
+
+  it("plots nothing when two published identities could both be the series", () => {
+    const chart = buildTrendChart(
+      ebitdaChart,
+      [adjustedEbitda, historyDefinition],
+      [
+        observation({ kpiId: "bb-history", value: "77300000", timeBasis: "LTM", reportingPeriod: "2026-10" }),
+        observation({ kpiId: "bb-history", value: "77000000", timeBasis: "MONTHLY", reportingPeriod: "2026-10" }),
+      ],
+      { headlineIdentities: new Set() },
+    );
+    expect(chart.series.find((series) => series.key === "base-business")).toBeUndefined();
+    expect(chart.notes.join(" ")).toContain("More than one published identity");
+  });
+
+  it("never accumulates monthly rows into the historical line", () => {
+    const monthly = (period: string, value: string) => observation({ kpiId: "bb-history", value, timeBasis: "MONTHLY", reportingPeriod: period });
+    const chart = buildTrendChart(ebitdaChart, [historyDefinition], [monthly("2026-09", "7"), monthly("2026-10", "9")], {
+      headlineIdentities: new Set(),
+    });
+    const base = chart.series.find((series) => series.key === "base-business");
+    // Two monthly rows resolve to a monthly series of 7 and 9 — never a sum of 16,
+    // and never relabelled as a rolling or cumulative figure.
+    expect(base?.points.map((point) => point.value)).toEqual([7, 9]);
+    expect(chart.basisLabels).toContain("Base Business Adjusted EBITDA: MONTHLY");
+  });
+
+  it("keeps the September lender restatement marked", () => {
+    const chart = buildTrendChart(ebitdaChart, [lenderEbitda], [
+      observation({ kpiId: "lender", value: "135400000", timeBasis: "LTM", reportingPeriod: "2026-09", revision: 2 }),
+      observation({ kpiId: "lender", value: "136000000", timeBasis: "LTM", reportingPeriod: "2026-10" }),
     ]);
-
-    const series = chart.series.find((candidate) => candidate.key === "base-business");
-    expect(series?.points.map((point) => point.value)).toEqual([100, 120, 130]);
-    expect(series?.label).toContain("YTD");
-  });
-
-  it("never sums monthly rows into a YTD series", () => {
-    const monthly = (period: string, value: string) => observation({ kpiId: "ebitda", value, timeBasis: "MONTHLY", reportingPeriod: period });
-    const chart = buildTrendChart(ebitdaChart, [adjustedEbitda], [monthly("2026-09", "7"), monthly("2026-10", "9")]);
-    const series = chart.series.find((candidate) => candidate.key === "base-business");
-    expect(series).toBeUndefined();
-    expect(chart.series.some((candidate) => candidate.points.some((point) => point.value === 16))).toBe(false);
-  });
-
-  it("keeps each series on its own population", () => {
-    const chart = buildTrendChart(ebitdaChart, [adjustedEbitda, lenderEbitda], [
-      observation({ kpiId: "ebitda", value: "130", timeBasis: "YTD", reportingPeriod: "2026-10", reportingScope: "BASE_BUSINESS", entityScope: "BASE_BUSINESS" }),
-      observation({ kpiId: "ebitda", value: "999", timeBasis: "YTD", reportingPeriod: "2026-10", reportingScope: "USER_REVIEWED_REPORTED", entityScope: "REPORTED" }),
-      observation({ kpiId: "lender", value: "136", timeBasis: "LTM", reportingPeriod: "2026-10", reportingScope: "USER_REVIEWED_REPORTED", entityScope: "REPORTED" }),
-    ]);
-
-    const base = chart.series.find((candidate) => candidate.key === "base-business");
-    expect(base?.scopeLabel).toBe("Base Business");
-    expect(base?.points.map((point) => point.value)).toEqual([130]);
-  });
-
-  it("still flags a restated YTD point", () => {
-    const chart = buildTrendChart(ebitdaChart, [adjustedEbitda], [
-      observation({ kpiId: "ebitda", value: "100", timeBasis: "YTD", reportingPeriod: "2026-09" }),
-      observation({ kpiId: "ebitda", value: "135", timeBasis: "YTD", reportingPeriod: "2026-10", revision: 2 }),
-    ]);
-    const base = chart.series.find((candidate) => candidate.key === "base-business");
-    expect(base?.points.map((point) => point.restated)).toEqual([false, true]);
+    const lender = chart.series.find((series) => series.key === "lender");
+    expect(lender?.points.filter((point) => point.restated).map((point) => point.period)).toEqual(["2026-09"]);
   });
 });
 
@@ -609,8 +656,11 @@ describe("brand churn", () => {
     expect(a.monthChurned).toBe(2);
     expect(a.ltmChurned).toBe(30);
     expect(a.ltmPct).toBe(12.5);
-    expect(churn.totals).toEqual({ brands: 2, bookableUnits: 150, monthChurned: 3, ltmChurned: 30 });
-    expect(churn.totals).not.toHaveProperty("ltmPct");
+    expect(churn.totals).toMatchObject({ brands: 2, bookableUnits: 150, monthChurned: 3, ltmChurned: 30 });
+    // Percentage totals are derived from the counts, not averaged from the rows,
+    // and come out in percent points like every other percent-kind value.
+    expect(churn.totals.monthAnnualizedPct).toBeCloseTo(((3 * 12) / 150) * 100, 6);
+    expect(churn.totals.ltmPct).toBeCloseTo((30 / 150) * 100, 6);
     expect(churn.ignoredTimeBasis).toBe(0);
   });
 

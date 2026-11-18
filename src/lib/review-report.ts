@@ -281,15 +281,15 @@ export function orderByCatalogue(rows: readonly ReportTableRow[], catalogue: rea
 export const BASE_BUSINESS_LINES: LineSpec[] = [
   { id: "revenue", label: "Revenue", aliases: ["revenue", "total revenue", "base business revenue"] },
   { id: "cost-of-sales", label: "Cost of sales", aliases: ["cost of sales", "cost of revenue", "cost of goods sold", "cogs"] },
-  { id: "shop-opex", label: "Shop operating expenses", aliases: ["shop operating expenses", "shop operating expense", "shop opex"] },
+  { id: "shop-opex", label: "Shop opex", aliases: ["shop opex", "shop operating expenses", "shop operating expense"] },
   { id: "shop-noi", label: "Shop NOI", aliases: ["shop noi", "shop net operating income"], emphasis: true },
   { id: "supportco", label: "SupportCo", aliases: ["supportco", "support co", "support company", "support costs", "support cost"], emphasis: false },
   { id: "business-development", label: "Business development", aliases: ["business development", "bd expense", "business development expense"] },
   { id: "interest-income", label: "Interest income", aliases: ["interest income"] },
-  { id: "adjusted-ebitda", label: "Adjusted EBITDA", aliases: ["adjusted ebitda"], emphasis: true },
-  { id: "shop-noi-margin", label: "Shop NOI margin (reported)", aliases: ["shop noi margin reported", "shop noi margin"] },
-  { id: "shop-noi-margin-ex-ota", label: "Shop NOI margin (ex-OTA)", aliases: ["shop noi margin ex ota", "shop noi margin excluding ota"] },
-  { id: "support-cost-pct", label: "Support cost as % of revenue", aliases: ["support cost as percentage of revenue", "support costs as % of revenue", "support cost percentage", "support cost as % of revenue"] },
+  { id: "adjusted-ebitda", label: "Adj. EBITDA", aliases: ["adjusted ebitda", "adj ebitda"], emphasis: true },
+  { id: "shop-noi-margin", label: "Shop NOI margin (reported basis)", aliases: ["shop noi margin reported basis", "shop noi margin reported", "shop noi margin"] },
+  { id: "shop-noi-margin-ex-ota", label: "Shop NOI margin (ex-OTA basis)", aliases: ["shop noi margin ex ota basis", "shop noi margin ex ota", "shop noi margin excluding ota"] },
+  { id: "support-cost-pct", label: "Support % of revenue", aliases: ["support cost as % of revenue", "support cost percentage", "support cost as percentage of revenue", "support costs as % of revenue"] },
 ];
 
 // ---------------------------------------------------------------------------
@@ -348,7 +348,7 @@ function hasAdjustedEbitda(metric: ReportMetric): boolean {
 export const EXEC_CARD_SPECS: ExecCardSpec[] = [
   {
     id: "month-adjusted-ebitda",
-    title: "Adjusted EBITDA",
+    title: "Oct Adj. EBITDA (base business)",
     expected: "Monthly actual · Adjusted EBITDA · Base Business",
     timeBasis: "MONTHLY",
     scope: BASE_BUSINESS_SCOPE,
@@ -356,7 +356,7 @@ export const EXEC_CARD_SPECS: ExecCardSpec[] = [
   },
   {
     id: "ytd-adjusted-ebitda",
-    title: "Adjusted EBITDA · YTD",
+    title: "YTD Adj. EBITDA",
     expected: "YTD actual · Adjusted EBITDA · Base Business",
     timeBasis: "YTD",
     scope: BASE_BUSINESS_SCOPE,
@@ -364,7 +364,7 @@ export const EXEC_CARD_SPECS: ExecCardSpec[] = [
   },
   {
     id: "ltm-lender-ebitda",
-    title: "LTM Pro Forma Lender EBITDA",
+    title: "LTM PF Lender EBITDA",
     expected: "LTM actual · Pro Forma Lender EBITDA",
     timeBasis: "LTM",
     scope: null,
@@ -372,7 +372,7 @@ export const EXEC_CARD_SPECS: ExecCardSpec[] = [
   },
   {
     id: "month-shop-noi",
-    title: "Shop NOI",
+    title: "Oct Shop NOI",
     expected: "Monthly actual · Shop NOI · Base Business",
     timeBasis: "MONTHLY",
     scope: BASE_BUSINESS_SCOPE,
@@ -385,6 +385,9 @@ export type ExecCard = {
   title: string;
   scopeLabel: string;
   expected: string;
+  /** The definition and basis the card read, so a chart can refuse to reuse it. */
+  metricId: string | null;
+  timeBasis: string | null;
   metricName: string | null;
   value: string | null;
   delta: ComparisonCell;
@@ -448,6 +451,8 @@ export function buildExecCards(metrics: readonly ReportMetric[], rows: readonly 
         title: spec.title,
         scopeLabel: spec.scope ? scopeLabel(spec.scope) : "Not loaded",
         expected: spec.expected,
+        metricId: null,
+        timeBasis: null,
         metricName: null,
         value: null,
         delta: EMPTY_CELL,
@@ -476,6 +481,8 @@ export function buildExecCards(metrics: readonly ReportMetric[], rows: readonly 
           title: spec.title,
           scopeLabel: scopeLabel(foundScope),
           expected: spec.expected,
+          metricId: metric.id,
+          timeBasis: spec.timeBasis,
           metricName: metric.name,
           value: actual.display,
           delta: deltaCell(kind, actual, cell(metric, comparison)),
@@ -490,6 +497,8 @@ export function buildExecCards(metrics: readonly ReportMetric[], rows: readonly 
       title: spec.title,
       scopeLabel: scopeLabel(foundScope),
       expected: spec.expected,
+      metricId: metric.id,
+      timeBasis: spec.timeBasis,
       metricName: metric.name,
       value: actual.display,
       delta: EMPTY_CELL,
@@ -742,9 +751,25 @@ export type TrendSeriesSpec = {
   key: string;
   label: string;
   match: (metric: ReportMetric) => boolean;
-  timeBasis: "MONTHLY" | "YTD" | "LTM";
+  /**
+   * The time basis the reviewed report states for this series, or null when it
+   * states none. A null basis is never guessed: the series resolves only from a
+   * definition that is not the headline's, and the basis it declares is shown.
+   */
+  timeBasis: string | null;
+  /**
+   * Never read an identity a headline card uses. The reviewed chart's October
+   * point is a different number from the October YTD headline, so reusing that
+   * identity would plot the wrong fact. A different basis of the same definition
+   * is still eligible: it is a published row in its own right.
+   */
+  excludeHeadline?: boolean;
+  /** The reviewed chart draws this series dashed. */
+  style?: "solid" | "dashed";
   /** Preferred population; null accepts whichever population publishes the series. */
   scope: ReportScope | null;
+  /** What the review needs when this series cannot be drawn. */
+  missing: string;
 };
 
 export type TrendChartSpec = {
@@ -761,74 +786,132 @@ export type TrendSeries = {
   metricName: string;
   scopeLabel: string;
   kind: MetricKind;
+  /** The reviewed chart draws the Base Business line dashed. */
+  style: "solid" | "dashed";
   points: TrendPoint[];
 };
-export type TrendChart = { id: string; title: string; description: string; series: TrendSeries[]; periods: string[] };
+export type TrendChart = {
+  id: string;
+  title: string;
+  description: string;
+  series: TrendSeries[];
+  periods: string[];
+  /** The time basis each drawn series actually reads, for the caption. */
+  basisLabels: string[];
+  /** What is missing, in the review's own terms, for any series it could not draw. */
+  notes: string[];
+};
 
 export const TREND_CHART_SPECS: TrendChartSpec[] = [
   {
     id: "ltm-ebitda",
     title: "LTM Pro Forma Lender EBITDA",
     description:
-      "The lender view of trailing EBITDA, against Base Business Adjusted EBITDA year to date for the same months. Each series is one time basis and one population: the two bases are never converted into one another.",
+      "The lender view of trailing EBITDA (solid), against Base Business Adjusted EBITDA (dashed) for the same months. Each series is one time basis and one population: the two are never converted into one another. The reviewed report states LTM only for the lender line.",
     series: [
-      { key: "lender", label: "LTM Pro Forma Lender EBITDA", match: (metric) => /lender|pro ?forma/.test(haystack(metric)) && /ebitda/.test(haystack(metric)), timeBasis: "LTM", scope: null },
-      // The reviewed history is published year to date, not as single months. A
-      // monthly row is a different fact and is never accumulated into this line.
-      { key: "base-business", label: "Base Business Adjusted EBITDA (YTD)", match: hasAdjustedEbitda, timeBasis: "YTD", scope: BASE_BUSINESS_SCOPE },
+      // The reviewed chart heading states LTM for the lender line.
+      {
+        key: "lender",
+        label: "LTM Pro Forma Lender EBITDA",
+        match: (metric) => /lender|pro ?forma/.test(haystack(metric)) && /ebitda/.test(haystack(metric)),
+        timeBasis: "LTM",
+        scope: null,
+        missing: "LTM actual · LTM Pro Forma Lender EBITDA, one observation per month.",
+      },
+      // The reviewed chart draws this line dashed and calls it "Base business Adj.
+      // EBITDA". It does not state an accounting basis, and its October point
+      // ($77.3M) is not the October YTD headline ($79.9M), so the headline's
+      // identity is excluded rather than assumed to be the same series.
+      {
+        key: "base-business",
+        label: "Base Business Adjusted EBITDA",
+        match: hasAdjustedEbitda,
+        timeBasis: null,
+        excludeHeadline: true,
+        style: "dashed",
+        scope: BASE_BUSINESS_SCOPE,
+        missing:
+          "Base Business Adjusted EBITDA on the rolling basis the review plots. The reviewed report does not state that series' accounting basis, and its October point differs from the October YTD headline, so the YTD identity is deliberately not used. Publish the chart series as its own definition with a declared time basis.",
+      },
     ],
   },
   {
     id: "awaydna-trevpar",
     title: "AwayDNA TRevPAR",
     description: "TRevPAR for the AwayDNA PMS population, month by month.",
-    series: [{ key: "awaydna", label: "AwayDNA PMS TRevPAR", match: (metric) => /trevpar/.test(haystack(metric)) && /awaydna/.test(haystack(metric)), timeBasis: "MONTHLY", scope: null }],
+    series: [
+      {
+        // "TRevPAR by month, Aug-25 to Oct-26 (AwayDNA, PMS basis)" — monthly.
+        key: "awaydna",
+        label: "AwayDNA PMS TRevPAR",
+        match: (metric) => /trevpar/.test(haystack(metric)) && /awaydna/.test(haystack(metric)),
+        timeBasis: "MONTHLY",
+        scope: null,
+        missing: "Monthly actual · AwayDNA PMS TRevPAR, one observation per month, August 2025 – October 2026.",
+      },
+    ],
   },
 ];
 
-function seriesFor(spec: TrendSeriesSpec, metrics: readonly ReportMetric[], observations: readonly ReportObservation[]): TrendSeries | null {
-  const candidates = metrics.filter(spec.match);
-  if (candidates.length === 0) return null;
+type TrendResolution = { series: TrendSeries; basisLabel: string } | { series: null; note: string };
 
-  type Candidate = { metric: ReportMetric; scope: ReportScope; rows: ReportObservation[] };
-  let best: Candidate | null = null;
+/**
+ * Resolves one series. A confirmed basis is used as stated. When the reviewed
+ * report states no basis (the dashed Base Business line), the series is resolved
+ * only from a definition that is not the headline card's: the review's October
+ * point and its October YTD headline are different numbers, so reusing the
+ * headline identity would plot the wrong fact. No basis is inferred, and an
+ * ambiguous set of candidates yields no line plus a note rather than a guess.
+ */
+function seriesFor(
+  spec: TrendSeriesSpec,
+  metrics: readonly ReportMetric[],
+  observations: readonly ReportObservation[],
+  headlineIdentities: ReadonlySet<string> = new Set(),
+): TrendResolution {
+  const candidates = metrics.filter(spec.match);
+  if (candidates.length === 0) return { series: null, note: spec.missing };
+
+  type Candidate = { metric: ReportMetric; scope: ReportScope; basis: string; rows: ReportObservation[] };
+  const groups = new Map<string, Candidate>();
 
   for (const metric of candidates) {
     const eligible = observations.filter(
       (row) =>
         isCurrentObservation(row) &&
         row.kpiId === metric.id &&
-        (row.timeBasis ?? "YTD") === spec.timeBasis &&
         (row.comparisonBasis ?? "ACTUAL") === "ACTUAL" &&
-        (row.entityId ?? null) === null,
+        (row.entityId ?? null) === null &&
+        // A series reads one explicit basis only; a row that names none is not a series.
+        (row.timeBasis ?? null) !== null &&
+        (spec.timeBasis === null || row.timeBasis === spec.timeBasis) &&
+        !(spec.excludeHeadline && headlineIdentities.has(`${row.kpiId}\u0000${row.timeBasis ?? ""}`)),
     );
 
     // One series is one population. Rows from different populations are grouped
-    // first and the strongest group wins; they are never merged into one line.
-    const byScope = new Map<string, Candidate>();
+    // first and never merged into one line.
     for (const row of eligible) {
       const scope = { reportingScope: row.reportingScope ?? "", entityScope: row.entityScope ?? "" };
       if (spec.scope !== null && (scope.reportingScope !== spec.scope.reportingScope || scope.entityScope !== spec.scope.entityScope)) continue;
-      const key = scopeKey(scope);
-      const entry = byScope.get(key) ?? { metric, scope, rows: [] };
+      const key = `${scopeKey(scope)}\u0000${metric.id}\u0000${row.timeBasis}`;
+      const entry = groups.get(key) ?? { metric, scope, basis: row.timeBasis ?? "", rows: [] };
       entry.rows.push(row);
-      byScope.set(key, entry);
-    }
-
-    for (const entry of byScope.values()) {
-      if (
-        best === null ||
-        entry.rows.length > best.rows.length ||
-        (entry.rows.length === best.rows.length && entry.metric.name.length < best.metric.name.length) ||
-        (entry.rows.length === best.rows.length && entry.metric.name.length === best.metric.name.length && entry.metric.metricKey < best.metric.metricKey)
-      ) {
-        best = entry;
-      }
+      groups.set(key, entry);
     }
   }
 
-  if (!best) return null;
+  if (groups.size === 0) return { series: null, note: spec.missing };
+  if (groups.size > 1) {
+    // More than one published identity could be this line: report them instead of
+    // choosing one that the review did not choose.
+    const found = [...groups.values()]
+      .map((group) => `${group.metric.name} (${group.basis}${group.rows.length ? `, ${group.rows.length} month${group.rows.length === 1 ? "" : "s"}` : ""})`)
+      .sort()
+      .join("; ");
+    return { series: null, note: `${spec.missing} More than one published identity matches, so none is plotted: ${found}.` };
+  }
 
+  const best = [...groups.values()][0];
   const byPeriod = new Map<string, ReportObservation>();
   for (const row of best.rows) {
     const existing = byPeriod.get(row.reportingPeriod);
@@ -840,14 +923,19 @@ function seriesFor(spec: TrendSeriesSpec, metrics: readonly ReportMetric[], obse
     .filter((point): point is TrendPoint => point.value !== null)
     .sort((a, b) => comparePeriods(a.period, b.period));
 
-  if (points.length === 0) return null;
+  if (points.length === 0) return { series: null, note: spec.missing };
+
   return {
-    key: spec.key,
-    label: spec.label,
-    metricName: best.metric.name,
-    scopeLabel: scopeLabel(best.scope),
-    kind: metricKind(best.metric),
-    points,
+    series: {
+      key: spec.key,
+      label: spec.label,
+      metricName: best.metric.name,
+      scopeLabel: scopeLabel(best.scope),
+      kind: metricKind(best.metric),
+      style: spec.style ?? "solid",
+      points,
+    },
+    basisLabel: best.basis,
   };
 }
 
@@ -872,10 +960,20 @@ function contiguousPeriods(observed: readonly string[]): string[] {
   return axis;
 }
 
-export function buildTrendChart(spec: TrendChartSpec, metrics: readonly ReportMetric[], observations: readonly ReportObservation[]): TrendChart {
-  const series = spec.series.map((s) => seriesFor(s, metrics, observations)).filter((s): s is TrendSeries => s !== null);
+export function buildTrendChart(
+  spec: TrendChartSpec,
+  metrics: readonly ReportMetric[],
+  observations: readonly ReportObservation[],
+  options: { headlineIdentities?: ReadonlySet<string> } = {},
+): TrendChart {
+  const resolutions = spec.series.map((s) => ({ spec: s, result: seriesFor(s, metrics, observations, options.headlineIdentities) }));
+  const series = resolutions.map((r) => r.result.series).filter((s): s is TrendSeries => s !== null);
+  const basisLabels = resolutions
+    .map((r) => r.result.series && "basisLabel" in r.result ? `${r.spec.label}: ${r.result.basisLabel}` : null)
+    .filter((label): label is string => label !== null);
+  const notes = resolutions.map((r) => (r.result.series === null ? r.result.note : null)).filter((note): note is string => note !== null);
   const periods = contiguousPeriods([...new Set(series.flatMap((s) => s.points.map((p) => p.period)))].sort(comparePeriods));
-  return { id: spec.id, title: spec.title, description: spec.description, series, periods };
+  return { id: spec.id, title: spec.title, description: spec.description, series, periods, basisLabels, notes };
 }
 
 // ---------------------------------------------------------------------------
@@ -938,6 +1036,13 @@ export type BrandChurnTotals = {
   bookableUnits: number | null;
   monthChurned: number | null;
   ltmChurned: number | null;
+  /**
+   * The reviewed table's own totals row: monthly churn annualised (month × 12 ÷
+   * bookable units) and trailing churn ÷ bookable units. Derived here from the
+   * reported counts, labelled as weighted, never a stored observation.
+   */
+  monthAnnualizedPct: number | null;
+  ltmPct: number | null;
 };
 
 export type BrandChurn = {
@@ -1012,14 +1117,23 @@ export function buildBrandChurn(metrics: readonly ReportMetric[], observations: 
     return values.length === 0 ? null : values.reduce((total, value) => total + value, 0);
   };
 
-  // Totals are sums of reported counts only, and only within one population. No
-  // percentage is aggregated here: a weighted churn rate is a business
-  // calculation with its own definition.
+  // Totals are sums of reported counts only, and only within one population. The
+  // percentages below are derived from those counts and the bookable units, the
+  // way the reviewed table's own totals row is derived; no published rate is
+  // averaged or re-weighted.
+  const bookable = sum("bookableUnits");
+  const monthly = sum("monthChurned");
+  const trailing = sum("ltmChurned");
   const totals: BrandChurnTotals = {
     brands: new Set(rows.map((row) => row.brand)).size,
-    bookableUnits: sum("bookableUnits"),
-    monthChurned: sum("monthChurned"),
-    ltmChurned: sum("ltmChurned"),
+    bookableUnits: bookable,
+    monthChurned: monthly,
+    ltmChurned: trailing,
+    // The reviewed table totals percentages only after dividing by bookable units;
+    // with no denominator, or across populations, no percentage is shown. The
+    // result is in percent points, like every other percent-kind value.
+    monthAnnualizedPct: bookable ? (monthly === null ? null : ((monthly * 12) / bookable) * 100) : null,
+    ltmPct: bookable ? (trailing === null ? null : (trailing / bookable) * 100) : null,
   };
 
   return {

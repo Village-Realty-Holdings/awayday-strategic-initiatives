@@ -30,7 +30,7 @@ schema change, no new dependency and no auth change. See
 
 **Verified locally:**
 
-- `npm run typecheck`, `npm run lint`, `npm test` (586 tests) and
+- `npm run typecheck`, `npm run lint`, `npm test` (598 tests) and
   `npm run build` pass.
 - A local Postgres database (not Neon) was migrated and seeded with synthetic
   definitions/observations; `next dev` rendered the page with all sections,
@@ -50,19 +50,41 @@ schema change, no new dependency and no auth change. See
 - Further self-review fixes: exact catalogue matches win over weak ones, chart
   lines break across missing months, scorecards label a value's time basis and
   population, and cross-pillar expectation collisions were narrowed.
+- Labels and bands now follow the reviewed report's own wording: “Oct Adj. EBITDA
+  (base business)”, “Shop opex”, “Shop NOI margin (reported basis)”, “Support % of
+  revenue”, and the brand table's red ≥20% / green <10% bands.
+- The brand-churn totals row now carries the reviewed report's percentages,
+  derived from its own counts (monthly × 12 ÷ bookable units; LTM ÷ bookable
+  units). Found while validating against the supplied HTML: the derived value was
+  a fraction, so the table would have printed `0%` where the review prints `13%`.
+  It is now in percent points, and `review-report.reference.test.ts` encodes all
+  49 reviewed brands and asserts the `15,324 / 169 / 1,868` totals and the `13%`
+  and `12%` rates.
 
 **Not verified:**
 
 - The real October 2026 observations in Neon (no production access from this
-  environment). The user will compare the rendered page with the reviewed HTML.
+  environment).
 - Any deployment: this branch is not deployed.
 
-## Open question for the reviewer
+**Reference now in hand.** The presentation reference,
+`Awayday October 2026 Strategy Review.html` (72,952 bytes, dated 16 Nov 2026),
+was supplied on 18 Nov 2026 and has been read directly: its labels, section
+order, chart series (Dec-25 – Oct-26), brand table and data notes. Its figures are
+encoded as test fixtures and asserted, never imported by application code. The
+reviewed report's own numbers reconcile: the 49 brands sum to its totals row
+exactly, and every brand's stated rate equals its counts divided by bookable
+units.
 
-The two October 2026 reference tables disagree on Base Business Adjusted EBITDA
-for October: `$77.3M` in the historical series versus `$79.9M` as the YTD headline.
-The dashboard shows the Neon value for the `YTD` identity and does not reconcile
-the two. See `docs/strategy-review-parity.md`.
+## Resolved: the three October Adjusted EBITDA figures
+
+The reviewed report shows `−$1.2M` (October month), `$79.9M` (YTD) and a dashed
+chart line ending `$77.3M` at Oct-26. Earlier this branch treated the last two as
+a contradiction. They are three different facts: the chart line is a level that
+falls month by month and is not the YTD headline. All three are kept as separate
+identities; no basis is inferred, and the chart plots nothing until the review's
+own series is published with a declared time basis. See
+`docs/strategy-review-parity.md`.
 
 ## Open data gaps (business data, not code)
 
