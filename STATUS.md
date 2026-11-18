@@ -1,6 +1,6 @@
 # Status
 
-_Last updated 2026-11-18, on branch `feat/strategy-review-parity` (PR open, not merged or deployed)._
+_Last updated 2026-11-18, on branch `feat/strategy-review-parity` (PR #25 open, not merged or deployed)._
 
 ## Current milestone: Strategy Review parity with the October 2026 reviewed report
 
@@ -30,7 +30,7 @@ schema change, no new dependency and no auth change. See
 
 **Verified locally:**
 
-- `npm run typecheck`, `npm run lint`, `npm test` (543 tests) and
+- `npm run typecheck`, `npm run lint`, `npm test` (548 tests) and
   `npm run build` pass.
 - A local Postgres database (not Neon) was migrated and seeded with synthetic
   definitions/observations; `next dev` rendered the page with all sections,
@@ -53,8 +53,8 @@ a value. Importing them is a separate, authorised ingestion action.
 
 ## Before release (engineering)
 
-1. Review the PR. No protected code (auth, schema, migrations, CI, infrastructure)
-   is touched.
+1. Review PR #25. No protected code (auth, schema, migrations, CI,
+   infrastructure) is touched.
 2. Confirm the rendered review against the real October observations.
 3. Deploy through the existing Workers Builds path from `master` after merge.
    Do not activate the experimental GitHub Actions workflow on
