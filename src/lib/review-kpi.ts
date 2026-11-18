@@ -57,7 +57,6 @@ export type FinanceColumn = { key: string; label: string };
 export type FinanceTable = {
   columns: FinanceColumn[];
   rows: { id: string; label: string; cells: Record<string, string> }[];
-  supplemental?: { id: string; title: string; description: string; table: FinanceTable }[];
 };
 
 export function formatKpiValue(value: string, def: Pick<KpiDefinitionLite, "unit" | "displayFormat">): string {

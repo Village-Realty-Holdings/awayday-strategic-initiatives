@@ -6,6 +6,7 @@ import { getActivePlan } from "@/lib/active-plan";
 import { PUBLICATION_APPROVED } from "@/lib/kpi";
 import { deriveMeasure, formatDerivedMeasure, mappingInputKeys, mappingRag, measureOrigin, parseMeasureNumber } from "@/lib/kpi-measure-mapping";
 import { buildFinanceTable, currentKpiValue, MANUAL_SOURCE_CATEGORY, type FinanceTable, type KpiRow } from "@/lib/review-kpi";
+import { REVIEWED_METRIC_PREFIX } from "@/lib/review-report";
 import {
   PILLAR_STATUS_RAG,
   PILLAR_STATUSES,
@@ -343,10 +344,18 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
   };
 });
 
-/** Financial table for the period, from approved, consolidated KPI values not tied to an area. */
+/**
+ * The approved, consolidated financial table for the period. Reviewed-report
+ * definitions are shaped separately (review-report-data.ts) so they keep their
+ * own populations, whether or not a definition is linked to a pillar.
+ */
 export const getFinanceTable = cache(async (period: string): Promise<FinanceTable> => {
   const defs = await prisma.kpiDefinition.findMany({
-    where: { strategicAreaId: null, observations: { some: { ...currentObservationWhere, reportingPeriod: period } } },
+    where: {
+      strategicAreaId: null,
+      metricKey: { not: { startsWith: REVIEWED_METRIC_PREFIX } },
+      observations: { some: { ...currentObservationWhere, reportingPeriod: period } },
+    },
     orderBy: { name: "asc" },
     select: {
       id: true,
@@ -357,41 +366,7 @@ export const getFinanceTable = cache(async (period: string): Promise<FinanceTabl
       observations: { where: { ...currentObservationWhere, reportingPeriod: period }, select: OBSERVATION_SELECT },
     },
   });
-  const consolidatedDefs = defs.filter((d) => !d.metricKey.startsWith("user_review:"));
-  const reviewedDefs = defs.filter((d) => d.metricKey.startsWith("user_review:"));
-  const consolidated = buildFinanceTable(
-    consolidatedDefs,
-    consolidatedDefs.flatMap((d) => d.observations as KpiRow[]),
-    period,
-  );
-  const reviewedRows = reviewedDefs
-    .flatMap((d) => d.observations as KpiRow[])
-    .filter((row) => row.sourceCategory === "USER_REVIEWED_REPORT");
-  const baseBusiness = buildFinanceTable(reviewedDefs, reviewedRows, period, {
-    reportingScope: "BASE_BUSINESS",
-    entityScope: "BASE_BUSINESS",
-  });
-  const operating = buildFinanceTable(reviewedDefs, reviewedRows, period, {
-    reportingScope: "USER_REVIEWED_REPORTED",
-    entityScope: "REPORTED",
-  });
-  return {
-    ...consolidated,
-    supplemental: [
-      {
-        id: "base-business",
-        title: "Base Business P&L",
-        description: "User-reviewed October strategy report. Base Business only; not directly comparable with consolidated totals.",
-        table: baseBusiness,
-      },
-      {
-        id: "reviewed-operating",
-        title: "Operating, unit economics and other reviewed KPIs",
-        description: "Values from the user-reviewed October strategy report; source definitions and reporting populations vary.",
-        table: operating,
-      },
-    ].filter((section) => section.table.rows.length > 0),
-  };
+  return buildFinanceTable(defs, defs.flatMap((d) => d.observations as KpiRow[]), period);
 });
 
 export function allSis(plan: ReviewPlan): ReviewSi[] {
