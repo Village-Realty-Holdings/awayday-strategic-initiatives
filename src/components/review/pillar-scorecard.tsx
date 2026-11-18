@@ -33,7 +33,7 @@ function DeltaCell({ row }: { row: ScorecardRow }) {
 export function PillarScorecardDetails({ scorecard, monthName }: { scorecard: PillarScorecard | undefined; monthName: string }) {
   if (!scorecard || scorecard.rows.length === 0) return null;
   const loaded = scorecard.rows.filter((row) => !row.expectedOnly).length;
-  const summaryParts = [`${loaded} of ${scorecard.totalMetrics} linked metric${scorecard.totalMetrics === 1 ? "" : "s"} loaded`];
+  const summaryParts = [`${loaded} of ${scorecard.totalMetrics} metric${scorecard.totalMetrics === 1 ? "" : "s"} loaded`];
   if (scorecard.expectedMissing > 0) summaryParts.push(`${scorecard.expectedMissing} expected line${scorecard.expectedMissing === 1 ? "" : "s"} not loaded`);
 
   return (
@@ -62,7 +62,17 @@ export function PillarScorecardDetails({ scorecard, monthName }: { scorecard: Pi
                     {row.expectedOnly && <span className="ml-2 text-note font-normal text-ink-faint">expected, no definition linked</span>}
                   </th>
                   <td className="px-2 py-1.5 text-right">
-                    {row.value ? <span className="tabular">{row.value}</span> : <span className="text-ink-faint">—</span>}
+                    {row.value ? (
+                      <>
+                        <span className="tabular">{row.value}</span>
+                        {row.basisLabel && <span className="ml-1 text-note text-ink-faint">{row.basisLabel}</span>}
+                        {scorecard.scopeLabels.length > 1 && row.scopeLabel && (
+                          <span className="ml-1 block text-note text-ink-faint">{row.scopeLabel}</span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-ink-faint">—</span>
+                    )}
                   </td>
                   <td className="px-2 py-1.5 text-right">
                     <DeltaCell row={row} />

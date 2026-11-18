@@ -1,6 +1,5 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { comparePeriods } from "@/lib/kpi";
 import { formatValueForKind, type TrendChart, type TrendSeries } from "@/lib/review-report";
 
 // A dependency-free SVG line chart. It is server-rendered: the accessible name,
@@ -35,12 +34,43 @@ function ticks(min: number, max: number, count = 4): number[] {
   return Array.from({ length: count + 1 }, (_, index) => min + ((max - min) * index) / count);
 }
 
-function SeriesLine({ series, x, y, color }: { series: TrendSeries; x: (period: string) => number; y: (value: number) => number; color: string }) {
+function SeriesLine({
+  series,
+  periods,
+  x,
+  y,
+  color,
+}: {
+  series: TrendSeries;
+  /** The shared month axis, so a missing month breaks the line instead of being drawn through. */
+  periods: readonly string[];
+  x: (period: string) => number;
+  y: (value: number) => number;
+  color: string;
+}) {
   const points = series.points.map((point) => ({ ...point, cx: x(point.period), cy: y(point.value) }));
-  const path = points.map((point, index) => `${index === 0 ? "M" : "L"}${point.cx.toFixed(1)},${point.cy.toFixed(1)}`).join(" ");
+  // Consecutive months on the axis share a segment; a gap starts a new one, so the
+  // chart never implies an interpolated value that was not observed.
+  const segments: (typeof points)[] = [];
+  for (const point of points) {
+    const current = segments[segments.length - 1];
+    const previous = current?.[current.length - 1];
+    if (!previous || periods.indexOf(point.period) !== periods.indexOf(previous.period) + 1) segments.push([point]);
+    else current.push(point);
+  }
   return (
     <g>
-      <path d={path} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+      {segments.map((segment) => (
+        <path
+          key={segment[0].period}
+          d={segment.map((point, index) => `${index === 0 ? "M" : "L"}${point.cx.toFixed(1)},${point.cy.toFixed(1)}`).join(" ")}
+          fill="none"
+          stroke={color}
+          strokeWidth={2}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      ))}
       {points.map((point) => (
         <circle
           key={point.period}
@@ -75,7 +105,9 @@ export function TrendChartCard({ chart, className }: { chart: TrendChart; classN
     );
   }
 
-  const periods = [...new Set(withPoints.flatMap((series) => series.points.map((point) => point.period)))].sort(comparePeriods);
+  // The contiguous axis comes from the shaping module: rebuilding it from the
+  // observed points would close every gap and draw a line through missing months.
+  const periods = chart.periods;
   const { min, max } = niceDomain(withPoints.flatMap((series) => series.points.map((point) => point.value)));
   const plotWidth = WIDTH - MARGIN.left - MARGIN.right;
   const plotHeight = HEIGHT - MARGIN.top - MARGIN.bottom;
@@ -131,7 +163,7 @@ export function TrendChartCard({ chart, className }: { chart: TrendChart; classN
           ) : null,
         )}
         {withPoints.map((series, index) => (
-          <SeriesLine key={series.key} series={series} x={x} y={y} color={COLORS[index % COLORS.length]} />
+          <SeriesLine key={series.key} series={series} periods={periods} x={x} y={y} color={COLORS[index % COLORS.length]} />
         ))}
       </svg>
 
@@ -167,7 +199,10 @@ export function TrendChartCard({ chart, className }: { chart: TrendChart; classN
             </tbody>
           </table>
         </div>
-        <p className="mt-2 text-note text-ink-faint">* restated value (the observation has more than one revision).</p>
+        <p className="mt-2 text-note text-ink-faint">
+          * restated value (the observation has more than one revision). A line breaks where a month has no observation, so no value is interpolated
+          across a gap.
+        </p>
       </details>
     </Card>
   );

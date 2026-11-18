@@ -411,8 +411,8 @@ export function ReviewView({
         )}
         {!hasTrend && (
           <p className="mt-3 text-note text-ink-faint">
-            Historical series are not loaded for {period.label}. Expected identity: one approved monthly actual per month for the LTM Pro Forma Lender EBITDA,
-            Base Business Adjusted EBITDA and AwayDNA TRevPAR series; they appear here once those observations exist.
+            Historical series are not loaded for {period.label}. Expected identity: one approved actual per month — LTM for the LTM Pro Forma Lender EBITDA, year
+            to date for Base Business Adjusted EBITDA, and monthly for AwayDNA TRevPAR. They appear here once those observations exist.
           </p>
         )}
         {report.brandChurn.rows.length === 0 && (

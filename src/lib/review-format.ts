@@ -14,13 +14,18 @@ export type MetricKind = "currency" | "percent" | "points" | "count" | "number";
  * is only a fallback for definitions that have no unit yet.
  */
 export function metricKind(metric: MetricFormat): MetricKind {
+  const name = metric.name.toLowerCase();
+  // A margin compared with last year is a difference of two percentages, so it is
+  // percentage points even when the definition declares a percent unit. Checked
+  // before the declaration for that reason: it can never be read as a percent.
+  if (/margin/.test(name) && /\bvs\s*(py|prior year|ly)\b/.test(name)) return "points";
+
   const declared = `${metric.displayFormat ?? ""} ${metric.unit ?? ""}`.toLowerCase();
   if (/percentage.?point|percentage_points|\bpp\b|points/.test(declared)) return "points";
   if (/percent|\bpct\b|%/.test(declared)) return "percent";
   if (/usd|currency|dollar|\$/.test(declared)) return "currency";
   if (/\bunits?\b|count|night|day|property|properties|review|deal|offer/.test(declared)) return "count";
 
-  const name = metric.name.toLowerCase();
   // Counts first: "churned units" is a count while "annualized churn" is a rate.
   if (/\bunits?\b|\bdeals?\b|\boffers?\b|reviews received|properties/.test(name)) return "count";
   if (/margin|occupancy|churn|% of|percentage|growth|take rate|retention/.test(name)) return "percent";
@@ -64,8 +69,11 @@ export function formatValueForKind(kind: MetricKind, n: number): string {
       return formatCurrency(n);
     case "percent":
       return signed(n, `${trimZeros(Math.abs(n).toFixed(1))}%`);
-    case "points":
-      return signed(n, `${trimZeros(Math.abs(n).toFixed(2))}`);
+    case "points": {
+      // A value that is itself a point difference reads like the report: "+0.5 pt".
+      const body = `${trimZeros(Math.abs(n).toFixed(2))} pt`;
+      return n > 0 ? `+${body}` : n < 0 ? `${MINUS}${body}` : body;
+    }
     case "count":
       return formatCount(n);
     default:
@@ -73,14 +81,27 @@ export function formatValueForKind(kind: MetricKind, n: number): string {
   }
 }
 
-/** A value in its own unit, e.g. "$3.8M", "62.4%", "1,204". */
+/**
+ * A metric whose own value is already a comparison ("TRevPAR growth vs PY",
+ * "Shop NOI margin vs PY", "change"). Its positive values carry a "+", as the
+ * reviewed report prints them.
+ */
+export function isDeltaMetric(metric: MetricFormat): boolean {
+  const name = metric.name.toLowerCase();
+  return /\bvs\s*(py|prior year|ly|budget)\b|\bgrowth\b|\bchange\b|\bdifference\b|percentage.?point|\bpt\b/.test(name);
+}
+
+/** A value in its own unit, e.g. "$3.8M", "62.4%", "+4.1%", "1,204". */
 export function formatMetricValue(metric: MetricFormat, value: string | number | null | undefined): string {
   const n = typeof value === "number" ? value : parseNumber(value);
   if (n === null) {
     if (typeof value === "string" && value.trim() !== "") return value;
     return "—";
   }
-  return formatValueForKind(metricKind(metric), n);
+  const kind = metricKind(metric);
+  const text = formatValueForKind(kind, n);
+  if (n > 0 && (kind === "percent" || kind === "number") && isDeltaMetric(metric)) return `+${text}`;
+  return text;
 }
 
 /** A change between two values of the same metric, always signed. */
@@ -100,14 +121,20 @@ export function formatDelta(kind: MetricKind, delta: number): string {
   }
 }
 
-/** Parses an observation value without accepting junk: "1,204" yes, "n/a" no. */
+/**
+ * Parses an observation value without accepting junk: "1,204" yes, "$69.4M" yes,
+ * "n/a" no. A single trailing K/M/B is read as a scale, because a reviewed value
+ * typed as it appears in the report is still a number; anything else ambiguous
+ * returns null rather than a guess.
+ */
 export function parseNumber(value: string | null | undefined): number | null {
   if (value == null) return null;
   const text = value.trim();
   if (text === "") return null;
   const negative = /^\(.*\)$/.test(text);
   const cleaned = text.replace(/[,$%\s]/g, "").replace(/\u2212/g, "-").replace(/^\((.*)\)$/, "$1");
-  const n = Number(cleaned);
+  const match = cleaned.match(/^([+-]?\d*\.?\d+)([kmb])$/i);
+  const n = match ? Number(match[1]) * (match[2].toLowerCase() === "b" ? 1_000_000_000 : match[2].toLowerCase() === "m" ? 1_000_000 : 1_000) : Number(cleaned);
   if (!Number.isFinite(n)) return null;
   return negative ? -n : n;
 }

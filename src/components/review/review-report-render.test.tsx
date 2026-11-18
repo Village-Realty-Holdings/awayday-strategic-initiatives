@@ -121,6 +121,19 @@ describe("report component rendering", () => {
     expect(empty).toContain("No historical observations are loaded");
   });
 
+  it("breaks the chart line where a month is missing instead of interpolating", () => {
+    const chart = buildTrendChart(TREND_CHART_SPECS[1], [metric({ id: "ad", name: "TRevPAR AwayDNA PMS" })], [
+      observation({ kpiId: "ad", value: "100", reportingPeriod: "2026-07", reportingScope: "USER_REVIEWED_REPORTED", entityScope: "REPORTED" }),
+      // August is absent, so July and September must not be joined by a line.
+      observation({ kpiId: "ad", value: "120", reportingPeriod: "2026-09", reportingScope: "USER_REVIEWED_REPORTED", entityScope: "REPORTED" }),
+    ]);
+    const html = renderToStaticMarkup(<TrendChartCard chart={chart} />);
+    const paths = html.match(/<path d="M/g) ?? [];
+    // One segment per isolated point, plus the two gridline-free series segments.
+    expect(paths.length).toBe(2);
+    expect(html).toContain("A line breaks where a month has no observation");
+  });
+
   it("renders the brand churn table with totals and no invented percentage total", () => {
     const definitions = [
       metric({ id: "bookable", name: "Bookable units", unit: "count" }),
@@ -128,9 +141,9 @@ describe("report component rendering", () => {
       metric({ id: "ltm-pct", name: "LTM churn %", unit: "percent" }),
     ];
     const brandRows = [
-      observation({ kpiId: "bookable", value: "100", entityId: "Brand A", entityScope: "BRAND" }),
-      observation({ kpiId: "month", value: "5", entityId: "Brand A", entityScope: "BRAND" }),
-      observation({ kpiId: "ltm-pct", value: "18", entityId: "Brand A", entityScope: "BRAND" }),
+      observation({ kpiId: "bookable", value: "100", entityId: "Brand A", entityScope: "BRAND", timeBasis: "POINT_IN_TIME" }),
+      observation({ kpiId: "month", value: "5", entityId: "Brand A", entityScope: "BRAND", timeBasis: "MONTHLY" }),
+      observation({ kpiId: "ltm-pct", value: "18", entityId: "Brand A", entityScope: "BRAND", timeBasis: "LTM" }),
     ];
     const churn = buildBrandChurn(definitions, brandRows, PERIOD);
     const html = renderToStaticMarkup(<BrandChurnTable churn={churn} monthName="October" />);
@@ -138,6 +151,10 @@ describe("report component rendering", () => {
     expect(html).toContain("High churn");
     expect(html).toContain("Total · 1 brands");
     expect(html).toContain("percentages are not averaged");
+    // Each column names the time basis it reads, and nothing was skipped.
+    expect(html).toContain("point in time");
+    expect(html).toContain("trailing 12 months");
+    expect(html).not.toContain("not shown because the time basis");
   });
 
   it("renders the empty brand state without inventing rows", () => {

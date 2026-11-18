@@ -81,7 +81,7 @@ export function ComparisonTable({
             {entries.map((entry) =>
               entry.kind === "group" ? (
                 <tr key={`group-${entry.id}`} className="bg-surface-2">
-                  <th scope="colgroup" colSpan={7} className="px-3 py-1.5 text-left text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">
+                  <th scope="rowgroup" colSpan={7} className="px-3 py-1.5 text-left text-micro font-semibold uppercase tracking-eyebrow text-ink-faint">
                     {entry.label}
                   </th>
                 </tr>

@@ -82,12 +82,20 @@ export function scopesIn(rows: readonly ReportObservation[]): ReportScope[] {
 
 /**
  * Whether `candidate` should replace `current` for the same identity. Mirrors the
- * KPI resolver's preference (authority, then recency, then revision) but treats a
- * missing authorityRank as "no authority", not as an incomparable value.
+ * KPI resolver's preference: authority first, then observation time, refresh
+ * time and revision.
+ *
+ * Ranks are compared directly, never subtracted. A missing `authorityRank` is
+ * the *weakest* rank (Infinity), so a populated rank always beats an unranked
+ * row; only when both are unranked does recency decide. Subtracting two
+ * Infinity values yields NaN and subtracting one yields ±Infinity, either of
+ * which a finite-check would skip — that is exactly how a newer, less
+ * authoritative row used to win an identity.
  */
 export function isStrongerRow(candidate: ReportObservation, current: ReportObservation): boolean {
-  const rankDelta = (candidate.authorityRank ?? Number.POSITIVE_INFINITY) - (current.authorityRank ?? Number.POSITIVE_INFINITY);
-  if (Number.isFinite(rankDelta) && rankDelta !== 0) return rankDelta < 0;
+  const candidateRank = candidate.authorityRank ?? Number.POSITIVE_INFINITY;
+  const currentRank = current.authorityRank ?? Number.POSITIVE_INFINITY;
+  if (candidateRank !== currentRank) return candidateRank < currentRank;
   const observed = candidate.observedAt.getTime() - current.observedAt.getTime();
   if (observed !== 0) return observed > 0;
   const refreshed = (candidate.refreshedAt?.getTime() ?? 0) - (current.refreshedAt?.getTime() ?? 0);
@@ -239,18 +247,27 @@ function lineScore(rowLabel: string, spec: LineSpec): number {
  * so a new metric is never hidden.
  */
 export function orderByCatalogue(rows: readonly ReportTableRow[], catalogue: readonly LineSpec[]): ReportTableRow[] {
-  const assigned = new Map<string, { row: ReportTableRow; rank: number; spec: LineSpec }>();
-  const unmatched: ReportTableRow[] = [];
+  // Best match wins globally, not in row order: an exact "Revenue" must claim the
+  // Revenue line even when "Base Business Revenue" sorts first and matches weakly.
+  const pairs: { row: ReportTableRow; spec: LineSpec; score: number }[] = [];
   for (const row of rows) {
-    let best: { rank: number; spec: LineSpec } | null = null;
     for (const spec of catalogue) {
-      if (assigned.has(spec.id)) continue;
       const score = lineScore(row.label, spec);
-      if (score > 0 && (!best || score > best.rank)) best = { rank: score, spec };
+      if (score > 0) pairs.push({ row, spec, score });
     }
-    if (best) assigned.set(best.spec.id, { row, rank: best.rank, spec: best.spec });
-    else unmatched.push(row);
   }
+  pairs.sort(
+    (a, b) => b.score - a.score || catalogue.indexOf(a.spec) - catalogue.indexOf(b.spec) || a.row.label.localeCompare(b.row.label),
+  );
+
+  const assigned = new Map<string, { row: ReportTableRow; rank: number; spec: LineSpec }>();
+  const usedRows = new Set<string>();
+  for (const pair of pairs) {
+    if (assigned.has(pair.spec.id) || usedRows.has(pair.row.id)) continue;
+    assigned.set(pair.spec.id, { row: pair.row, rank: pair.score, spec: pair.spec });
+    usedRows.add(pair.row.id);
+  }
+  const unmatched: ReportTableRow[] = rows.filter((row) => !usedRows.has(row.id));
   const ordered = catalogue
     .filter((spec) => assigned.has(spec.id))
     .map((spec) => {
@@ -377,6 +394,17 @@ export type ExecCard = {
 
 const BASIS_LABEL: Record<ExecCardSpec["timeBasis"], string> = { MONTHLY: "Month", YTD: "YTD", LTM: "LTM" };
 
+/**
+ * How a row's time basis is shown. A row with no declared basis reads as YTD,
+ * the application's default basis (see `DEFAULT_TIME_BASIS` in kpi.ts) and the
+ * same assumption the reviewed P&L table makes, so one observation cannot be
+ * YTD in one table and missing in the next.
+ */
+export function timeBasisLabel(value: string | null | undefined): string {
+  const basis = value ?? "YTD";
+  return BASIS_LABEL[basis as ExecCardSpec["timeBasis"]] ?? (basis === "POINT_IN_TIME" ? "Point in time" : basis === "TTM" ? "TTM" : basis);
+}
+
 function pickMetric(
   metrics: readonly ReportMetric[],
   rows: readonly ReportObservation[],
@@ -494,14 +522,14 @@ export const PILLAR_EXPECTATIONS: Record<string, MetricExpectation[]> = {
     { label: "Synergized multiple paid", match: /synergi[sz]ed multiple/i },
     { label: "Active LOI pipeline", match: /\bloi\b/i },
     { label: "Submitted offers", match: /submitted offers?/i },
-    { label: "Median tuck-in cycle time", match: /cycle time/i },
+    { label: "Median tuck-in cycle time", match: /tuck.?in.*cycle|cycle.*tuck.?in/i },
   ],
   GROW: [
     { label: "BD unit adds", match: /\bbd\b.*unit adds?|unit adds?.*\bbd\b/i },
     { label: "Finance unit adds", match: /finance.*unit adds?|unit adds?.*finance/i },
     { label: "Organic unit adds", match: /organic.*unit adds?|unit adds?.*organic/i },
     { label: "Net unit adds", match: /net.*unit adds?|unit adds?.*net/i },
-    { label: "BD saves", match: /\bbd\b saves?|saves?/i },
+    { label: "BD saves", match: /\bbd\b saves?|saves?.*\bbd\b/i },
     { label: "Ending units", match: /ending units/i },
     { label: "Cash CAC", match: /cash cac|\bcac\b/i },
   ],
@@ -544,7 +572,7 @@ export const PILLAR_EXPECTATIONS: Record<string, MetricExpectation[]> = {
   TALENT: [{ label: "Properties per FTE", match: /properties per fte/i }],
   TECH: [{ label: "Properties per FTE in use-case functions", match: /properties per fte|tool adoption/i }],
   MARKETING: [{ label: "Direct GBV growth (YoY)", match: /direct.*gbv.*growth|gbv.*growth/i }],
-  FINANCE: [{ label: "Accounting close cycle time", match: /close cycle|cycle time/i }],
+  FINANCE: [{ label: "Accounting close cycle time", match: /accounting close|close cycle/i }],
 };
 
 export type ScorecardRow = {
@@ -554,6 +582,10 @@ export type ScorecardRow = {
   /** True when this is a documented expectation with no definition or value yet. */
   expectedOnly: boolean;
   value: string | null;
+  /** The time basis `value` was read on, so a fallback row is never mislabelled. */
+  basisLabel: string;
+  /** The population `value` came from; shown when one card holds more than one. */
+  scopeLabel: string;
   delta: ComparisonCell;
   deltaLabel: string;
   target: string | null;
@@ -620,10 +652,19 @@ export function buildPillarScorecard(
 
   const built = candidates
     .map((metric): ScorecardRow | null => {
-      const own = periodRows.filter((row) => row.kpiId === metric.id);
+      // Sorted by population, then basis, so a definition that publishes under two
+      // scopes resolves the same way on every render instead of following row order.
+      const own = periodRows
+        .filter((row) => row.kpiId === metric.id)
+        .sort(
+          (a, b) =>
+            scopeKey({ reportingScope: a.reportingScope ?? "", entityScope: a.entityScope ?? "" }).localeCompare(
+              scopeKey({ reportingScope: b.reportingScope ?? "", entityScope: b.entityScope ?? "" }),
+            ) || (a.timeBasis ?? "").localeCompare(b.timeBasis ?? ""),
+        );
       if (own.length === 0) return null;
       const scope = { reportingScope: own[0].reportingScope ?? "", entityScope: own[0].entityScope ?? "" };
-      scopes.add(scopeLabel(scope));
+      for (const row of own) scopes.add(scopeLabel({ reportingScope: row.reportingScope ?? "", entityScope: row.entityScope ?? "" }));
       const kind = metricKind(metric);
       const actualRow = own.find((row) => (row.timeBasis ?? "YTD") === "MONTHLY" && (row.comparisonBasis ?? "ACTUAL") === "ACTUAL") ?? own.find((row) => (row.comparisonBasis ?? "ACTUAL") === "ACTUAL");
       const actual = cell(metric, actualRow);
@@ -634,12 +675,17 @@ export function buildPillarScorecard(
         ? own.find((row) => row.reportingScope === actualRow.reportingScope && (row.entityScope ?? "") === (actualRow.entityScope ?? "") && (row.timeBasis ?? "YTD") === (actualRow.timeBasis ?? "YTD") && row.comparisonBasis === "PRIOR_YEAR")
         : undefined;
       const delta = budget ? { cell: deltaCell(kind, actual, cell(metric, budget)), label: "vs budget" } : prior ? { cell: deltaCell(kind, actual, cell(metric, prior)), label: "vs prior year" } : null;
+      const rowScope = actualRow
+        ? scopeLabel({ reportingScope: actualRow.reportingScope ?? "", entityScope: actualRow.entityScope ?? "" })
+        : scopeLabel(scope);
       return {
         id: metric.metricKey,
         label: metric.name,
         kind,
         expectedOnly: false,
         value: actual.display,
+        basisLabel: timeBasisLabel(actualRow?.timeBasis),
+        scopeLabel: rowScope,
         delta: delta?.cell ?? EMPTY_CELL,
         deltaLabel: delta?.label ?? "no comparison loaded",
         target: metric.target,
@@ -670,6 +716,8 @@ export function buildPillarScorecard(
       kind: "number" as MetricKind,
       expectedOnly: true,
       value: null,
+      basisLabel: "",
+      scopeLabel: "",
       delta: EMPTY_CELL,
       deltaLabel: "no definition linked",
       target: null,
@@ -721,10 +769,13 @@ export const TREND_CHART_SPECS: TrendChartSpec[] = [
   {
     id: "ltm-ebitda",
     title: "LTM Pro Forma Lender EBITDA",
-    description: "The lender view of trailing EBITDA, against Base Business Adjusted EBITDA for the same months.",
+    description:
+      "The lender view of trailing EBITDA, against Base Business Adjusted EBITDA year to date for the same months. Each series is one time basis and one population: the two bases are never converted into one another.",
     series: [
       { key: "lender", label: "LTM Pro Forma Lender EBITDA", match: (metric) => /lender|pro ?forma/.test(haystack(metric)) && /ebitda/.test(haystack(metric)), timeBasis: "LTM", scope: null },
-      { key: "base-business", label: "Base Business Adjusted EBITDA", match: hasAdjustedEbitda, timeBasis: "MONTHLY", scope: BASE_BUSINESS_SCOPE },
+      // The reviewed history is published year to date, not as single months. A
+      // monthly row is a different fact and is never accumulated into this line.
+      { key: "base-business", label: "Base Business Adjusted EBITDA (YTD)", match: hasAdjustedEbitda, timeBasis: "YTD", scope: BASE_BUSINESS_SCOPE },
     ],
   },
   {
@@ -800,9 +851,30 @@ function seriesFor(spec: TrendSeriesSpec, metrics: readonly ReportMetric[], obse
   };
 }
 
+/** The next calendar month after a period. */
+function nextPeriod(period: string): string {
+  const [year, month] = period.split("-").map(Number);
+  return new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 7);
+}
+
+/**
+ * A contiguous month axis from the first to the last observed month. Months with
+ * no observation stay on the axis as gaps, so the chart never spaces July next to
+ * September or draws a line through a month nobody published. The guard keeps a
+ * malformed period from generating an unbounded axis.
+ */
+function contiguousPeriods(observed: readonly string[]): string[] {
+  if (observed.length === 0) return [];
+  const first = observed[0];
+  const last = observed[observed.length - 1];
+  const axis = [first];
+  while (axis[axis.length - 1] !== last && axis.length < 600) axis.push(nextPeriod(axis[axis.length - 1]));
+  return axis;
+}
+
 export function buildTrendChart(spec: TrendChartSpec, metrics: readonly ReportMetric[], observations: readonly ReportObservation[]): TrendChart {
   const series = spec.series.map((s) => seriesFor(s, metrics, observations)).filter((s): s is TrendSeries => s !== null);
-  const periods = [...new Set(series.flatMap((s) => s.points.map((p) => p.period)))].sort(comparePeriods);
+  const periods = contiguousPeriods([...new Set(series.flatMap((s) => s.points.map((p) => p.period)))].sort(comparePeriods));
   return { id: spec.id, title: spec.title, description: spec.description, series, periods };
 }
 
@@ -818,6 +890,12 @@ export type BrandChurnColumn = {
   count: boolean;
   /** Display order, left to right. */
   order: number;
+  /**
+   * The time bases this column may read. A row published on another basis is a
+   * different fact, so it never fills this column and never overwrites a value
+   * that did.
+   */
+  bases: readonly string[];
 };
 
 /**
@@ -827,13 +905,21 @@ export type BrandChurnColumn = {
  * before the single-month lines) so "LTM churned units" is never read as the
  * month's churn.
  */
+/** Trailing-period bases. LTM and TTM are the same window under two names. */
+const TRAILING_BASES = ["LTM", "TTM"] as const;
+
 export const BRAND_CHURN_COLUMNS: BrandChurnColumn[] = [
-  { key: "ltmPct", label: "LTM churn %", match: /\b(ltm|ttm)\b.*churn.*(%|percent|rate)|churn.*(%|percent|rate).*\b(ltm|ttm)\b/i, kind: "percent", count: false, order: 5 },
-  { key: "ltmChurned", label: "LTM churned units", match: /\b(ltm|ttm)\b.*churn(ed)? units|churn(ed)? units.*\b(ltm|ttm)\b/i, kind: "count", count: true, order: 4 },
-  { key: "monthAnnualizedPct", label: "Annualized churn (month)", match: /annuali[sz]ed.*churn/i, kind: "percent", count: false, order: 3 },
-  { key: "monthChurned", label: "Churned units (month)", match: /churn(ed)? units|units churned/i, kind: "count", count: true, order: 2 },
-  { key: "bookableUnits", label: "Bookable units", match: /bookable units/i, kind: "count", count: true, order: 1 },
+  { key: "ltmPct", label: "LTM churn %", match: /\b(ltm|ttm)\b.*churn.*(%|percent|rate)|churn.*(%|percent|rate).*\b(ltm|ttm)\b/i, kind: "percent", count: false, order: 5, bases: TRAILING_BASES },
+  { key: "ltmChurned", label: "LTM churned units", match: /\b(ltm|ttm)\b.*churn(ed)? units|churn(ed)? units.*\b(ltm|ttm)\b/i, kind: "count", count: true, order: 4, bases: TRAILING_BASES },
+  { key: "monthAnnualizedPct", label: "Annualized churn (month)", match: /annuali[sz]ed.*churn/i, kind: "percent", count: false, order: 3, bases: ["MONTHLY"] },
+  { key: "monthChurned", label: "Churned units (month)", match: /churn(ed)? units|units churned/i, kind: "count", count: true, order: 2, bases: ["MONTHLY"] },
+  { key: "bookableUnits", label: "Bookable units", match: /bookable units/i, kind: "count", count: true, order: 1, bases: ["POINT_IN_TIME"] },
 ];
+
+/** A column's basis in words, for the caption under the table. */
+export function brandChurnBasisLabel(column: BrandChurnColumn): string {
+  return column.bases.some((basis) => basis === "LTM" || basis === "TTM") ? "trailing 12 months" : column.bases[0] === "POINT_IN_TIME" ? "point in time" : "month";
+}
 
 export type BrandChurnRow = {
   /** Stable per-row key: the same brand name under two populations is two rows. */
@@ -860,26 +946,48 @@ export type BrandChurn = {
   /** True when brands are reported under more than one population, so no total is added up. */
   totalsMixed: boolean;
   scopeLabels: string[];
-  columns: { key: BrandChurnColumn["key"]; label: string; kind: MetricKind; count: boolean }[];
+  /**
+   * Churn observations whose time basis does not match their column (or is
+   * missing). They are counted, not guessed into a column.
+   */
+  ignoredTimeBasis: number;
+  columns: { key: BrandChurnColumn["key"]; label: string; kind: MetricKind; count: boolean; basisLabel: string }[];
 };
 
 export function buildBrandChurn(metrics: readonly ReportMetric[], observations: readonly ReportObservation[], period: string): BrandChurn {
   const available = BRAND_CHURN_COLUMNS.filter((column) => metrics.some((metric) => column.match.test(metric.name)));
 
+  // One definition per column, chosen deterministically (shortest name, then
+  // metric key). Two definitions that both read as "churned units" therefore
+  // cannot write the same cell in whatever order the rows happen to arrive.
+  const columnForMetric = new Map<string, BrandChurnColumn>();
+  const claimed = new Set<BrandChurnColumn["key"]>();
+  for (const metric of [...metrics].sort((a, b) => a.name.length - b.name.length || a.metricKey.localeCompare(b.metricKey))) {
+    const column = available.find((candidate) => !claimed.has(candidate.key) && candidate.match.test(metric.name));
+    if (!column) continue;
+    claimed.add(column.key);
+    columnForMetric.set(metric.id, column);
+  }
+
   // One row per brand *per population*: a brand that appears under two scopes
   // stays two rows rather than having its columns blended, and a total is never
   // added across populations.
   const brands = new Map<string, { row: BrandChurnRow; scopes: Set<string> }>();
+  let ignoredTimeBasis = 0;
   for (const observation of currentPeriodRows(observations, period)) {
     const brand = observation.entityId;
     if (!brand) continue;
     if ((observation.comparisonBasis ?? "ACTUAL") !== "ACTUAL") continue;
-    const def = metrics.find((metric) => metric.id === observation.kpiId);
-    if (!def) continue;
-    // BRAND_CHURN_COLUMNS is ordered specific-first, so an LTM line never
-    // claims a single-month value.
-    const column = available.find((candidate) => candidate.match.test(def.name));
+    const column = columnForMetric.get(observation.kpiId);
     if (!column) continue;
+    // Each column reads one time basis. A MONTHLY row only fills the monthly
+    // columns, an LTM/TTM row only the trailing ones, a point-in-time row only
+    // bookable units; a value that names no basis is never assumed into one.
+    const basis = observation.timeBasis ?? null;
+    if (basis === null || !column.bases.includes(basis)) {
+      ignoredTimeBasis += 1;
+      continue;
+    }
     const value = parseNumber(observation.value);
     if (value === null) continue;
 
@@ -919,6 +1027,9 @@ export function buildBrandChurn(metrics: readonly ReportMetric[], observations: 
     totals,
     totalsMixed,
     scopeLabels,
-    columns: [...available].sort((a, b) => a.order - b.order).map(({ key, label, kind, count }) => ({ key, label, kind, count })),
+    ignoredTimeBasis,
+    columns: [...available]
+      .sort((a, b) => a.order - b.order)
+      .map((column) => ({ key: column.key, label: column.label, kind: column.kind, count: column.count, basisLabel: brandChurnBasisLabel(column) })),
   };
 }

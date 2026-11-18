@@ -107,6 +107,7 @@ export function BrandChurnTable({ churn, monthName }: { churn: BrandChurn; month
                   <button type="button" onClick={() => toggleSort(column.key)} className="font-medium hover:text-ink">
                     {column.label} {sort.key === column.key ? (sort.dir === "asc" ? "↑" : "↓") : ""}
                   </button>
+                  <span className="block text-note font-normal text-ink-faint">{column.basisLabel}</span>
                 </th>
               ))}
             </tr>
@@ -162,7 +163,10 @@ export function BrandChurnTable({ churn, monthName }: { churn: BrandChurn; month
         {churn.totalsMixed
           ? "These brands are reported under more than one population, so no count is totalled or combined across them. "
           : "Totals add up the reported counts; "}
-        percentages are not averaged or re-weighted here. Rows at or above {BRAND_CHURN_HIGHLIGHT_PCT}% are highlighted for attention only. Month: {monthName}.
+        percentages are not averaged or re-weighted here. Each column reads one time basis and one population, as its header says; a value published on
+        another basis is not moved into it.{" "}
+        {churn.ignoredTimeBasis > 0 ? `${churn.ignoredTimeBasis} churn observation${churn.ignoredTimeBasis === 1 ? " was" : "s were"} not shown because the time basis does not match the column. ` : ""}
+        Rows at or above {BRAND_CHURN_HIGHLIGHT_PCT}% are highlighted for attention only. Month: {monthName}.
       </p>
     </div>
   );

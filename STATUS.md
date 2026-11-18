@@ -1,6 +1,6 @@
 # Status
 
-_Last updated 2026-11-18, on branch `feat/strategy-review-parity` (PR #25 open, not merged or deployed)._
+_Last updated 2026-11-18, on branch `feat/strategy-review-parity` (PR #25 open, review corrections pushed, not merged or deployed)._
 
 ## Current milestone: Strategy Review parity with the October 2026 reviewed report
 
@@ -30,18 +30,39 @@ schema change, no new dependency and no auth change. See
 
 **Verified locally:**
 
-- `npm run typecheck`, `npm run lint`, `npm test` (548 tests) and
+- `npm run typecheck`, `npm run lint`, `npm test` (586 tests) and
   `npm run build` pass.
 - A local Postgres database (not Neon) was migrated and seeded with synthetic
   definitions/observations; `next dev` rendered the page with all sections,
   including the empty states. The synthetic database and `.env` are local and
   gitignored.
 
+**Corrections after independent review:**
+
+- The Base Business Adjusted EBITDA history now reads `YTD` observations (the
+  reviewed history is cumulative); the lender view stays on `LTM`. Monthly rows
+  are never accumulated into the YTD line.
+- Observation authority is compared directly rather than subtracted, so a missing
+  `authorityRank` can no longer let a newer, less authoritative row win an
+  identity. `kpi.ts`'s canonical comparator was corrected the same way.
+- Brand-churn columns are basis-specific (point in time, month, trailing), so one
+  time basis cannot overwrite another; skipped rows are counted in the table.
+- Further self-review fixes: exact catalogue matches win over weak ones, chart
+  lines break across missing months, scorecards label a value's time basis and
+  population, and cross-pillar expectation collisions were narrowed.
+
 **Not verified:**
 
 - The real October 2026 observations in Neon (no production access from this
   environment). The user will compare the rendered page with the reviewed HTML.
 - Any deployment: this branch is not deployed.
+
+## Open question for the reviewer
+
+The two October 2026 reference tables disagree on Base Business Adjusted EBITDA
+for October: `$77.3M` in the historical series versus `$79.9M` as the YTD headline.
+The dashboard shows the Neon value for the `YTD` identity and does not reconcile
+the two. See `docs/strategy-review-parity.md`.
 
 ## Open data gaps (business data, not code)
 

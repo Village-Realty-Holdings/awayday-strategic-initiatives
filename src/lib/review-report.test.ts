@@ -16,6 +16,7 @@ import {
   formatMetricValue,
   formatValueForKind,
   groupReportRows,
+  isStrongerRow,
   metricKind,
   orderByCatalogue,
   parseNumber,
@@ -23,6 +24,7 @@ import {
   statusAgainstTarget,
   rowsForScope,
   scopeLabel,
+  TREND_CHART_SPECS,
   type ReportMetric,
   type ReportObservation,
   type TrendChartSpec,
@@ -101,6 +103,8 @@ describe("metric kind and formatting", () => {
     expect(parseNumber("1,204")).toBe(1204);
     expect(parseNumber("(1.5)")).toBe(-1.5);
     expect(parseNumber("\u22123.8")).toBe(-3.8);
+    expect(parseNumber("$69.4M")).toBe(69_400_000);
+    expect(parseNumber("(1.2M)")).toBe(-1_200_000);
     expect(parseNumber("n/a")).toBeNull();
     expect(parseNumber(null)).toBeNull();
     expect(parseNumber("")).toBeNull();
@@ -132,6 +136,64 @@ describe("target parsing and status", () => {
     expect(statusAgainstTarget("4", "5")).toBe("behind");
     expect(statusAgainstTarget(null, "5")).toBe("no_data");
     expect(statusAgainstTarget("4", "TBD")).toBe("no_data");
+  });
+});
+
+describe("observation authority", () => {
+  const ranked = (authorityRank: number | null, overrides: Partial<ReportObservation> = {}) =>
+    observation({ kpiId: "rev", value: "1", authorityRank, ...overrides });
+
+  it("prefers the lower authority rank when both are populated", () => {
+    expect(isStrongerRow(ranked(5), ranked(10))).toBe(true);
+    expect(isStrongerRow(ranked(10), ranked(5))).toBe(false);
+  });
+
+  it("prefers a populated rank over a missing one, even when the unranked row is newer", () => {
+    const rankedOlder = ranked(5, { observedAt: new Date("2026-11-01T00:00:00Z") });
+    const unrankedNewer = ranked(null, { observedAt: new Date("2026-11-10T00:00:00Z") });
+    expect(isStrongerRow(rankedOlder, unrankedNewer)).toBe(true);
+    expect(isStrongerRow(unrankedNewer, rankedOlder)).toBe(false);
+  });
+
+  it("does not let an older but ranked candidate replace a newer unranked current row", () => {
+    const rankedOlder = ranked(5, { observedAt: new Date("2026-11-01T00:00:00Z") });
+    const unrankedNewer = ranked(null, { observedAt: new Date("2026-11-10T00:00:00Z") });
+    expect(isStrongerRow(rankedOlder, unrankedNewer)).toBe(true);
+  });
+
+  it("falls back to observation time when neither row has a rank", () => {
+    const older = ranked(null, { observedAt: new Date("2026-11-01T00:00:00Z") });
+    const newer = ranked(null, { observedAt: new Date("2026-11-10T00:00:00Z") });
+    expect(isStrongerRow(newer, older)).toBe(true);
+    expect(isStrongerRow(older, newer)).toBe(false);
+    // Both missing must not produce NaN/Infinity ordering: equal rows are not stronger.
+    expect(isStrongerRow(older, { ...older })).toBe(false);
+  });
+
+  it("uses the refresh time when ranks and observation times are equal", () => {
+    const at = new Date("2026-11-05T00:00:00Z");
+    const older = ranked(5, { observedAt: at, refreshedAt: new Date("2026-11-06T00:00:00Z") });
+    const newer = ranked(5, { observedAt: at, refreshedAt: new Date("2026-11-08T00:00:00Z") });
+    expect(isStrongerRow(newer, older)).toBe(true);
+    expect(isStrongerRow(older, newer)).toBe(false);
+  });
+
+  it("uses the revision when rank, observation and refresh times are equal", () => {
+    const newerRevision = ranked(5, { revision: 2 });
+    const olderRevision = ranked(5, { revision: 1 });
+    expect(isStrongerRow(newerRevision, olderRevision)).toBe(true);
+    expect(isStrongerRow(olderRevision, newerRevision)).toBe(false);
+  });
+
+  it("still drops superseded, unapproved and invalid rows before comparing", () => {
+    const rows = [
+      observation({ kpiId: "rev", value: "1", authorityRank: 1 }),
+      observation({ kpiId: "rev", value: "2", authorityRank: 9, publicationState: "SUPERSEDED" }),
+      observation({ kpiId: "rev", value: "3", authorityRank: 9, quality: "INVALID" }),
+      observation({ kpiId: "rev", value: "4", authorityRank: 9, publicationState: "DRAFT" }),
+    ];
+    const current = currentPeriodRows(rows, PERIOD);
+    expect(current.map((row) => row.value)).toEqual(["1"]);
   });
 });
 
@@ -221,6 +283,23 @@ describe("report table", () => {
     ]);
     // The ex-OTA line is not swallowed by the generic Shop NOI line.
     expect(ordered.filter((row) => row.label === "Shop NOI")).toHaveLength(1);
+  });
+
+  it("gives a catalogue line to its exact match, not to whichever row sorts first", () => {
+    // "Gross Revenue" sorts first and matches "revenue" weakly; the exact "Revenue"
+    // row must still take the canonical line.
+    const grossRevenue = metric({ id: "gross-rev", name: "Gross Revenue", metricKey: "user_review:gross_rev" });
+    const rows = buildReportRows(
+      [grossRevenue, revenue],
+      [
+        observation({ kpiId: "gross-rev", value: "25200000" }),
+        observation({ kpiId: "rev", value: "25200000" }),
+      ],
+    );
+    const ordered = orderByCatalogue(rows, BASE_BUSINESS_LINES);
+    expect(ordered[0]).toMatchObject({ metricKey: "user_review:revenue", label: "Revenue" });
+    // The weakly matching row keeps its own name rather than being relabelled.
+    expect(ordered.some((row) => row.metricKey === "user_review:gross_rev" && row.label === "Gross Revenue")).toBe(true);
   });
 
   it("groups operating metrics into families without merging definitions", () => {
@@ -342,6 +421,40 @@ describe("pillar scorecards", () => {
     expect(scorecard.loaded).toBe(0);
   });
 
+  it("resolves a definition published under two populations the same way every time", () => {
+    const scorecardOf = () =>
+      buildPillarScorecard({ id: null, code: "M&A", name: "M&A" }, [metric({ id: "acq", name: "Acquired EBITDA closed" })], [
+        observation({ kpiId: "acq", value: "300000", reportingScope: "USER_REVIEWED_REPORTED", entityScope: "REPORTED" }),
+        observation({ kpiId: "acq", value: "900000", reportingScope: "BASE_BUSINESS", entityScope: "BASE_BUSINESS" }),
+      ], PERIOD);
+
+    const first = scorecardOf();
+    const second = scorecardOf();
+    // Deterministic (sorted by population), and the row says which population won.
+    expect(first.rows[0].value).toBe(first.rows[0].value);
+    expect(first.rows[0].scopeLabel).toBe(second.rows[0].scopeLabel);
+    expect(first.scopeLabels).toEqual(["Base Business", "Finance reported"]);
+    expect(first.rows[0].value).toBe("$900K");
+  });
+
+  it("labels the basis of a value that falls back from monthly to another basis", () => {
+    const scorecard = buildPillarScorecard({ id: null, code: "M&A", name: "M&A" }, [metric({ id: "acq", name: "Acquired EBITDA closed" })], [
+      observation({ kpiId: "acq", value: "34800000", timeBasis: "YTD" }),
+    ], PERIOD);
+    // The month column shows a YTD figure only with its own label, never as the month.
+    expect(scorecard.rows[0].value).toBe("$34.8M");
+    expect(scorecard.rows[0].basisLabel).toBe("YTD");
+  });
+
+  it("attributes a metric to one pillar only when two areas' expectations overlap", () => {
+    const closeCycle = metric({ id: "close", name: "Accounting close cycle time" });
+    const rows = [observation({ kpiId: "close", value: "5", timeBasis: "MONTHLY" })];
+    const mna = buildPillarScorecard({ id: null, code: "M&A", name: "M&A" }, [closeCycle], rows, PERIOD);
+    const finance = buildPillarScorecard({ id: null, code: "FINANCE", name: "FINANCE" }, [closeCycle], rows, PERIOD);
+    expect(mna.loaded).toBe(0);
+    expect(finance.rows.some((row) => row.label === "Accounting close cycle time" && !row.expectedOnly)).toBe(true);
+  });
+
   it("has no rows for an area nothing is linked to", () => {
     const scorecard = buildPillarScorecard({ id: null, code: "UNKNOWN", name: "Unknown" }, [expectations[0]], [], PERIOD);
     expect(scorecard.loaded).toBe(0);
@@ -364,7 +477,10 @@ describe("historical series", () => {
       observation({ kpiId: "lender", value: "2", timeBasis: "LTM", reportingPeriod: "2026-01" }),
     ];
     const chart = buildTrendChart(spec, [lenderEbitda], rows);
-    expect(chart.periods).toEqual(["2025-12", "2026-01", "2026-10"]);
+    // The axis is every calendar month in range; the observed points stay three.
+    expect(chart.periods[0]).toBe("2025-12");
+    expect(chart.periods[chart.periods.length - 1]).toBe("2026-10");
+    expect(chart.periods).toHaveLength(11);
     expect(chart.series[0].points.map((point) => point.period)).toEqual(["2025-12", "2026-01", "2026-10"]);
     expect(chart.series[0].points[2].restated).toBe(true);
   });
@@ -398,6 +514,62 @@ describe("historical series", () => {
   });
 });
 
+describe("historical chart time bases", () => {
+  const ebitdaChart = TREND_CHART_SPECS.find((candidate) => candidate.id === "ltm-ebitda")!;
+  const baseBusinessSeries = ebitdaChart.series.find((candidate) => candidate.key === "base-business")!;
+  const lenderSeries = ebitdaChart.series.find((candidate) => candidate.key === "lender")!;
+
+  it("reads Base Business Adjusted EBITDA year to date and Lender EBITDA on LTM", () => {
+    expect(baseBusinessSeries.timeBasis).toBe("YTD");
+    expect(baseBusinessSeries.scope).toEqual(BASE_BUSINESS_SCOPE);
+    expect(lenderSeries.timeBasis).toBe("LTM");
+  });
+
+  it("plots the YTD observations, one point per month, and ignores the monthly ones", () => {
+    const ytd = (period: string, value: string) => observation({ kpiId: "ebitda", value, timeBasis: "YTD", reportingPeriod: period });
+    const monthly = (period: string, value: string) => observation({ kpiId: "ebitda", value, timeBasis: "MONTHLY", reportingPeriod: period });
+    const chart = buildTrendChart(ebitdaChart, [adjustedEbitda, lenderEbitda], [
+      ytd("2026-08", "100"), ytd("2026-09", "120"), ytd("2026-10", "130"),
+      // Deliberately conflicting monthly rows: they are a different fact and must
+      // neither replace a YTD point nor be accumulated into one.
+      monthly("2026-08", "7"), monthly("2026-09", "8"), monthly("2026-10", "9"),
+    ]);
+
+    const series = chart.series.find((candidate) => candidate.key === "base-business");
+    expect(series?.points.map((point) => point.value)).toEqual([100, 120, 130]);
+    expect(series?.label).toContain("YTD");
+  });
+
+  it("never sums monthly rows into a YTD series", () => {
+    const monthly = (period: string, value: string) => observation({ kpiId: "ebitda", value, timeBasis: "MONTHLY", reportingPeriod: period });
+    const chart = buildTrendChart(ebitdaChart, [adjustedEbitda], [monthly("2026-09", "7"), monthly("2026-10", "9")]);
+    const series = chart.series.find((candidate) => candidate.key === "base-business");
+    expect(series).toBeUndefined();
+    expect(chart.series.some((candidate) => candidate.points.some((point) => point.value === 16))).toBe(false);
+  });
+
+  it("keeps each series on its own population", () => {
+    const chart = buildTrendChart(ebitdaChart, [adjustedEbitda, lenderEbitda], [
+      observation({ kpiId: "ebitda", value: "130", timeBasis: "YTD", reportingPeriod: "2026-10", reportingScope: "BASE_BUSINESS", entityScope: "BASE_BUSINESS" }),
+      observation({ kpiId: "ebitda", value: "999", timeBasis: "YTD", reportingPeriod: "2026-10", reportingScope: "USER_REVIEWED_REPORTED", entityScope: "REPORTED" }),
+      observation({ kpiId: "lender", value: "136", timeBasis: "LTM", reportingPeriod: "2026-10", reportingScope: "USER_REVIEWED_REPORTED", entityScope: "REPORTED" }),
+    ]);
+
+    const base = chart.series.find((candidate) => candidate.key === "base-business");
+    expect(base?.scopeLabel).toBe("Base Business");
+    expect(base?.points.map((point) => point.value)).toEqual([130]);
+  });
+
+  it("still flags a restated YTD point", () => {
+    const chart = buildTrendChart(ebitdaChart, [adjustedEbitda], [
+      observation({ kpiId: "ebitda", value: "100", timeBasis: "YTD", reportingPeriod: "2026-09" }),
+      observation({ kpiId: "ebitda", value: "135", timeBasis: "YTD", reportingPeriod: "2026-10", revision: 2 }),
+    ]);
+    const base = chart.series.find((candidate) => candidate.key === "base-business");
+    expect(base?.points.map((point) => point.restated)).toEqual([false, true]);
+  });
+});
+
 describe("brand churn", () => {
   const definitions = [
     metric({ id: "bookable", name: "Bookable units" }),
@@ -406,14 +578,18 @@ describe("brand churn", () => {
     metric({ id: "ltm-units", name: "LTM churned units" }),
     metric({ id: "ltm-pct", name: "LTM churn %", unit: "percent" }),
   ];
-  const brandRow = (kpiId: string, value: string, brand: string, scope: "BASE_BUSINESS" | "USER_REVIEWED_REPORTED" = "BASE_BUSINESS") =>
+  /** Each churn column has its own time basis: point in time, month, trailing. */
+  const basisFor = (kpiId: string): string =>
+    kpiId === "bookable" ? "POINT_IN_TIME" : kpiId === "ltm-units" || kpiId === "ltm-pct" ? "LTM" : "MONTHLY";
+  const brandRow = (kpiId: string, value: string, brand: string, overrides: Partial<KpiObservationRecord> = {}) =>
     observation({
       kpiId,
       value,
       entityId: brand,
       entityScope: "BRAND",
-      reportingScope: scope,
-      timeBasis: "MONTHLY",
+      reportingScope: "BASE_BUSINESS",
+      timeBasis: basisFor(kpiId),
+      ...overrides,
     });
 
   it("builds a row per brand and reads the LTM count as LTM, not as the month", () => {
@@ -435,6 +611,18 @@ describe("brand churn", () => {
     expect(a.ltmPct).toBe(12.5);
     expect(churn.totals).toEqual({ brands: 2, bookableUnits: 150, monthChurned: 3, ltmChurned: 30 });
     expect(churn.totals).not.toHaveProperty("ltmPct");
+    expect(churn.ignoredTimeBasis).toBe(0);
+  });
+
+  it("names the time basis of every column", () => {
+    const churn = buildBrandChurn(definitions, [brandRow("bookable", "100", "Brand A")], PERIOD);
+    expect(Object.fromEntries(churn.columns.map((column) => [column.key, column.basisLabel]))).toEqual({
+      bookableUnits: "point in time",
+      monthChurned: "month",
+      monthAnnualizedPct: "month",
+      ltmChurned: "trailing 12 months",
+      ltmPct: "trailing 12 months",
+    });
   });
 
   it("lists no brands and no totals when no entity-level rows exist", () => {
@@ -447,7 +635,7 @@ describe("brand churn", () => {
   it("keeps two populations visible when they are present", () => {
     const churn = buildBrandChurn(definitions, [
       brandRow("bookable", "100", "Brand A"),
-      brandRow("bookable", "50", "Brand C", "USER_REVIEWED_REPORTED"),
+      brandRow("bookable", "50", "Brand C", { reportingScope: "USER_REVIEWED_REPORTED" }),
     ], PERIOD);
     expect(churn.scopeLabels).toEqual(["Base Business", "Finance reported"]);
   });
@@ -457,8 +645,8 @@ describe("brand churn", () => {
       brandRow("bookable", "100", "Brand A"),
       brandRow("month", "2", "Brand A"),
       // Same brand name, different population: its own row, not a merge.
-      brandRow("bookable", "40", "Brand A", "USER_REVIEWED_REPORTED"),
-      brandRow("ltm-units", "99", "Brand A", "USER_REVIEWED_REPORTED"),
+      brandRow("bookable", "40", "Brand A", { reportingScope: "USER_REVIEWED_REPORTED" }),
+      brandRow("ltm-units", "99", "Brand A", { reportingScope: "USER_REVIEWED_REPORTED" }),
     ], PERIOD);
 
     expect(churn.rows).toHaveLength(2);
@@ -475,10 +663,72 @@ describe("brand churn", () => {
   it("ignores a non-actual brand row rather than letting it overwrite the actual", () => {
     const churn = buildBrandChurn(definitions, [
       brandRow("bookable", "100", "Brand A"),
-      observation({ kpiId: "bookable", value: "500", entityId: "Brand A", entityScope: "BRAND", timeBasis: "MONTHLY", comparisonBasis: "BUDGET" }) as ReportObservation,
+      brandRow("bookable", "500", "Brand A", { comparisonBasis: "BUDGET" }),
     ], PERIOD);
     expect(churn.rows[0].bookableUnits).toBe(100);
     expect(churn.totalsMixed).toBe(false);
+  });
+
+  it("keeps a YTD or point-in-time row out of the monthly churn column instead of overwriting it", () => {
+    const churn = buildBrandChurn(definitions, [
+      brandRow("month", "2", "Brand A"),
+      // Same definition, other bases: different facts, never the monthly figure.
+      brandRow("month", "17", "Brand A", { timeBasis: "YTD" }),
+      brandRow("month", "21", "Brand A", { timeBasis: "POINT_IN_TIME" }),
+      brandRow("month", "31", "Brand A", { timeBasis: "LTM" }),
+    ], PERIOD);
+
+    expect(churn.rows).toHaveLength(1);
+    expect(churn.rows[0].monthChurned).toBe(2);
+    expect(churn.ignoredTimeBasis).toBe(3);
+  });
+
+  it("keeps monthly and YTD bookable units apart from the point-in-time identity", () => {
+    const churn = buildBrandChurn(definitions, [
+      brandRow("bookable", "120", "Brand A"),
+      brandRow("bookable", "800", "Brand A", { timeBasis: "MONTHLY" }),
+      brandRow("bookable", "900", "Brand A", { timeBasis: "YTD" }),
+    ], PERIOD);
+
+    expect(churn.rows[0].bookableUnits).toBe(120);
+    expect(churn.ignoredTimeBasis).toBe(2);
+  });
+
+  it("does not let a monthly row fill the trailing churn column", () => {
+    const churn = buildBrandChurn(definitions, [
+      brandRow("ltm-units", "30", "Brand A"),
+      brandRow("ltm-units", "3", "Brand A", { timeBasis: "MONTHLY" }),
+      brandRow("ltm-pct", "12.5", "Brand A"),
+      brandRow("ltm-pct", "1.2", "Brand A", { timeBasis: "YTD" }),
+    ], PERIOD);
+
+    expect(churn.rows[0].ltmChurned).toBe(30);
+    expect(churn.rows[0].ltmPct).toBe(12.5);
+    expect(churn.ignoredTimeBasis).toBe(2);
+  });
+
+  it("refuses a churn row that names no time basis", () => {
+    const churn = buildBrandChurn(definitions, [brandRow("month", "2", "Brand A", { timeBasis: null })], PERIOD);
+    expect(churn.rows).toHaveLength(0);
+    expect(churn.ignoredTimeBasis).toBe(1);
+  });
+
+  it("accepts TTM as the trailing window and never mixes it into a monthly column", () => {
+    const churn = buildBrandChurn(definitions, [
+      brandRow("ltm-units", "30", "Brand A", { timeBasis: "TTM" }),
+    ], PERIOD);
+    expect(churn.rows[0].ltmChurned).toBe(30);
+    expect(churn.ignoredTimeBasis).toBe(0);
+  });
+
+  it("gives each column one definition, so two similar metrics cannot overwrite each other", () => {
+    const duplicate = [...definitions, metric({ id: "month-b", name: "Units churned", metricKey: "user_review:units_churned" })];
+    const churn = buildBrandChurn(duplicate, [
+      brandRow("month", "2", "Brand A"),
+      { ...brandRow("month-b", "7", "Brand A"), kpiId: "month-b" },
+    ], PERIOD);
+    // "Churned units" is the shorter, canonical name; the duplicate does not enter.
+    expect(churn.rows[0].monthChurned).toBe(2);
   });
 });
 
