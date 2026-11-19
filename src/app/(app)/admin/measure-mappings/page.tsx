@@ -18,6 +18,8 @@ const ERRORS: Record<string, string> = {
   "not-in-plan": "That measure is not in the active plan. Reload the page and try again.",
   "ratio-inputs": "A margin change needs both a numerator and a denominator metric.",
   "unknown-metric": "Choose metrics from the imported list.",
+  direction: "Choose whether higher or lower is better, or leave the direction not stated.",
+  "primary-exists": "Another KPI in this pillar is already the primary measure. Switch that mapping off before making this one primary.",
 };
 
 const CALCULATIONS = [
@@ -80,8 +82,10 @@ export default async function MeasureMappingsPage({ searchParams }: { searchPara
       ? prisma.strategicArea.findMany({
           where: { planVersionId: plan.id },
           orderBy: [{ kind: "desc" }, { order: "asc" }],
-          // Same order as the review, so this is the KPI the review shows.
-          select: { id: true, name: true, kpis: { orderBy: { name: "asc" }, take: 1, select: { id: true, name: true, target: true, measureMapping: true } } },
+          // Every KPI the pillar owns. The order below is display only: which
+          // KPI is the primary measure is decided by its active mapping, never
+          // by this order or by the KPI's name.
+          select: { id: true, name: true, kpis: { orderBy: { name: "asc" }, select: { id: true, name: true, target: true, measureMapping: true } } },
         })
       : [],
     prisma.kpiDefinition.findMany({ where: { strategicAreaId: null }, orderBy: { name: "asc" }, select: { metricKey: true, name: true } }),
@@ -91,7 +95,6 @@ export default async function MeasureMappingsPage({ searchParams }: { searchPara
   const mapped = areas.flatMap((a) => a.kpis.flatMap((k) => (k.measureMapping ? [k.measureMapping] : [])));
   const inputs = await loadMappingInputs([...new Set(mapped.flatMap(mappingInputKeys))], period);
   const month = periodLabel(period);
-  const withoutMeasure = areas.filter((a) => a.kpis.length === 0).map((a) => a.name);
 
   return (
     <div className="flex max-w-4xl flex-col gap-6">
@@ -105,18 +108,44 @@ export default async function MeasureMappingsPage({ searchParams }: { searchPara
       </div>
 
       {areas.map((area) => {
-        const kpi = area.kpis[0];
-        if (!kpi) return null;
+        const primaryCount = area.kpis.filter((k) => k.measureMapping?.active === true).length;
+        const reviewArea = review.areas.find((a) => a.id === area.id);
+        return (
+          <div key={area.id} className="flex flex-col gap-3">
+            <div>
+              <h2 className="text-base font-semibold tracking-tight text-ink">{area.name}</h2>
+              <p className="mt-1 text-note text-ink-muted">
+                One active mapping is this pillar&apos;s primary measure. Additional KPIs are supporting measures and do not change it.
+              </p>
+              {primaryCount > 1 && (
+                <p role="alert" className="mt-2 rounded-lg border border-risk/40 bg-risk-soft px-3.5 py-2.5 text-sm text-ink">
+                  {primaryCount} KPIs in this pillar have an active mapping, so the review shows no primary measure. Switch all but one off.
+                </p>
+              )}
+              {primaryCount === 0 && area.kpis.length > 0 && (
+                <p className="mt-2 rounded-lg border border-border bg-surface px-3.5 py-2.5 text-sm text-ink-muted">
+                  No primary measure is selected. Activate the mapping for the KPI this pillar should lead with.
+                </p>
+              )}
+              {area.kpis.length === 0 && <p className="mt-2 text-note text-ink-muted">No KPI definition, so there is nothing to map.</p>}
+            </div>
+
+            {area.kpis.map((kpi) => {
         const mapping = kpi.measureMapping;
-        const measure = review.areas.find((a) => a.id === area.id)?.measure;
+        // Only the selected measure's status belongs beside this KPI's form.
+        const measure = reviewArea?.measure?.kpiId === kpi.id ? reviewArea.measure : null;
         const missing = mapping ? missingMeasureInputs(mapping, inputs.rows, period, inputs.names) : [];
+        const isPrimary = mapping?.active === true;
         return (
           <section key={kpi.id} id={`measure-${kpi.id}`} className="scroll-mt-24 rounded-xl border border-border bg-surface p-5">
-            <h2 className="text-sm font-semibold text-ink">
-              {area.name} · {kpi.name}
-            </h2>
+            <h3 className="text-sm font-semibold text-ink">
+              {kpi.name}
+              <span className={`ml-2 rounded-full border px-2 py-0.5 text-nano font-medium ${isPrimary ? "border-ok/40 bg-ok-soft text-ink" : "border-border bg-surface text-ink-muted"}`}>
+                {isPrimary ? "Primary measure" : "Supporting measure"}
+              </span>
+            </h3>
             <p className="mt-1 text-note text-ink-muted">Plan target: {kpi.target || "not set"}</p>
-            <p className="mt-1 text-note text-ink-muted">{mapping && !mapping.active ? "Switched off." : statusLine(measure, month, missing, mapping)}</p>
+            <p className="mt-1 text-note text-ink-muted">{mapping && !mapping.active ? "Switched off, so it is a supporting measure." : statusLine(measure, month, missing, mapping)}</p>
             <form action={adminSaveMeasureMapping} className="mt-4 flex flex-col gap-4">
               <input type="hidden" name="measureKpiId" value={kpi.id} />
               <div className="grid gap-3 sm:grid-cols-2">
@@ -150,7 +179,8 @@ export default async function MeasureMappingsPage({ searchParams }: { searchPara
                 </Label>
                 <Label className={FIELD}>
                   Better when
-                  <NativeSelect name="direction" defaultValue={mapping?.higherIsBetter === false ? "LOWER" : "HIGHER"}>
+                  <NativeSelect name="direction" defaultValue={mapping?.higherIsBetter === true ? "HIGHER" : mapping?.higherIsBetter === false ? "LOWER" : ""}>
+                    <option value="">Not stated (no status colour)</option>
                     <option value="HIGHER">Higher</option>
                     <option value="LOWER">Lower</option>
                   </NativeSelect>
@@ -180,7 +210,9 @@ export default async function MeasureMappingsPage({ searchParams }: { searchPara
               <div className="flex items-center justify-between gap-3">
                 {/* relative: Radix's hidden form input is absolute, and would otherwise stretch the document. */}
                 <Label className="relative flex items-center gap-2">
-                  <Checkbox name="active" defaultChecked={mapping?.active ?? true} />
+                  {/* A new mapping defaults to primary only when the pillar has
+                      none; otherwise it starts as a supporting measure. */}
+                  <Checkbox name="active" defaultChecked={mapping?.active ?? primaryCount === 0} />
                   Use this mapping on the review
                 </Label>
                 <SubmitButton size="sm" variant="outline">
@@ -190,9 +222,10 @@ export default async function MeasureMappingsPage({ searchParams }: { searchPara
             </form>
           </section>
         );
+            })}
+          </div>
+        );
       })}
-
-      {withoutMeasure.length > 0 && <p className="text-note text-ink-muted">No measure defined, so nothing to map: {withoutMeasure.join(", ")}.</p>}
     </div>
   );
 }

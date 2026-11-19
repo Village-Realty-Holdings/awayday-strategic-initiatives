@@ -254,9 +254,14 @@ describe("tools/call", () => {
   it("replaces so-whats for a pillar scope under its full code", async () => {
     m.getReviewPlan.mockResolvedValue({ areas: [{ id: "a1", code: "FY27-GROW" }] });
     await call(editor, "set_so_whats", { period: "2026-10", scope: "GROW", soWhats: [{ headline: "Units up" }] });
-    expect(m.setSoWhats).toHaveBeenCalledWith(editor, { periodId: "2026-10", scope: "FY27-GROW", items: [{ scope: "FY27-GROW", headline: "Units up", body: null }] });
+    expect(m.setSoWhats).toHaveBeenCalledWith(editor, { periodId: "2026-10", scope: "FY27-GROW", items: [{ scope: "FY27-GROW", headline: "Units up", body: null, tone: null }] });
     await call(editor, "set_so_whats", { period: "2026-10", scope: "summary", soWhats: [] });
     expect(m.setSoWhats).toHaveBeenLastCalledWith(editor, { periodId: "2026-10", scope: "SUMMARY", items: [] });
+  });
+
+  it("addresses the financial bridge by its own scope and carries each item's tone", async () => {
+    await call(editor, "set_so_whats", { period: "2026-10", scope: "FINANCIALS", soWhats: [{ headline: "Bridge item", tone: "POSITIVE" }] });
+    expect(m.setSoWhats).toHaveBeenLastCalledWith(editor, { periodId: "2026-10", scope: "FINANCIALS", items: [{ scope: "FINANCIALS", headline: "Bridge item", body: null, tone: "POSITIVE" }] });
   });
 
   it("lets a viewer add an SI update, resolved by code; the edit decides if they lead it", async () => {

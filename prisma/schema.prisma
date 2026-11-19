@@ -561,8 +561,9 @@ model ReviewPillarStatus {
   @@index([strategicAreaId])
 }
 
-// A so-what on the review: scope is SUMMARY or a StrategicArea code of the
-// active plan (a pillar or enabler section).
+// A so-what on the review: scope is SUMMARY, FINANCIALS (the commentary under
+// the financial tables), or a StrategicArea code of the active plan (a pillar
+// or enabler section).
 model ReviewSoWhat {
   id        String       @id @default(cuid())
   periodId  String
@@ -571,10 +572,24 @@ model ReviewSoWhat {
   order     Int          @default(0)
   headline  String
   body      String?      @db.Text
+  // How the item reads on the page: good news, bad news, a watch item, or plain
+  // note. Nullable, so every row written before this column existed stays valid
+  // and renders neutrally. The reviewed report colours each item individually,
+  // which a section's own status cannot express.
+  tone      SoWhatTone?
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
   @@index([periodId, scope, order])
+}
+
+// The four tones a so-what can carry. Deliberately not CSS class names: the
+// stored value is the meaning, and presentation maps it to styling.
+enum SoWhatTone {
+  POSITIVE
+  WARNING
+  NEGATIVE
+  NEUTRAL
 }
 
 model KpiDefinition {
@@ -608,7 +623,10 @@ model KpiMeasureMapping {
   denominatorMetricKey String?       // RATIO_DELTA_PY only
   timeBasis            String        // MONTHLY | YTD | LTM | POINT_IN_TIME
   displayFormat        String        // percent | currency | number
-  higherIsBetter       Boolean       @default(true)
+  // true = higher is better, false = lower is better, null = not stated.
+  // No default: an unstated direction must stay unstated (and colour nothing)
+  // rather than silently declaring "higher is better" for churn, CAC or costs.
+  higherIsBetter       Boolean?
   // Base units: $26M is 26000000, 11% is 11. Status is rated against the budget target.
   targetBudget         Float?
   targetStretch        Float?

@@ -4,10 +4,13 @@ import { formatMeasureValue, headlineMeasure, latestReading, measureRag } from "
 import { prisma } from "@/lib/prisma";
 import { getActivePlan } from "@/lib/active-plan";
 import { PUBLICATION_APPROVED } from "@/lib/kpi";
-import { deriveMeasure, formatDerivedMeasure, mappingInputKeys, mappingRag, measureOrigin, parseMeasureNumber } from "@/lib/kpi-measure-mapping";
+import { deriveMeasure, formatDerivedMeasure, mappingInputKeys, mappingRag, measureOrigin, parseMeasureNumber, statusGap } from "@/lib/kpi-measure-mapping";
+import { ambiguousMeasureNames, selectPrimaryMeasure } from "@/lib/primary-measure";
 import { buildFinanceTable, currentKpiValue, MANUAL_SOURCE_CATEGORY, type FinanceTable, type KpiRow } from "@/lib/review-kpi";
 import { REVIEWED_METRIC_PREFIX } from "@/lib/review-report";
+import { goalQuantityFor, isPlanningFigure, metricKind, parseTargetMarkers, primaryGoalMarker, quantityOfKind, sameQuantity } from "@/lib/review-format";
 import {
+  FINANCIALS_SCOPE,
   PILLAR_STATUS_RAG,
   PILLAR_STATUSES,
   homeReviewPeriod,
@@ -15,7 +18,6 @@ import {
   openUpdatePeriod,
   periodLabel,
   periodMonthName,
-  ragFor,
   reviewPeriods,
   shortCode,
   splitNames,
@@ -64,6 +66,8 @@ export type ReviewPeriod = {
   sources: string[];
   /** The summary so-whats, in order. */
   summary: SoWhat[];
+  /** The financial bridge so-whats (the commentary under the financial tables), in order. */
+  financials: SoWhat[];
   /** So-whats per StrategicArea code, in order. */
   areaSoWhats: Record<string, SoWhat[]>;
 };
@@ -144,15 +148,19 @@ export const getReviewPeriod = cache(async (id: string): Promise<ReviewPeriod> =
     }),
     prisma.reviewPeriod.findUnique({
       where: { id },
-      include: { soWhats: { orderBy: [{ scope: "asc" }, { order: "asc" }], select: { id: true, scope: true, headline: true, body: true } } },
+      include: { soWhats: { orderBy: [{ scope: "asc" }, { order: "asc" }], select: { id: true, scope: true, headline: true, body: true, tone: true } } },
     }),
   ]);
   const latest = rows.reduce<Date | null>((max, r) => (!max || r.observedAt > max ? r.observedAt : max), null);
   const sources = [...new Set(rows.map((r) => r.sourceDocumentName).filter((s): s is string => Boolean(s)))].sort();
   const summary: SoWhat[] = [];
+  const financials: SoWhat[] = [];
   const areaSoWhats: Record<string, SoWhat[]> = {};
   for (const { scope, ...soWhat } of stored?.soWhats ?? []) {
     if (scope === SUMMARY_SCOPE) summary.push(soWhat);
+    // The financial-bridge commentary is its own section, so it is never
+    // mistaken for an area of the plan.
+    else if (scope === FINANCIALS_SCOPE) financials.push(soWhat);
     else (areaSoWhats[scope] ??= []).push(soWhat);
   }
   return {
@@ -169,6 +177,7 @@ export const getReviewPeriod = cache(async (id: string): Promise<ReviewPeriod> =
     dataAsOfOverride: isoDay(stored?.dataAsOf),
     sources,
     summary,
+    financials,
     areaSoWhats,
   };
 });
@@ -187,8 +196,10 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
       ? prisma.strategicArea.findMany({
           where: { planVersionId: plan.id },
           orderBy: [{ kind: "desc" }, { order: "asc" }],
-          // Ordered so "the area's measure" is the same KPI here and in Edit Mode's save.
-          include: { pillarStatuses: { where: { periodId: period }, select: { status: true } }, kpis: { orderBy: { name: "asc" }, select: { id: true, name: true, target: true, measureMapping: true, observations: { where: currentObservationWhere, select: OBSERVATION_SELECT } } } },
+          // Every KPI the area owns, in whatever order the database returns them.
+          // The primary measure is chosen by its active mapping below, never by
+          // this list's order or by the KPI's name.
+          include: { pillarStatuses: { where: { periodId: period }, select: { status: true } }, kpis: { select: { id: true, name: true, target: true, measureMapping: true, observations: { where: currentObservationWhere, select: OBSERVATION_SELECT } } } },
         })
       : [],
     prisma.initiative.findMany({
@@ -207,13 +218,15 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
   // A published month is final, so later values don't change it. A draft shows the latest.
   const valuesThrough = review?.status === "PUBLISHED" ? period : null;
 
-  // Metrics the area measures are mapped to, which aren't tied to an area themselves.
-  const activeMapping = (a: (typeof areaRows)[number]) => {
-    const mapping = a.kpis[0]?.measureMapping;
+  // Metrics the primary measures are mapped to, which aren't tied to an area
+  // themselves. The mapping is the persisted declaration of the primary measure.
+  const primaryMapping = (a: (typeof areaRows)[number]) => {
+    const selection = selectPrimaryMeasure(a.kpis);
+    const mapping = selection.status === "selected" ? selection.kpi.measureMapping : null;
     return mapping?.active ? mapping : null;
   };
   const inputKeys = [...new Set(areaRows.flatMap((a) => {
-    const mapping = activeMapping(a);
+    const mapping = primaryMapping(a);
     return mapping ? mappingInputKeys(mapping) : [];
   }))];
   const { rows: inputRows, names: inputNames } = await loadMappingInputs(inputKeys, period);
@@ -233,36 +246,93 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
         match: (i) => ((i.cimDriver && i.cimDriver.trim()) || "Other") === a.driver,
       }))
     : areaRows.map((a) => {
-        const kpi = a.kpis[0];
+        // The primary measure is the KPI with an active measure mapping. A
+        // pillar with no such mapping, or with more than one, gets a neutral
+        // state rather than an alphabetical pick.
+        const selection = selectPrimaryMeasure(a.kpis);
+        const kpi = selection.status === "selected" ? selection.kpi : null;
+        const mapping = kpi?.measureMapping?.active ? kpi.measureMapping : null;
         const obs = kpi ? currentKpiValue(kpi.observations as KpiRow[], period) : null;
-        const mapping = activeMapping(a);
         // A value on the measure itself, typed in or published, wins over a calculated one.
         const calculated = mapping ? deriveMeasure(mapping, inputRows, period) : null;
         const derived = obs ? null : calculated;
         const source = obs ? (obs.sourceCategory === MANUAL_SOURCE_CATEGORY ? "manual" : "import") : derived ? "derived" : null;
         const value = obs?.value ?? (derived && mapping ? formatDerivedMeasure(derived.value, mapping) : null);
-        const target = kpi?.target ?? a.kpiTarget ?? null;
-        const calculatedRag = !mapping
-          ? ragFor(obs?.value ?? null, target, obs?.quality)
-          : derived
-            ? mappingRag(derived.value, mapping, derived.quality)
-            : mappingRag(parseMeasureNumber(obs?.value), mapping, obs?.quality);
+        // Only a selected measure's own target is shown. A neutral state keeps
+        // the plan's declared target text, but never an unmapped KPI's target,
+        // so two different measures are not put side by side.
+        const target = kpi?.target ?? (selection.status === "missing" ? (a.kpiTarget ?? null) : null);
+        // The reviewed report judges October against the pillar's **2026 goal**
+        // and shows FY27 budget/stretch beside it. The mapping's own targetBudget
+        // is FY27 planning data, so the definition's stated goal is used when it
+        // is written in the measure's own quantity; otherwise NO status is
+        // claimed. A goal labelled FY27, or one in a different quantity, is never
+        // substituted — not even as a fallback.
+        const measureKind = metricKind({ name: kpi?.name ?? a.kpiName ?? a.name, displayFormat: mapping?.displayFormat ?? null, unit: null });
+        // The measure's quantity is stated explicitly (display format first, the
+        // name only as a fallback). A bare "number" states none, and then the
+        // quantity is unknown: no goal can be shown to be comparable with it.
+        const measuredIn = quantityOfKind(measureKind);
+        const targetMarkers = parseTargetMarkers(target);
+        const rawGoal = primaryGoalMarker(targetMarkers);
+        const kindGoal = primaryGoalMarker(targetMarkers, measureKind);
+        // Target text that states only a figure equal to the mapping's own FY27
+        // budget or stretch is FY27 planning data written without a label. It is
+        // not a 2026 goal, so it may be displayed but never judged against: the
+        // October status needs a figure the business has identified as the goal.
+        const fy27Echo =
+          kindGoal !== null &&
+          kindGoal.reference !== "2026" &&
+          isPlanningFigure(kindGoal.value, [mapping?.targetBudget, mapping?.targetStretch]);
+        const goal = kindGoal !== null && !fy27Echo ? kindGoal : null;
+        const numericValue = derived?.value ?? parseMeasureNumber(obs?.value) ?? null;
+        const comparable = goal !== null && (numericValue === null || sameQuantity(numericValue, goal.value));
+        const goalRef = goal
+          ? { value: goal.value, label: goal.reference === "2026" ? "2026 goal" : "goal", quantity: goalQuantityFor(goal.unit, measuredIn) }
+          : null;
+        const reference = comparable ? goalRef : null;
+        // A goal that exists but was refused for its quantity is a different
+        // situation from one that was never stated; the review says which, so
+        // "add a 2026 goal" and "state a goal in the measure's own units" are
+        // not confused. statusGap is given the goal itself, not the accepted
+        // reference, for exactly that reason.
+        const quality = derived?.quality ?? obs?.quality ?? "VALID";
+        const gap =
+          mapping === null
+            ? null
+            : goal !== null
+              ? statusGap(numericValue, mapping, quality, goalRef, measuredIn)
+              : rawGoal === null || fy27Echo
+                ? statusGap(numericValue, mapping, quality, null, measuredIn)
+                : measuredIn === "unknown"
+                  ? "goal-quantity-unknown"
+                  : "goal-not-comparable";
+        const calculatedRag = mapping ? mappingRag(numericValue, mapping, quality, reference, measuredIn) : "GREY";
         // Only pillars can have a status set by hand.
         const stored = a.kind === "ENABLER" ? null : a.pillarStatuses?.[0]?.status;
         const statusOverride = (PILLAR_STATUSES as readonly string[]).includes(stored ?? "") ? (stored as PillarStatus) : null;
         const rag = statusOverride ? PILLAR_STATUS_RAG[statusOverride] : calculatedRag;
-        const origin = measureOrigin({
-          source,
-          observation: obs,
-          number: derived?.value ?? parseMeasureNumber(obs?.value),
-          calculatedValue: calculated && mapping ? formatDerivedMeasure(calculated.value, mapping) : null,
-          rag: calculatedRag,
-          target,
-          mapping,
-          rows: inputRows,
-          names: inputNames,
-          period,
-        });
+        const origin = mapping
+          ? measureOrigin({
+              source,
+              observation: obs,
+              number: numericValue,
+              calculatedValue: calculated && mapping ? formatDerivedMeasure(calculated.value, mapping) : null,
+              rag: calculatedRag,
+              target,
+              mapping,
+              reference,
+              gap,
+              rows: inputRows,
+              names: inputNames,
+              period,
+            })
+          : undefined;
+        // A selected measure always shows. A neutral state still shows the
+        // plan's declared measure name (or the ambiguity) so the gap is visible
+        // instead of silently disappearing.
+        const declaredName = kpi?.name ?? a.kpiName ?? null;
+        const showMeasure = kpi !== null || declaredName !== null || selection.status === "ambiguous";
         return {
           id: a.id,
           code: a.code,
@@ -271,17 +341,23 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
           goal: a.goal,
           owner: a.owner,
           ownerLine: a.owner,
-          measure: kpi || a.kpiName
+          measure: showMeasure
             ? {
                 kpiId: kpi?.id ?? null,
-                name: kpi?.name ?? a.kpiName ?? "",
+                name: declaredName ?? "Primary measure ambiguous",
                 value,
                 target,
                 rag,
                 source,
                 calculatedRag,
+                statusGap: gap,
                 statusOverride,
-                origin,
+                primary: selection.status,
+                ...(selection.status === "ambiguous" ? { ambiguousKpis: ambiguousMeasureNames(selection) } : {}),
+                // No mapping, or a mapping that states no direction: `undefined`
+                // lets the measure's name speak; `null` means "declared unknown".
+                higherIsBetter: mapping ? mapping.higherIsBetter : undefined,
+                ...(origin ? { origin } : {}),
                 ...(derived && mapping ? { inputs: mappingInputKeys(mapping).map((key) => inputNames.get(key) ?? key) } : {}),
               }
             : null,

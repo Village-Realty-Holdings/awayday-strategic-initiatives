@@ -113,7 +113,11 @@ own treatment of Rent Branson (`0 | 0 | n/a | 0 | n/a`).
 
 The user independently confirmed 164 reviewed observations (138 operating, 20
 Base Business, 6 pillar), 53 reviewed definitions and 7 so-whats for October
-2026. This branch does not change that data. The following are read from Neon
+2026. This branch does not change that data. (Re-checked against the reference
+page and its read-only identity export on 2026-11-19: production holds 53
+`user_review:*` definitions, none of them linked to an area or selected by a
+mapping, and the page's commentary is 8 sections / 33 items — the 29 stored
+rows plus the 4-item bridge block.) The following are read from Neon
 and will render as soon as the observations exist; each is documented rather
 than guessed:
 

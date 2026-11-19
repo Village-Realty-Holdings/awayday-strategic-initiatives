@@ -9,13 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { saveReview, unpublishReview } from "@/app/(app)/review-actions";
-import { fmtLong, SUMMARY_SCOPE, type ReviewPeriodStatus, type SoWhat } from "@/lib/review-model";
+import { FINANCIALS_SCOPE, fmtLong, SUMMARY_SCOPE, type ReviewPeriodStatus, type SoWhat } from "@/lib/review-model";
 import { type EditorSoWhat, SoWhatEditor } from "./so-what-editor";
 import { PeriodStatusBadge } from "./status";
 
 export type EditorArea = { code: string; name: string; eyebrow: string; soWhats: SoWhat[] };
 
-const toEditor = (items: SoWhat[]): EditorSoWhat[] => items.map((s) => ({ key: s.id, headline: s.headline, body: s.body ?? "" }));
+const toEditor = (items: SoWhat[]): EditorSoWhat[] => items.map((s) => ({ key: s.id, headline: s.headline, body: s.body ?? "", tone: s.tone ?? "" }));
 
 export function ReviewEditor({
   periodId,
@@ -28,6 +28,8 @@ export function ReviewEditor({
   dataAsOf,
   observedAsOf,
   summary: initialSummary,
+  financials: initialFinancials,
+  financialsOpen = true,
   areas,
   updated,
 }: {
@@ -43,18 +45,24 @@ export function ReviewEditor({
   /** Data-as-of derived from the month's KPI values. */
   observedAsOf: string | null;
   summary: SoWhat[];
+  /** The financial-bridge commentary. Empty when the plan reserves the FINANCIALS code. */
+  financials: SoWhat[];
+  /** False when an area of the active plan already uses the FINANCIALS code. */
+  financialsOpen?: boolean;
   areas: EditorArea[];
   /** SIs with an update for the month, out of all SIs. */
   updated: { done: number; total: number };
 }) {
   const [summary, setSummary] = useState(() => toEditor(initialSummary));
+  const [financials, setFinancials] = useState(() => toEditor(initialFinancials));
   const [byArea, setByArea] = useState<Record<string, EditorSoWhat[]>>(() => Object.fromEntries(areas.map((a) => [a.code, toEditor(a.soWhats)])));
   const [confirming, setConfirming] = useState(false);
   const locked = status === "PUBLISHED";
 
   const payload = JSON.stringify([
-    ...summary.map((s) => ({ scope: SUMMARY_SCOPE, headline: s.headline, body: s.body })),
-    ...areas.flatMap((a) => (byArea[a.code] ?? []).map((s) => ({ scope: a.code, headline: s.headline, body: s.body }))),
+    ...summary.map((s) => ({ scope: SUMMARY_SCOPE, headline: s.headline, body: s.body, tone: s.tone || null })),
+    ...(financialsOpen ? financials.map((s) => ({ scope: FINANCIALS_SCOPE, headline: s.headline, body: s.body, tone: s.tone || null })) : []),
+    ...areas.flatMap((a) => (byArea[a.code] ?? []).map((s) => ({ scope: a.code, headline: s.headline, body: s.body, tone: s.tone || null }))),
   ]);
 
   return (
@@ -113,6 +121,14 @@ export function ReviewEditor({
             <p className="mb-3 text-xs text-ink-muted">What the ELT should take from {periodLabel}, shown above “Where the pillars stand”.</p>
             <SoWhatEditor scopeLabel="summary" items={summary} onChange={setSummary} locked={locked} />
           </section>
+
+          {financialsOpen && (
+            <section>
+              <h2 className="mb-1 text-sm font-semibold text-ink">Financial bridge so-whats</h2>
+              <p className="mb-3 text-xs text-ink-muted">The commentary under the financial tables, one item per point the bridge makes.</p>
+              <SoWhatEditor scopeLabel="financials" items={financials} onChange={setFinancials} locked={locked} />
+            </section>
+          )}
 
           <section>
             <h2 className="mb-1 text-sm font-semibold text-ink">Pillar and enabler so-whats</h2>

@@ -12,6 +12,7 @@ import {
   buildReportRows,
   buildTrendChart,
   currentPeriodRows,
+  directionKeyFor,
   formatDelta,
   formatMetricValue,
   formatValueForKind,
@@ -29,6 +30,7 @@ import {
   type ReportObservation,
   type TrendChartSpec,
 } from "./review-report";
+import { metricDirection } from "./kpi-status";
 
 // Synthetic fixtures only. The shapes mirror KpiDefinition/KpiObservation; the
 // amounts are invented so no private figure is committed.
@@ -128,14 +130,39 @@ describe("target parsing and status", () => {
 
   it("rates a value in the target's unit and direction", () => {
     // $26.0M against a $26M target is at target, not a $26-vs-$26,000,000 comparison.
-    expect(statusAgainstTarget("26000000", "$26M")).toBe("on_track");
-    expect(statusAgainstTarget("30000000", "$26M")).toBe("ahead");
-    expect(statusAgainstTarget("20000000", "$26M")).toBe("behind");
-    expect(statusAgainstTarget("12.7", "<11%")).toBe("behind");
-    expect(statusAgainstTarget("10.5", "<11%")).toBe("on_track");
-    expect(statusAgainstTarget("4", "5")).toBe("behind");
-    expect(statusAgainstTarget(null, "5")).toBe("no_data");
-    expect(statusAgainstTarget("4", "TBD")).toBe("no_data");
+    expect(statusAgainstTarget("26000000", "$26M", "currency")).toBe("on_track");
+    expect(statusAgainstTarget("30000000", "$26M", "currency")).toBe("ahead");
+    expect(statusAgainstTarget("20000000", "$26M", "currency")).toBe("behind");
+    expect(statusAgainstTarget("12.7", "<11%", "percent")).toBe("behind");
+    expect(statusAgainstTarget("10.5", "<11%", "percent")).toBe("on_track");
+    expect(statusAgainstTarget("4", "5", "count")).toBe("behind");
+    expect(statusAgainstTarget(null, "5", "count")).toBe("no_data");
+    expect(statusAgainstTarget("4", "TBD", "count")).toBe("no_data");
+  });
+
+  it("never rates across quantities, and stays neutral when the quantity is unstated", () => {
+    // A count and a percentage are different quantities even when the numbers
+    // are alike; nor is a currency figure rated against a count target.
+    expect(statusAgainstTarget("12", "12% goal", "count")).toBe("no_data");
+    expect(statusAgainstTarget("4", "5%", "currency")).toBe("no_data");
+    expect(statusAgainstTarget("0.8", "0.7%", "points")).toBe("ahead");
+    // With no stated kind nothing can be shown to be comparable.
+    expect(statusAgainstTarget("26000000", "$26M")).toBe("no_data");
+  });
+
+  it("judges a status by the definition's goal, never by an FY27 figure or another quantity", () => {
+    // The reviewed report sets the 2026 goal beside the FY27 budget and stretch.
+    // A status is judged against the goal, in the measure's own quantity.
+    expect(statusAgainstTarget("$34.8M", "2026 goal $23M; FY27 $33M budget; $47M stretch", "currency")).toBe("ahead");
+    expect(statusAgainstTarget("$34.8M", "$23M goal; $33M budget; $47M stretch", "currency")).toBe("ahead");
+    // Only an FY27 figure is stated: no October status is claimed from it.
+    expect(statusAgainstTarget("$34.8M", "FY27 $33M budget", "currency")).toBe("no_data");
+    // Grow's goal is a growth percentage while the measure is a unit count.
+    expect(statusAgainstTarget("3340", "2026 goal 23%", "count")).toBe("no_data");
+    expect(statusAgainstTarget("3340", "2,608 goal", "count")).toBe("ahead");
+    // A margin goal written as a percent is read as points.
+    expect(statusAgainstTarget("0.8", "2026 goal +0.7 pt", "points")).toBe("ahead");
+    expect(statusAgainstTarget("0.8", "2026 goal +0.7%", "points")).toBe("ahead");
   });
 });
 
@@ -247,6 +274,27 @@ describe("report table", () => {
     expect(costRow.monthActual.display).toBe("\u2212$400K");
     expect(costRow.monthVsBudget.display).toBeNull();
     expect(costRow.ytdActual.display).toBeNull();
+  });
+
+  it("reads a delta's direction from the metric identity, not the shortened label", () => {
+    // "Support cost as % of revenue" is shortened to "Support % of revenue" in the
+    // table. Reading direction from that label lost "cost" and coloured a rise in
+    // a cost ratio green; the key carries both the definition name and metric key.
+    const support = metric({ id: "support", name: "Support cost as % of revenue", metricKey: "user_review:support_cost_pct", unit: "percent", displayFormat: "percent" });
+    expect(directionKeyFor(support)).toBe("Support cost as % of revenue support cost pct");
+    expect(metricDirection(directionKeyFor(support))).toEqual({ direction: "lower", known: true });
+    // A label that keeps its decisive word is unaffected.
+    expect(metricDirection(directionKeyFor(revenue))).toEqual({ direction: "higher", known: true });
+  });
+
+  it("carries a mapping's declared direction onto the row, for the delta's colour", () => {
+    const declared = [{ ...revenue, higherIsBetter: false }, costOfSales];
+    const rev = buildReportRows(declared, rows).find((row) => row.id === "user_review:revenue")!;
+    expect(rev.higherIsBetter).toBe(false);
+    const cos = buildReportRows(declared, rows).find((row) => row.id === "user_review:cost_of_sales")!;
+    // No mapping supplied: undefined (not null), so the name remains the only
+    // evidence. Null would mean a mapping that exists but states no direction.
+    expect(cos.higherIsBetter).toBeUndefined();
   });
 
   it("never mixes populations", () => {
@@ -381,7 +429,7 @@ describe("pillar scorecards", () => {
   });
   const expectations = [
     acquired,
-    metric({ id: "loi", name: "Active LOI pipeline", metricKey: "user_review:active_loi_pipeline", unit: "count", target: "5" }),
+    metric({ id: "loi", name: "Active LOI pipeline", metricKey: "user_review:active_loi_pipeline", unit: "count", displayFormat: "number", target: "5" }),
   ].map((definition) => ({ ...definition, strategicAreaId: "area-ma" }));
 
   it("lists loaded metrics and marks the expected lines that are missing", () => {

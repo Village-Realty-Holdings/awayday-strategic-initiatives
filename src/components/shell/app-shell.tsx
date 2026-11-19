@@ -9,7 +9,10 @@ import { AskPanel } from "@/components/ask-panel";
 import { FlashToaster } from "@/components/flash-toaster";
 import { SessionKeepalive } from "@/components/shell/session-keepalive";
 import { DevTestingTool } from "@/components/dev-testing/dev-testing-tool";
+import { MobileNav } from "@/components/shell/mobile-nav";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { isDevAuthEnabled } from "@/lib/dev-auth";
+import { DEFAULT_THEME_PREFERENCE, type ThemePreference } from "@/lib/theme";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -22,15 +25,20 @@ function initials(name: string): string {
 // own their auth/access checks and pass the session user in.
 export function AppShell({
   user,
+  theme = DEFAULT_THEME_PREFERENCE,
   children,
 }: {
   user: { name: string; email?: string | null; role?: string | null };
+  /** The stored colour-theme preference, so the toggle shows the current choice. */
+  theme?: ThemePreference;
   children: React.ReactNode;
 }) {
   return (
     <BreadcrumbProvider>
     <div className="app-shell flex h-dvh overflow-hidden bg-bg">
-      <aside data-chrome className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-surface">
+      {/* A fixed column from md up; below it the same navigation lives in
+            MobileNav, so the page keeps its full width on a phone. */}
+      <aside data-chrome className="hidden h-full w-60 shrink-0 flex-col border-r border-border bg-surface md:flex">
         <div className="flex h-14 shrink-0 items-center border-b border-border px-5">
           <Image
             src="/awayday-logo.png"
@@ -71,9 +79,20 @@ export function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar is level with the logo row; its bottom border continues the
             logo row's, so sidebar and top bar form one white frame. */}
-        <header data-chrome className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-surface px-6">
-          <Breadcrumbs />
-          <AskPanel />
+        <header
+          data-chrome
+          className="flex min-h-14 shrink-0 items-center justify-between gap-2 border-b border-border bg-surface px-3 py-1 sm:gap-3 sm:px-6"
+        >
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <MobileNav name={user.name} role={user.role} />
+            <Breadcrumbs />
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+            <AskPanel />
+            {/* Every width gets a theme control: the segmented choice from sm up,
+                a compact icon button with the same three options below it. */}
+            <ThemeToggle initial={theme} />
+          </div>
         </header>
         {/* Content area: the page's scroll container, framed by the sidebar
             and top bar. */}

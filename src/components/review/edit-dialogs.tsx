@@ -148,8 +148,8 @@ export function ReviewDetailsEditor({
 }
 
 export function SoWhatsEditor({ periodId, scope, scopeLabel, items }: { periodId: string; scope: string; scopeLabel: string; items: SoWhat[] }) {
-  const [list, setList] = useState<EditorSoWhat[]>(() => items.map((s) => ({ key: s.id, headline: s.headline, body: s.body ?? "" })));
-  const payload = JSON.stringify(list.map((s) => ({ scope, headline: s.headline, body: s.body })));
+  const [list, setList] = useState<EditorSoWhat[]>(() => items.map((s) => ({ key: s.id, headline: s.headline, body: s.body ?? "", tone: s.tone ?? "" })));
+  const payload = JSON.stringify(list.map((s) => ({ scope, headline: s.headline, body: s.body, tone: s.tone || null })));
   return (
     <EditForm title={`Edit ${scopeLabel} so-whats`} description="What the ELT should take from this section. Blank rows are dropped." action={editSoWhats} hidden={{ periodId, scope, soWhats: payload }}>
       <SoWhatEditor scopeLabel={scopeLabel} items={list} onChange={setList} locked={false} />
@@ -242,10 +242,15 @@ function MeasureOriginDetails({ origin }: { origin: MeasureOrigin }) {
         <dt className="font-medium text-ink">Calculated status: {status.label}</dt>
         {status.difference && (
           <dd className="mt-0.5 text-ink-muted">
-            {status.difference} vs the {status.budget} budget target ({status.verdict}).
+            {status.difference} vs the {status.reference ?? "goal"} {status.budget} ({status.verdict}).
           </dd>
         )}
-        {!status.difference && status.budget && <dd className="mt-0.5 text-ink-muted">Budget target: {status.budget}.</dd>}
+        {!status.difference && status.budget && (
+          <dd className="mt-0.5 text-ink-muted">
+            {status.reference ?? "Goal"}: {status.budget}.
+          </dd>
+        )}
+        {status.context && <dd className="mt-0.5 text-ink-muted">{status.context} · context only, not the October yardstick.</dd>}
         {status.direction && <dd className="mt-0.5 text-ink-muted">{status.direction}.</dd>}
         <dd className="mt-0.5 text-ink-muted">{status.basis}</dd>
       </div>

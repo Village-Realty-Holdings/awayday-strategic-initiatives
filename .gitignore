@@ -212,3 +212,7 @@ prisma/generated/
 
 # Claude Code: personal settings
 .claude/settings.local.json
+
+# Supplied reference bundle (October 2026 review HTML + read-only production KPI
+# identities). Must never be committed: it contains business financial content.
+.reference/

@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import type { ReviewPeriod, ReviewPlan } from "@/lib/review-data";
 import type { FinanceTable } from "@/lib/review-kpi";
 import type { ReviewedReport } from "@/lib/review-report-data";
-import { addDaysIso, fmtLong, ragLabel, ragTone, SUMMARY_SCOPE, type ReviewArea, type ReviewMilestone, type SoWhat } from "@/lib/review-model";
+import { addDaysIso, FINANCIALS_SCOPE, fmtLong, NOT_CONFIGURED_LABEL, ragLabel, ragTone, STATUS_GAP_TEXT, SUMMARY_SCOPE, type ReviewArea, type ReviewMilestone, type SoWhat } from "@/lib/review-model";
 import { AsksByLeaderToggle } from "./asks-by-leader";
 import { DataTable } from "./data-table";
 import { AreaEditor, MeasureValueEditor, PlanHeaderEditor, ReviewDetailsEditor, SiUpdateEditor, SoWhatsEditor } from "./edit-dialogs";
@@ -14,21 +14,94 @@ import { PeriodSwitcher } from "./period-switcher";
 import { NoDataNote, SectionTitle } from "./preview";
 import { PageHeader } from "@/components/shell/page-header";
 import { SiCard } from "./si-charter-dialog";
-import { SoWhatList } from "./so-whats";
+import { SoWhatList, soWhatItems, toneForStatus, toneForStatuses } from "./so-whats";
 import { ExecSummary, PopulationCard, ReportSectionTable } from "./report-sections";
 import { PillarScorecardDetails } from "./pillar-scorecard";
 import { TrendChartCard } from "./trend-chart";
 import { BrandChurnTable } from "./brand-churn-table";
-import { PeriodStatusBadge, PillarLabelBadge } from "./status";
+import { PeriodStatusBadge } from "./status";
+import { KpiGauge } from "./kpi-gauge";
+import { KpiStatusBadge, MixedPerformanceChip } from "./kpi-status-badge";
+import { inferGaugeFormat, looksLikeDifferentQuantity, suggestDomain, type GaugeSpec } from "@/lib/kpi-gauge";
+import { resolveDirection, ragToStatus, summarizeStatuses, type KpiStatus } from "@/lib/kpi-status";
+import { parseNumber, parseTargetMarkers, targetMarkerLabel } from "@/lib/review-format";
 import { SummaryGantt } from "./summary-gantt";
 
 function anchor(area: ReviewArea): string {
   return `${area.kind === "ENABLER" ? "enabler" : "pillar"}-${area.code.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 }
 
-function MeasureStatus({ area, className }: { area: ReviewArea; className?: string }) {
-  const tone = area.measure ? ragTone(area.measure.rag) : null;
-  return tone ? <PillarLabelBadge label={ragLabel(area.measure!.rag)} tone={tone} className={className} /> : <span className={`text-note text-ink-faint ${className ?? ""}`}>No data yet</span>;
+export function MeasureStatus({ area, className }: { area: ReviewArea; className?: string }) {
+  // The measure's own status (a hand-set owner status wins over the calculated
+  // one) expressed in the shared KPI vocabulary, so the house, the tables and
+  // the scorecards all say the same words.
+  const measure = area.measure;
+  const status = measure ? ragToStatus(measure.rag) : "no_data";
+  // October is judged against the 2026 goal. When that goal (or the measure's
+  // direction or reporting basis) is not configured, the pillar says so instead
+  // of showing a status borrowed from an FY27 figure. A status set by hand is
+  // an explicit approval and is shown as such.
+  const gap = measure?.statusGap ?? null;
+  if (measure && gap && !measure.statusOverride) {
+    return <KpiStatusBadge status={status} label={NOT_CONFIGURED_LABEL} title={STATUS_GAP_TEXT[gap]} className={className} />;
+  }
+  return <KpiStatusBadge status={status} className={className} />;
+}
+
+/** The measure's status in the shared vocabulary, for tones and so-whats. */
+function measureStatus(area: ReviewArea): KpiStatus {
+  return area.measure ? ragToStatus(area.measure.rag) : "no_data";
+}
+
+/**
+ * A gauge from an area's own measure, or null when there is nothing numeric to
+ * plot. The domain is derived from the value and its target; the status is the
+ * area's approved status, never a fresh judgement.
+ */
+function measureGauge(area: ReviewArea): GaugeSpec | null {
+  const value = parseNumber(area.measure?.value ?? null);
+  // The definitions state their own targets, sometimes several ("23% budget;
+  // 28% stretch"). Every labelled figure the definition supplies becomes a
+  // marker; nothing is added that the definition does not say.
+  const markers = parseTargetMarkers(area.measure?.target);
+  if (value == null || markers.length === 0) return null;
+  // A level plotted against growth percentages is not a comparison: no gauge is
+  // better than one whose axis mixes two quantities.
+  if (
+    looksLikeDifferentQuantity({
+      actual: value,
+      targets: markers.map((m) => m.value),
+      actualText: area.measure?.value,
+      targetText: area.measure?.target,
+    })
+  ) {
+    return null;
+  }
+  // The approved mapping's own direction wins; the name is only a fallback for
+  // a measure with no mapping.
+  const reading = resolveDirection(area.measure?.higherIsBetter, area.measure?.name);
+  const domain = suggestDomain([value, ...markers.map((m) => m.value)]);
+  return {
+    min: domain.min,
+    max: domain.max,
+    actual: value,
+    targets: markers.map((m) => ({ id: m.id, label: targetMarkerLabel(m), value: m.value, style: m.style })),
+    // An explicit "<" on a target always wins. Otherwise the declared direction
+    // decides; when nothing states one, the gauge says so and stays neutral
+    // instead of implying that higher is good.
+    direction: markers.some((m) => m.lowerIsBetter) ? "lower" : reading.known ? reading.direction : "unknown",
+    format: inferGaugeFormat(area.measure?.value, area.measure?.target),
+  };
+}
+
+/** Count-based mixed-performance chip for an area, from its detailed scorecard. */
+function areaStatusSummary(scorecard: ReviewedReport["scorecards"][string] | undefined) {
+  if (!scorecard) return null;
+  const statuses = scorecard.rows
+    .filter((row) => !row.expectedOnly)
+    .map((row): KpiStatus => ragToStatus(row.status === "ahead" ? "GREEN" : row.status === "on_track" ? "AMBER" : row.status === "behind" ? "RED" : "GREY"));
+  if (statuses.length === 0) return null;
+  return summarizeStatuses(statuses);
 }
 
 function eyebrow(area: ReviewArea): string {
@@ -80,6 +153,8 @@ function AreaSection({
   scorecard: ReviewedReport["scorecards"][string] | undefined;
 }) {
   const isPillar = area.kind === "VALUE_DRIVER";
+  const gauge = measureGauge(area);
+  const summary = areaStatusSummary(scorecard);
   return (
     <Card id={anchor(area)} className="scroll-mt-20 gap-0 p-5">
       <EditableArea area={area} periodId={periodId} periodLabel={periodLabel}>
@@ -91,7 +166,10 @@ function AreaSection({
             <h3 className="mt-1 text-lg font-semibold text-ink">{area.name}</h3>
             {area.ownerLine && <p className="mt-1 text-xs text-ink-muted">{area.ownerLine}</p>}
           </div>
-          <MeasureStatus area={area} />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <MeasureStatus area={area} />
+            {summary && <MixedPerformanceChip summary={summary} />}
+          </div>
         </div>
       </EditableArea>
 
@@ -104,6 +182,17 @@ function AreaSection({
             {area.measure?.value && area.measure.source === "derived" && <p className="mt-1 text-xs text-ink-faint">Calculated from {area.measure.inputs?.join(" and ")}.</p>}
             {!area.measure?.value && <p className="mt-1 text-xs text-ink-faint">No value loaded for this month.</p>}
             {area.measure?.statusOverride && <p className="mt-1 text-xs text-ink-faint">Status set by hand. Calculated: {ragLabel(area.measure.calculatedRag ?? "GREY")}.</p>}
+            {area.measure?.statusGap && !area.measure.statusOverride && (
+              <p className="mt-1 text-xs text-ink-faint">{STATUS_GAP_TEXT[area.measure.statusGap]}</p>
+            )}
+            {area.measure?.primary === "missing" && (
+              <p className="mt-1 text-xs text-ink-faint">Primary measure not configured. Choose one on Admin › Measure mappings; no status is claimed until then.</p>
+            )}
+            {area.measure?.primary === "ambiguous" && (
+              <p className="mt-1 text-xs text-ink-faint">
+                More than one measure is mapped, so no primary is shown: {area.measure.ambiguousKpis?.join(", ")}. Leave one mapping active.
+              </p>
+            )}
           </EditableMeasure>
           <EditableArea area={area} periodId={periodId} periodLabel={periodLabel}>
             <dl className="grid gap-3 text-xs sm:grid-cols-2">
@@ -119,6 +208,19 @@ function AreaSection({
               )}
             </dl>
           </EditableArea>
+          {gauge && (
+            <div className="md:col-span-2">
+              <KpiGauge
+                spec={gauge}
+                status={measureStatus(area)}
+                caption={`${area.measure?.name ?? area.name}, ${monthName}. Markers are the targets the definition states; the value and its status come from the approved observation for this period.`}
+              />
+              <p className="mt-1 text-note text-ink-faint">
+                {monthName} actual against the targets the definition states
+                {area.measure?.origin?.status.basis ? ` · ${area.measure.origin.status.basis}` : ""}. The range is derived from those values, not stored.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -155,7 +257,34 @@ function AreaSoWhats({ area, soWhats, periodId }: { area: ReviewArea; soWhats: S
   return (
     <Editable label={`${area.name} so-whats`} periodLocked wide className="mt-4" editor={editor}>
       <p className="mb-2 text-xs font-semibold text-ink">So what</p>
-      <SoWhatList items={soWhats} />
+      <SoWhatList items={soWhatItems(soWhats)} tone={toneForStatus(measureStatus(area))} />
+    </Editable>
+  );
+}
+
+/**
+ * The commentary under the financial tables — the reviewed report's "so what in
+ * the bridge" items. Its own scope, so it is never confused with a pillar's
+ * commentary. Tones come from the stored value, item by item; nothing is
+ * inferred from the wording.
+ */
+function FinancialSoWhats({ items, periodId }: { items: SoWhat[]; periodId: string }) {
+  const editor = <SoWhatsEditor periodId={periodId} scope={FINANCIALS_SCOPE} scopeLabel="financial bridge" items={items} />;
+  if (items.length === 0) {
+    return (
+      <EditOnly>
+        <Editable label="financial bridge so-whats" periodLocked wide className="mt-4" editor={editor}>
+          <p className="rounded-lg border border-dashed border-border px-3 py-2 pr-20 text-xs text-ink-faint">
+            No finance so-whats for this month. Click to add some.
+          </p>
+        </Editable>
+      </EditOnly>
+    );
+  }
+  return (
+    <Editable label="financial bridge so-whats" periodLocked wide className="mt-4" editor={editor}>
+      <p className="mb-2 text-xs font-semibold text-ink">So what in the bridge (October vs budget)</p>
+      <SoWhatList items={soWhatItems(items)} />
     </Editable>
   );
 }
@@ -300,15 +429,35 @@ export function ReviewView({
         <div className="strategy-house__pillars" style={{ "--house-cols": Math.max(1, pillars.length) } as CSSProperties}>
           {pillars.map((a) => {
             const tone = a.measure ? ragTone(a.measure.rag) : null;
+            const houseSummary = areaStatusSummary(report.scorecards[a.code]);
             return (
               <EditableArea key={a.code} area={a} periodId={period.id} periodLabel={period.label} className="flex flex-col">
-                <a href={`#${anchor(a)}`} className={`strategy-house__pillar flex-1 ${tone ? `strategy-house__pillar--${tone}` : ""}`}>
-                  <span className="text-xs font-semibold text-ink">{a.number} · {a.name}</span>
+                <a
+                  href={`#${anchor(a)}`}
+                  className={`strategy-house__pillar flex-1 ${tone ? `strategy-house__pillar--${tone}` : ""}`}
+                  data-house-pillar={a.code}
+                  data-house-tone={tone ?? undefined}
+                >
+                  <span className="text-sm font-semibold text-ink">{a.number} · {a.name}</span>
                   {a.ownerLine && <span className="mt-0.5 text-note text-ink-faint">{a.ownerLine}</span>}
-                  <span className="mt-1 text-note text-ink-muted">{a.measure?.name || "Measure not set"}</span>
-                  <span className="tabular mt-1 text-xl font-semibold text-ink">{a.measure?.value ?? "—"}</span>
-                  {a.measure?.target && <span className="mt-1 text-note leading-4 text-ink-muted">Target {a.measure.target}</span>}
-                  <MeasureStatus area={a} className="mt-2 w-fit" />
+                  <span className="mt-1.5 text-note leading-4 text-ink-muted">{a.measure?.name || "Measure not set"}</span>
+                  {a.measure?.primary === "ambiguous" && <span className="text-nano text-ink-faint">Primary measure ambiguous</span>}
+                  {a.measure?.primary === "missing" && <span className="text-nano text-ink-faint">Primary measure not selected</span>}
+                  <span className="flex flex-wrap items-baseline gap-1.5">
+                    <span
+                      className="tabular text-2xl font-semibold leading-tight text-ink"
+                      title={a.measure?.origin?.status.basis}
+                      data-pillar-value={a.measure?.value ?? ""}
+                    >
+                      {a.measure?.value ?? "—"}
+                    </span>
+                    <span className="text-nano text-ink-faint">{period.monthName}</span>
+                  </span>
+                  {a.measure?.target && <span className="text-note leading-4 text-ink-muted">Target {a.measure.target}</span>}
+                  <span className="mt-1 flex flex-wrap items-center gap-1">
+                    <MeasureStatus area={a} />
+                    {houseSummary && <MixedPerformanceChip summary={houseSummary} />}
+                  </span>
                   <span className="strategy-house__si-list">
                     {a.sis.map((si) => <span key={si.id}>{si.name}</span>)}
                   </span>
@@ -341,7 +490,7 @@ export function ReviewView({
           {period.summary.length > 0 ? (
             <Card className="gap-0 p-5">
               <p className="mb-3 text-xs font-semibold text-ink">So what</p>
-              <SoWhatList items={period.summary} />
+              <SoWhatList items={soWhatItems(period.summary)} tone={toneForStatuses(pillars.map(measureStatus))} />
             </Card>
           ) : (
             <NoDataNote>Strategy hasn&apos;t written the so-whats for {period.label} yet.</NoDataNote>
@@ -362,7 +511,7 @@ export function ReviewView({
                 id: a.code,
                 cells: {
                   area: a.name,
-                  measure: a.measure!.name || "Not set",
+                  measure: `${a.measure!.name || "Not set"}${a.measure!.primary && a.measure!.primary !== "selected" ? " · no primary selected" : ""}`,
                   value: a.measure!.value ?? "—",
                   target: a.measure!.target || "Not set",
                   status: <MeasureStatus area={a} />,
@@ -409,6 +558,8 @@ export function ReviewView({
             No user-reviewed report tables are loaded for {period.label}.
           </p>
         )}
+        <FinancialSoWhats items={period.financials} periodId={period.id} />
+
         {!hasTrend && (
           <p className="mt-3 text-note text-ink-faint">
             Historical series are not loaded for {period.label}. Expected identity: one approved actual per month — LTM for the LTM Pro Forma Lender EBITDA, year

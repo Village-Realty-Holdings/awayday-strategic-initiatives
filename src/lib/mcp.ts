@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { getReviewPeriod, getReviewPlan, resolvePeriod } from "@/lib/review-data";
 import { addSiUpdate, setPillarMeasure, setSoWhats, updateReviewDetails } from "@/lib/review-edits";
-import { initiativeOwnerMatches, PILLAR_STATUSES, ragLabel, shortCode, SO_WHAT_LIMITS, SUMMARY_SCOPE } from "@/lib/review-model";
+import { FINANCIALS_SCOPE, initiativeOwnerMatches, PILLAR_STATUSES, ragLabel, shortCode, SO_WHAT_LIMITS, SO_WHAT_TONES, SUMMARY_SCOPE, type SoWhatToneValue } from "@/lib/review-model";
 import { STATUS_ORDER } from "@/lib/initiatives";
 import { canEdit } from "@/lib/roles";
 import type { McpActor } from "@/lib/mcp-auth";
@@ -289,7 +289,7 @@ const TOOLS: Tool[] = [
     run: async (actor, { period: requested }) => {
       const { id } = requested ? { id: requested } : await resolvePeriod(null);
       const [header, plan] = await Promise.all([getReviewPeriod(id), getReviewPlan(id)]);
-      const soWhats = (list: { headline: string; body: string | null }[] | undefined) => (list ?? []).map(({ headline, body }) => ({ headline, body }));
+      const soWhats = (list: { headline: string; body: string | null; tone: SoWhatToneValue | null }[] | undefined) => (list ?? []).map(({ headline, body, tone }) => ({ headline, body, tone: tone ?? "NEUTRAL" }));
       const data = {
         period: {
           id,
@@ -304,6 +304,7 @@ const TOOLS: Tool[] = [
         },
         plan: { code: plan.code, title: plan.title, mission: plan.mission, goal: plan.goal },
         summarySoWhats: soWhats(header.summary),
+        financialsSoWhats: soWhats(header.financials),
         pillars: plan.areas.map((a) => ({
           id: a.id,
           code: a.code,
@@ -361,22 +362,30 @@ const TOOLS: Tool[] = [
     access: "editor",
     input: z.object({
       period,
-      scope: z.string().min(1).describe(`"${SUMMARY_SCOPE}" for the review summary, or a pillar's code or id.`),
+      scope: z.string().min(1).describe(`"${SUMMARY_SCOPE}" for the review summary, "${FINANCIALS_SCOPE}" for the financial bridge commentary, or a pillar's code or id.`),
       soWhats: z
-        .array(z.object({ headline: z.string().min(1).max(SO_WHAT_LIMITS.headline), body: z.string().max(SO_WHAT_LIMITS.body).nullable().optional() }))
+        .array(
+          z.object({
+            headline: z.string().min(1).max(SO_WHAT_LIMITS.headline),
+            body: z.string().max(SO_WHAT_LIMITS.body).nullable().optional(),
+            tone: z.enum(SO_WHAT_TONES).nullable().optional().describe("How the item reads: good news, bad news, a watch item, or a plain note."),
+          }),
+        )
         .max(SO_WHAT_LIMITS.perScope),
     }),
     run: async (actor, { period: id, scope: ref, soWhats }) => {
+      // Scope is the summary, the financial bridge, or one area of the active plan.
       let scope = SUMMARY_SCOPE;
-      if (norm(ref) !== norm(SUMMARY_SCOPE)) {
+      const key = norm(ref);
+      if (key === norm(FINANCIALS_SCOPE)) scope = FINANCIALS_SCOPE;
+      else if (key !== norm(SUMMARY_SCOPE)) {
         const plan = await getReviewPlan(id);
-        const key = norm(ref);
         const area = plan.areas.find((a) => a.id === ref || norm(a.code) === key || norm(shortCode(a.code)) === key);
         if (!area) return { text: `No pillar "${ref}" in the active plan. Use get_review to see the pillar codes.`, isError: true };
         scope = area.code;
       }
-      const result = await setSoWhats(actor, { periodId: id, scope, items: soWhats.map((s) => ({ scope, headline: s.headline, body: s.body ?? null })) });
-      return fromEdit(result, `Saved ${soWhats.length} so-what${soWhats.length === 1 ? "" : "s"} for ${scope === SUMMARY_SCOPE ? "the summary" : scope} in ${id}.`);
+      const result = await setSoWhats(actor, { periodId: id, scope, items: soWhats.map((s) => ({ scope, headline: s.headline, body: s.body ?? null, tone: s.tone ?? null })) });
+      return fromEdit(result, `Saved ${soWhats.length} so-what${soWhats.length === 1 ? "" : "s"} for ${scope === SUMMARY_SCOPE ? "the summary" : scope === FINANCIALS_SCOPE ? "the financial bridge" : scope} in ${id}.`);
     },
   }),
 

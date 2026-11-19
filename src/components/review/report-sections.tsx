@@ -3,16 +3,45 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import type { ExecCard, ReportTableRow } from "@/lib/review-report";
 import type { ReportSection } from "@/lib/review-report-data";
+import { deltaTone, resolveDirection, type StatusTone } from "@/lib/kpi-status";
 
 // Presentation only: every number shown here was shaped from KpiObservation by
 // review-report.ts. Missing values render "—" rather than a guess.
 
-function Cell({ value, against }: { value: string | null; against?: number | null }) {
+const TONE_CLASS: Record<StatusTone, string> = {
+  good: "text-ok",
+  warn: "text-warn",
+  crit: "text-risk",
+  neutral: "text-ink-muted",
+};
+
+function Cell({
+  value,
+  against,
+  delta,
+  directionSource,
+  higherIsBetter,
+}: {
+  value: string | null;
+  against?: number | null;
+  delta?: number | null;
+  /** The metric name a delta's direction is read from; omit for plain actuals. */
+  directionSource?: string;
+  /** Direction declared by an approved mapping; preferred over the name. */
+  higherIsBetter?: boolean | null;
+}) {
   if (value === null) return <span className="text-ink-faint">—</span>;
+  // A delta is only coloured once its direction is known; a plain actual never
+  // is. Nothing is inferred from the sign of a number alone.
+  const tone =
+    delta == null || (!directionSource && higherIsBetter == null)
+      ? null
+      : deltaTone(delta, resolveDirection(higherIsBetter, directionSource), against);
   return (
     <span
-      className="tabular"
-      title={against != null ? `comparison ${against.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : undefined}
+      className={`tabular ${tone ? TONE_CLASS[tone] : ""}`}
+      title={against != null ? `compared with ${against.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : undefined}
+      data-tone={tone ?? undefined}
     >
       {value}
     </span>
@@ -27,6 +56,10 @@ type Entry = { kind: "group"; id: string; label: string } | { kind: "row"; row: 
  * The reviewed report's comparison table: one actual plus two deltas for the
  * month, then the same for year to date. The deltas are arithmetic between two
  * reported values, not separate observations, and say so in the footnote.
+ *
+ * The first column is sticky (see `.report-table`), so a wide table scrolls
+ * without losing the line being read, and every delta is coloured only when the
+ * metric's direction is known.
  */
 export function ComparisonTable({
   rows,
@@ -50,7 +83,7 @@ export function ComparisonTable({
   return (
     <div>
       <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full min-w-[46rem] border-collapse text-xs">
+        <table className="report-table w-full min-w-[44rem] border-collapse text-xs">
           {caption && <caption className="sr-only">{caption}</caption>}
           <thead>
             <tr className="border-b border-border">
@@ -94,19 +127,43 @@ export function ComparisonTable({
                     <Cell value={entry.row.monthActual.display} />
                   </td>
                   <td className="px-3 py-1.5 text-right">
-                    <Cell value={entry.row.monthVsBudget.display} against={entry.row.monthVsBudget.against} />
+                    <Cell
+                      value={entry.row.monthVsBudget.display}
+                      against={entry.row.monthVsBudget.against}
+                      delta={entry.row.monthVsBudget.value}
+                      directionSource={entry.row.directionKey}
+                      higherIsBetter={entry.row.higherIsBetter}
+                    />
                   </td>
                   <td className="px-3 py-1.5 text-right">
-                    <Cell value={entry.row.monthVsPriorYear.display} against={entry.row.monthVsPriorYear.against} />
+                    <Cell
+                      value={entry.row.monthVsPriorYear.display}
+                      against={entry.row.monthVsPriorYear.against}
+                      delta={entry.row.monthVsPriorYear.value}
+                      directionSource={entry.row.directionKey}
+                      higherIsBetter={entry.row.higherIsBetter}
+                    />
                   </td>
                   <td className="border-l border-border px-3 py-1.5 text-right">
                     <Cell value={entry.row.ytdActual.display} />
                   </td>
                   <td className="px-3 py-1.5 text-right">
-                    <Cell value={entry.row.ytdVsBudget.display} against={entry.row.ytdVsBudget.against} />
+                    <Cell
+                      value={entry.row.ytdVsBudget.display}
+                      against={entry.row.ytdVsBudget.against}
+                      delta={entry.row.ytdVsBudget.value}
+                      directionSource={entry.row.directionKey}
+                      higherIsBetter={entry.row.higherIsBetter}
+                    />
                   </td>
                   <td className="px-3 py-1.5 text-right">
-                    <Cell value={entry.row.ytdVsPriorYear.display} against={entry.row.ytdVsPriorYear.against} />
+                    <Cell
+                      value={entry.row.ytdVsPriorYear.display}
+                      against={entry.row.ytdVsPriorYear.against}
+                      delta={entry.row.ytdVsPriorYear.value}
+                      directionSource={entry.row.directionKey}
+                      higherIsBetter={entry.row.higherIsBetter}
+                    />
                   </td>
                 </tr>
               ),
@@ -116,7 +173,7 @@ export function ComparisonTable({
       </div>
       <p className="mt-2 text-note text-ink-faint">
         “vs” columns are the difference between the reported actual and the reported comparison value; they are not separate observations. “—” means the
-        value is not loaded for this population.
+        value is not loaded for this population. Green and red appear only where the metric&apos;s direction is known; otherwise the comparison stays neutral.
       </p>
     </div>
   );
@@ -126,32 +183,45 @@ export function ComparisonTable({
 export function ExecSummary({ cards, monthName }: { cards: ExecCard[]; monthName: string }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {cards.map((card) => (
-        <Card key={card.id} className="gap-1 p-4">
-          <div className="flex flex-wrap items-baseline justify-between gap-1">
-            <p className="text-note font-semibold uppercase tracking-eyebrow text-ink-faint">{card.title}</p>
-            <Badge variant={card.metricName ? "secondary" : "outline"}>{card.scopeLabel}</Badge>
-          </div>
-          <p className="tabular text-2xl font-semibold tracking-tight text-ink">{card.value ?? "—"}</p>
-          {card.value ? (
-            <p className="text-xs text-ink-muted">
-              {card.delta.display ? (
-                <>
-                  <span className="tabular">{card.delta.display}</span> {card.deltaLabel}
-                </>
-              ) : (
-                card.deltaLabel
-              )}
+      {cards.map((card) => {
+        // An approved mapping's declared direction wins over the card's name.
+        const reading = resolveDirection(card.higherIsBetter, card.metricName ?? card.title);
+        const tone = card.value ? deltaTone(card.delta.value, reading, card.delta.against) : null;
+        return (
+          <Card key={card.id} className="gap-1.5 p-4" data-exec-card={card.id}>
+            <div className="flex flex-wrap items-baseline justify-between gap-1">
+              <p className="text-note font-semibold uppercase tracking-eyebrow text-ink-faint">{card.title}</p>
+              <Badge variant={card.metricName ? "secondary" : "outline"}>{card.scopeLabel}</Badge>
+            </div>
+            {card.value ? (
+              <>
+                <p className="tabular text-3xl font-semibold leading-none tracking-tight text-ink">{card.value}</p>
+                <p className="text-xs leading-5 text-ink-muted">
+                  {card.delta.display ? (
+                    <>
+                      <span className={`tabular font-medium ${tone ? TONE_CLASS[tone] : ""}`} data-tone={tone ?? undefined}>
+                        {card.delta.display}
+                      </span>{" "}
+                      {card.deltaLabel}
+                    </>
+                  ) : (
+                    card.deltaLabel
+                  )}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="tabular text-3xl font-semibold leading-none tracking-tight text-ink-faint">—</p>
+                <p className="text-xs leading-5 text-ink-muted">Not loaded. Expected identity: {card.expected}.</p>
+              </>
+            )}
+            <p className="text-note leading-4 text-ink-faint">
+              {card.basisLabel}
+              {card.metricName ? ` · ${card.metricName}` : ""} · {monthName}
             </p>
-          ) : (
-            <p className="text-xs text-ink-muted">Not loaded. Expected identity: {card.expected}.</p>
-          )}
-          <p className="text-note text-ink-faint">
-            {card.basisLabel}
-            {card.metricName ? ` · ${card.metricName}` : ""} · {monthName}
-          </p>
-        </Card>
-      ))}
+          </Card>
+        );
+      })}
     </div>
   );
 }

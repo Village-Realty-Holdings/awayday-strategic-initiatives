@@ -88,10 +88,7 @@ function SeriesLine({
           stroke={color}
           strokeWidth={point.restated ? 2 : 1}
         >
-          <title>
-            {series.label} · {shortPeriod(point.period)} · {formatValueForKind(series.kind, point.value)}
-            {point.restated ? " (restated)" : ""}
-          </title>
+          <title>{`${series.label} · ${shortPeriod(point.period)} · ${formatValueForKind(series.kind, point.value)}${point.restated ? " (restated)" : ""}`}</title>
         </circle>
       ))}
     </g>

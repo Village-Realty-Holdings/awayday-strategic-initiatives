@@ -127,7 +127,23 @@ describe("editSoWhats", () => {
     const result = await editSoWhats(form({ periodId: "2026-10", scope: "GROW", soWhats }));
     expect(result).toEqual({ ok: true });
     expect(m.soWhatDeleteMany).toHaveBeenCalledWith({ where: { periodId: "2026-10", scope: "GROW" } });
-    expect(m.soWhatCreateMany).toHaveBeenCalledWith({ data: [{ periodId: "2026-10", scope: "GROW", order: 0, headline: "Units up", body: null }] });
+    expect(m.soWhatCreateMany).toHaveBeenCalledWith({ data: [{ periodId: "2026-10", scope: "GROW", order: 0, headline: "Units up", body: null, tone: null }] });
+  });
+
+  it("stores a tone when the editor sends one, and leaves it null when it does not", async () => {
+    const soWhats = JSON.stringify([
+      { scope: "GROW", headline: "Volume ahead", body: "", tone: "POSITIVE" },
+      { scope: "GROW", headline: "CAC off track", body: "", tone: "WARNING" },
+      { scope: "GROW", headline: "No tone", body: "" },
+    ]);
+    expect(await editSoWhats(form({ periodId: "2026-10", scope: "GROW", soWhats }))).toEqual({ ok: true });
+    const lastCall = m.soWhatCreateMany.mock.calls.at(-1)?.[0] as { data: { tone: string | null }[] };
+    expect(lastCall.data.map((row) => row.tone)).toEqual(["POSITIVE", "WARNING", null]);
+  });
+
+  it("accepts the financial bridge scope and refuses an unknown one", async () => {
+    expect(await editSoWhats(form({ periodId: "2026-10", scope: "FINANCIALS", soWhats: JSON.stringify([{ scope: "FINANCIALS", headline: "Bridge", body: "" }]) }))).toEqual({ ok: true });
+    expect(m.soWhatDeleteMany).toHaveBeenLastCalledWith({ where: { periodId: "2026-10", scope: "FINANCIALS" } });
   });
 
   it("refuses a scope outside the active plan", async () => {
@@ -161,7 +177,7 @@ describe("editStrategicArea", () => {
   });
 
   it("saves the month's measure value and status with the pillar", async () => {
-    m.areaFindUnique.mockResolvedValue({ planVersionId: "fy27", name: "Grow", goal: null, owner: null, kind: "VALUE_DRIVER", kpis: [{ id: "k1" }] });
+    m.areaFindUnique.mockResolvedValue({ planVersionId: "fy27", name: "Grow", goal: null, owner: null, kind: "VALUE_DRIVER", kpis: [{ id: "k1", name: "Unit adds", measureMapping: { active: true } }] });
     m.obsFindFirst.mockResolvedValue(null);
     m.obsCreate.mockResolvedValue({ id: "o-new", revision: 1 });
     m.statusFindUnique.mockResolvedValue(null);
@@ -174,7 +190,7 @@ describe("editStrategicArea", () => {
   });
 
   it("saves nothing when the month is published and the form sends a value", async () => {
-    m.areaFindUnique.mockResolvedValue({ planVersionId: "fy27", name: "Grow", goal: null, owner: null, kind: "VALUE_DRIVER", kpis: [{ id: "k1" }] });
+    m.areaFindUnique.mockResolvedValue({ planVersionId: "fy27", name: "Grow", goal: null, owner: null, kind: "VALUE_DRIVER", kpis: [{ id: "k1", name: "Unit adds", measureMapping: { active: true } }] });
     m.periodFindUnique.mockResolvedValue({ status: "PUBLISHED" });
     expect((await editStrategicArea(form({ areaId: "a1", periodId: "2026-10", name: "Grow", value: "1" }))).ok).toBe(false);
     expect(m.areaUpdate).not.toHaveBeenCalled();
@@ -250,7 +266,9 @@ describe("editMeasureValue: pillar status", () => {
 });
 
 describe("editMeasureValue", () => {
-  const area = { planVersionId: "fy27", kpis: [{ id: "k1" }] };
+  // The primary measure is the KPI with an active mapping; the review and this
+  // write path use the same rule.
+  const area = { planVersionId: "fy27", kpis: [{ id: "k1", name: "Unit adds", measureMapping: { active: true } }] };
   const manual = { id: "o1", value: "9%", sourceRef: "review:edit-mode", sourceDocumentName: null };
 
   beforeEach(() => {
@@ -298,6 +316,54 @@ describe("editMeasureValue", () => {
     const result = await editMeasureValue(form({ periodId: "2026-10", areaId: "a1", value: "10%" }));
     expect(result).toEqual({ ok: false, error: "This month's value was loaded from Financials.xlsx. Change it at the source." });
     expect(m.obsUpdate).not.toHaveBeenCalled();
+    expect(m.obsCreate).not.toHaveBeenCalled();
+  });
+
+  it("writes to the KPI with the active mapping, not the alphabetically first one", async () => {
+    m.areaFindUnique.mockResolvedValueOnce({
+      planVersionId: "fy27",
+      kpis: [
+        { id: "k-a", name: "AAA supporting metric", measureMapping: null },
+        { id: "k-z", name: "Zzz primary measure", measureMapping: { active: true } },
+      ],
+    });
+    await editMeasureValue(form({ periodId: "2026-10", areaId: "a1", value: "9%" }));
+    expect(m.obsCreate.mock.calls[0][0].data).toMatchObject({ kpiId: "k-z" });
+  });
+
+  it("refuses a value write when no primary measure is selected", async () => {
+    m.areaFindUnique.mockResolvedValueOnce({
+      planVersionId: "fy27",
+      kpis: [{ id: "k1", name: "Owner churn", measureMapping: null }],
+    });
+    expect(await editMeasureValue(form({ periodId: "2026-10", areaId: "a1", value: "9%" }))).toEqual({
+      ok: false,
+      error: "This pillar has no primary measure. Choose one on Admin > Measure mappings.",
+    });
+    expect(m.obsCreate).not.toHaveBeenCalled();
+  });
+
+  it("refuses a value write when two measures claim to be primary", async () => {
+    m.areaFindUnique.mockResolvedValueOnce({
+      planVersionId: "fy27",
+      kpis: [
+        { id: "k1", name: "Owner churn", measureMapping: { active: true } },
+        { id: "k2", name: "Annualised churn", measureMapping: { active: true } },
+      ],
+    });
+    expect(await editMeasureValue(form({ periodId: "2026-10", areaId: "a1", value: "9%" }))).toEqual({
+      ok: false,
+      error: "This pillar has more than one primary measure. Leave exactly one mapping active on Admin > Measure mappings.",
+    });
+    expect(m.obsCreate).not.toHaveBeenCalled();
+  });
+
+  it("still lets a pillar status be saved when no primary measure is selected", async () => {
+    m.areaFindUnique.mockResolvedValueOnce({ planVersionId: "fy27", kind: "VALUE_DRIVER", kpis: [{ id: "k1", name: "Owner churn", measureMapping: null }] });
+    m.statusFindUnique.mockResolvedValue(null);
+    m.statusUpsert.mockResolvedValue({ id: "s1" });
+    expect(await editMeasureValue(form({ periodId: "2026-10", areaId: "a1", pillarStatus: "AHEAD" }))).toEqual({ ok: true });
+    expect(m.statusUpsert).toHaveBeenCalled();
     expect(m.obsCreate).not.toHaveBeenCalled();
   });
 

@@ -7,7 +7,7 @@
 // (reportingScope + entityScope + timeBasis + comparisonBasis), and each table
 // section names the population it belongs to.
 
-import { formatDelta, formatMetricValue, metricKind, parseNumber, parseTargetNumber, type MetricKind } from "@/lib/review-format";
+import { formatDelta, formatMetricValue, metricKind, parseNumber, parseTargetMarkers, goalQuantityFor, primaryGoalMarker, quantityCompatibility, quantityOfKind, sameQuantity, type MetricKind } from "@/lib/review-format";
 
 // Formatters live in review-format.ts so client components can use them without
 // importing the Prisma-backed KPI module. Re-exported here for existing callers.
@@ -29,6 +29,11 @@ export type ReportMetric = {
   strategicAreaId: string | null;
   /** StrategicArea.code of the linked area, when the definition is tied to one. */
   areaCode?: string | null;
+  /**
+   * Direction declared by an approved measure mapping, when this definition has
+   * one. Explicit metadata: it is preferred over reading the name.
+   */
+  higherIsBetter?: boolean | null;
 };
 
 export type ReportObservation = KpiObservationRecord & { kpiId: string };
@@ -158,7 +163,22 @@ export type ReportTableRow = {
   ytdVsBudget: ComparisonCell;
   ytdVsPriorYear: ComparisonCell;
   target: string | null;
+  /** Declared direction of this row's metric, when a mapping states one. */
+  higherIsBetter?: boolean | null;
+  /**
+   * The metric identity a delta's direction is read from — the definition's name
+   * plus its metric key. A table label is shortened for display ("Support % of
+   * revenue"), so reading direction from the label lost the decisive word and
+   * coloured a rise in a cost ratio green.
+   */
+  directionKey: string;
 };
+
+/** See `ReportTableRow.directionKey`: name and key words, never the display label. */
+export function directionKeyFor(metric: Pick<ReportMetric, "name" | "metricKey">): string {
+  const key = metric.metricKey.replace(/^[a-z_]+[:_]/i, "").replace(/[_:]+/g, " ");
+  return `${metric.name} ${key}`.trim();
+}
 
 type Basis = "ACTUAL" | "BUDGET" | "PRIOR_YEAR";
 
@@ -209,6 +229,8 @@ export function buildReportRows(metrics: readonly ReportMetric[], rows: readonly
       ytdVsBudget: deltaCell(kind, ytdActual, cell(metric, observationFor(own, metric.id, "YTD", "BUDGET"))),
       ytdVsPriorYear: deltaCell(kind, ytdActual, cell(metric, observationFor(own, metric.id, "YTD", "PRIOR_YEAR"))),
       target: metric.target,
+      higherIsBetter: metric.higherIsBetter,
+      directionKey: directionKeyFor(metric),
     });
   }
   return built.sort((a, b) => a.label.localeCompare(b.label));
@@ -389,6 +411,8 @@ export type ExecCard = {
   metricId: string | null;
   timeBasis: string | null;
   metricName: string | null;
+  /** Declared direction of the card's metric, when a mapping states one. */
+  higherIsBetter?: boolean | null;
   value: string | null;
   delta: ComparisonCell;
   deltaLabel: string;
@@ -484,6 +508,7 @@ export function buildExecCards(metrics: readonly ReportMetric[], rows: readonly 
           metricId: metric.id,
           timeBasis: spec.timeBasis,
           metricName: metric.name,
+          higherIsBetter: metric.higherIsBetter,
           value: actual.display,
           delta: deltaCell(kind, actual, cell(metric, comparison)),
           deltaLabel: basis === "BUDGET" ? "vs budget" : "vs prior year",
@@ -500,6 +525,7 @@ export function buildExecCards(metrics: readonly ReportMetric[], rows: readonly 
       metricId: metric.id,
       timeBasis: spec.timeBasis,
       metricName: metric.name,
+      higherIsBetter: metric.higherIsBetter,
       value: actual.display,
       delta: EMPTY_CELL,
       deltaLabel: "no comparison loaded",
@@ -619,17 +645,38 @@ export function scorecardStatusLabel(status: ScorecardRow["status"]): string {
 }
 
 /**
- * Status of a value against a definition's target, in the target's own unit.
+ * Status of a value against the reference the reviewed report judges it by: the
+ * definition's own goal, in the measure's own quantity. The October report sets
+ * the 2026 goal beside the FY27 budget and stretch and judges against the 2026
+ * goal, so a figure the target text labels FY27 is never used, and a goal
+ * written in another quantity (a growth percentage beside a unit count) is not
+ * used either.
+ *
+ * There is no fallback. An earlier version fell back to the first number in the
+ * target text when no goal matched the measure's quantity, which rated 3,340
+ * units against a 23% growth goal and called it "ahead". A row with no
+ * comparable goal is `no_data`, never a confident verdict.
+ *
  * Amber within 10% of the target on either side, matching the app's other
- * target comparisons; no status when either side is missing or not a single
- * comparable figure.
+ * target comparisons.
  */
-export function statusAgainstTarget(value: string | null | undefined, target: string | null | undefined): ScorecardRow["status"] {
+export function statusAgainstTarget(
+  value: string | null | undefined,
+  target: string | null | undefined,
+  kind?: MetricKind,
+): ScorecardRow["status"] {
   const actual = parseNumber(value ?? null);
-  const parsed = parseTargetNumber(target);
-  if (actual === null || parsed === null) return "no_data";
-  if (Math.abs(actual - parsed.value) <= Math.abs(parsed.value) * 0.1) return "on_track";
-  const better = parsed.lowerIsBetter ? actual < parsed.value : actual > parsed.value;
+  if (actual === null) return "no_data";
+  const goal = primaryGoalMarker(parseTargetMarkers(target), kind);
+  if (goal === null) return "no_data";
+  // Explicit quantity compatibility: a percentage goal is never applied to a
+  // count, a currency goal never to a percentage, and an unstated quantity is
+  // never compared at all.
+  const measuredIn = kind ? quantityOfKind(kind) : "unknown";
+  if (quantityCompatibility(measuredIn, goalQuantityFor(goal.unit, measuredIn)) !== "compatible") return "no_data";
+  if (!sameQuantity(actual, goal.value)) return "no_data";
+  if (Math.abs(actual - goal.value) <= Math.abs(goal.value) * 0.1) return "on_track";
+  const better = goal.lowerIsBetter ? actual < goal.value : actual > goal.value;
   return better ? "ahead" : "behind";
 }
 
@@ -698,7 +745,7 @@ export function buildPillarScorecard(
         delta: delta?.cell ?? EMPTY_CELL,
         deltaLabel: delta?.label ?? "no comparison loaded",
         target: metric.target,
-        status: statusAgainstTarget(actualRow?.value ?? null, metric.target ?? null),
+        status: statusAgainstTarget(actualRow?.value ?? null, metric.target ?? null, kind),
         metricName: metric.name,
       } satisfies ScorecardRow;
     });

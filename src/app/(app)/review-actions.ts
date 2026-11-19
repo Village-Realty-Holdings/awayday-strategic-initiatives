@@ -16,7 +16,7 @@ import {
   parseSoWhats,
   PERIOD_PATTERN,
   periodLabel,
-  SUMMARY_SCOPE,
+  reviewSoWhatScopeList,
 } from "@/lib/review-model";
 import { parseStatus } from "@/lib/initiatives";
 import { recordSiUpdate } from "@/lib/si-updates";
@@ -150,7 +150,8 @@ export async function saveReview(formData: FormData) {
   if (existing?.status === "PUBLISHED") redirect(editPath);
 
   const plan = await getReviewPlan(id);
-  const scopes = [SUMMARY_SCOPE, ...plan.areas.map((a) => a.code)];
+  // Summary, the financial bridge, and one scope per area of the active plan.
+  const scopes = reviewSoWhatScopeList(plan.areas.map((a) => a.code));
   const soWhats = parseSoWhats(str(formData, "soWhats"), scopes);
   const publish = formData.get("intent") === "publish";
   const fields = {
@@ -175,7 +176,7 @@ export async function saveReview(formData: FormData) {
   });
   await audit(session.user.id, existing ? "UPDATE" : "CREATE", "ReviewPeriod", id, {
     before: existing ? { ...summary(existing), soWhats: existing.soWhats } : undefined,
-    after: { ...summary({ status: existing?.status ?? "DRAFT", ...fields }), soWhats: soWhats.map(({ scope, headline }) => ({ scope, headline })) },
+    after: { ...summary({ status: existing?.status ?? "DRAFT", ...fields }), soWhats: soWhats.map(({ scope, headline, tone }) => ({ scope, headline, tone })) },
   });
   revalidateReview();
   await flash(publish ? `${periodLabel(id)} review published` : "Review saved");

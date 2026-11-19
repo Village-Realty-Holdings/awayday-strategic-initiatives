@@ -182,12 +182,13 @@ describe("saveReview", () => {
 
     const fields = { preparedBy: "Alex Bevington", meetingDate: new Date("2026-10-15T00:00:00Z"), updatesDueDate: new Date("2026-10-13T00:00:00Z"), dataAsOf: null };
     expect(m.periodUpsert).toHaveBeenCalledWith({ where: { id: "2026-09" }, create: { id: "2026-09", ...fields }, update: fields });
-    expect(m.soWhatDeleteMany).toHaveBeenCalledWith({ where: { periodId: "2026-09", scope: { in: ["SUMMARY", "M&A", "TECH"] } } });
+    // The summary, the financial bridge and one scope per area of the plan.
+    expect(m.soWhatDeleteMany).toHaveBeenCalledWith({ where: { periodId: "2026-09", scope: { in: ["SUMMARY", "FINANCIALS", "M&A", "TECH"] } } });
     expect(m.soWhatCreateMany).toHaveBeenCalledWith({
       data: [
-        { periodId: "2026-09", scope: "SUMMARY", order: 0, headline: "Shops beat, centre spent it.", body: "Shop NOI $1.0M over budget." },
-        { periodId: "2026-09", scope: "SUMMARY", order: 1, headline: "M&A is the year's engine.", body: null },
-        { periodId: "2026-09", scope: "M&A", order: 0, headline: "Four closes in September", body: "942 units, $6.8M." },
+        { periodId: "2026-09", scope: "SUMMARY", order: 0, headline: "Shops beat, centre spent it.", body: "Shop NOI $1.0M over budget.", tone: null },
+        { periodId: "2026-09", scope: "SUMMARY", order: 1, headline: "M&A is the year's engine.", body: null, tone: null },
+        { periodId: "2026-09", scope: "M&A", order: 0, headline: "Four closes in September", body: "942 units, $6.8M.", tone: null },
       ],
     });
     // One transaction: the period row and its so-whats change together.
@@ -195,7 +196,7 @@ describe("saveReview", () => {
     expect(m.transaction.mock.calls[0][0]).toHaveLength(3);
     expect(m.audit).toHaveBeenCalledWith("u-alex", "CREATE", "ReviewPeriod", "2026-09", {
       before: undefined,
-      after: expect.objectContaining({ status: "DRAFT", meetingDate: "2026-10-15", soWhats: expect.arrayContaining([{ scope: "M&A", headline: "Four closes in September" }]) }),
+      after: expect.objectContaining({ status: "DRAFT", meetingDate: "2026-10-15", soWhats: expect.arrayContaining([{ scope: "M&A", headline: "Four closes in September", tone: null }]) }),
     });
     expect(m.flash).toHaveBeenCalledWith("Review saved");
   });
