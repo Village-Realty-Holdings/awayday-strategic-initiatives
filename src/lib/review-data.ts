@@ -6,13 +6,13 @@ import { getActivePlan } from "@/lib/active-plan";
 import { PUBLICATION_APPROVED } from "@/lib/kpi";
 import { deriveMeasure, formatDerivedMeasure, mappingInputKeys, mappingRag, measureOrigin, parseMeasureNumber, statusGap } from "@/lib/kpi-measure-mapping";
 import { ambiguousMeasureNames, selectPrimaryMeasure } from "@/lib/primary-measure";
-import { buildFinanceTable, currentKpiValue, MANUAL_SOURCE_CATEGORY, type FinanceTable, type KpiRow } from "@/lib/review-kpi";
+import { buildFinanceTable, MANUAL_SOURCE_CATEGORY, measureValue, type FinanceTable, type KpiRow } from "@/lib/review-kpi";
 import { REVIEWED_METRIC_PREFIX } from "@/lib/review-report";
 import { goalQuantityFor, isPlanningFigure, metricKind, parseTargetMarkers, primaryGoalMarker, quantityOfKind, sameQuantity } from "@/lib/review-format";
 import {
   FINANCIALS_SCOPE,
   PILLAR_STATUS_RAG,
-  PILLAR_STATUSES,
+  parseApprovedPillarStatus,
   homeReviewPeriod,
   isoDay,
   openUpdatePeriod,
@@ -24,7 +24,6 @@ import {
   synthesiseAreas,
   SUMMARY_SCOPE,
   updatePeriods,
-  type PillarStatus,
   type ReviewArea,
   type ReviewSiValue,
   type ReviewPeriodStatus,
@@ -252,7 +251,10 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
         const selection = selectPrimaryMeasure(a.kpis);
         const kpi = selection.status === "selected" ? selection.kpi : null;
         const mapping = kpi?.measureMapping?.active ? kpi.measureMapping : null;
-        const obs = kpi ? currentKpiValue(kpi.observations as KpiRow[], period) : null;
+        // The measure's own value, in the basis the mapping declares: a YTD
+        // mapping must never show the month's figure beside a year-to-date
+        // status. A metric with no mapping keeps the plain newest value.
+        const obs = kpi ? measureValue(kpi.observations as KpiRow[], period, mapping?.timeBasis ?? null) : null;
         // A value on the measure itself, typed in or published, wins over a calculated one.
         const calculated = mapping ? deriveMeasure(mapping, inputRows, period) : null;
         const derived = obs ? null : calculated;
@@ -308,9 +310,13 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
                   ? "goal-quantity-unknown"
                   : "goal-not-comparable";
         const calculatedRag = mapping ? mappingRag(numericValue, mapping, quality, reference, measuredIn) : "GREY";
-        // Only pillars can have a status set by hand.
-        const stored = a.kind === "ENABLER" ? null : a.pillarStatuses?.[0]?.status;
-        const statusOverride = (PILLAR_STATUSES as readonly string[]).includes(stored ?? "") ? (stored as PillarStatus) : null;
+        // Only pillars can have a status set by hand. The stored value may carry
+        // the reviewer's own wording after the status word ("Ahead · CAC off
+        // track"); the status word picks the colour and the wording is shown as
+        // it was approved, so a combined statement keeps both halves.
+        const stored = a.kind === "ENABLER" ? null : (a.pillarStatuses?.[0]?.status ?? null);
+        const approved = parseApprovedPillarStatus(stored);
+        const statusOverride = approved?.status ?? null;
         const rag = statusOverride ? PILLAR_STATUS_RAG[statusOverride] : calculatedRag;
         const origin = mapping
           ? measureOrigin({
@@ -352,6 +358,8 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
                 calculatedRag,
                 statusGap: gap,
                 statusOverride,
+                approvedStatus: stored,
+                statusWording: approved?.custom ? approved.wording : null,
                 primary: selection.status,
                 ...(selection.status === "ambiguous" ? { ambiguousKpis: ambiguousMeasureNames(selection) } : {}),
                 // No mapping, or a mapping that states no direction: `undefined`

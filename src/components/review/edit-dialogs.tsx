@@ -11,7 +11,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { editMeasureValue, editPlanHeader, editReviewDetails, editSiUpdate, editSoWhats, editStrategicArea, type EditResult } from "@/app/(app)/review-edit-actions";
 import type { InitiativeStatus } from "@/generated/prisma/client";
-import { fmtLong, type MeasureOrigin, type PillarStatus, type ReviewMeasure, type ReviewSi, type SoWhat } from "@/lib/review-model";
+import { fmtLong, PILLAR_STATUSES, type MeasureOrigin, type PillarStatus, type ReviewMeasure, type ReviewSi, type SoWhat } from "@/lib/review-model";
 import { useCloseEditor, useEditMode } from "./edit-mode";
 import { type EditorSoWhat, SoWhatEditor } from "./so-what-editor";
 import { SiStatusPicker } from "./status";
@@ -259,8 +259,13 @@ function MeasureOriginDetails({ origin }: { origin: MeasureOrigin }) {
 }
 
 /** The month's value and, for pillars, its status; shared by the pillar and measure editors. */
-function MeasureFields({ periodLabel, measure, isPillar }: { periodLabel: string; measure: Pick<ReviewMeasure, "value" | "source" | "origin" | "statusOverride">; isPillar: boolean }) {
+function MeasureFields({ periodLabel, measure, isPillar }: { periodLabel: string; measure: Pick<ReviewMeasure, "value" | "source" | "origin" | "statusOverride" | "approvedStatus">; isPillar: boolean }) {
   const { value, source, origin, statusOverride } = measure;
+  // A status approved with its own wording ("Ahead · CAC off track") is shown as
+  // an option of its own, so opening this dialog and saving something else on the
+  // measure keeps the approved status instead of silently downgrading it.
+  const approved = measure.approvedStatus ?? null;
+  const approvedHasWording = approved !== null && !(PILLAR_STATUSES as readonly string[]).includes(approved);
   return (
     <>
       {source === "import" ? (
@@ -277,8 +282,9 @@ function MeasureFields({ periodLabel, measure, isPillar }: { periodLabel: string
       )}
       {isPillar && (
         <Field label="Status" hint={`For this pillar in ${periodLabel} only. Setting it by hand replaces the calculated status.`}>
-          <NativeSelect name="pillarStatus" defaultValue={statusOverride ?? "calculated"}>
+          <NativeSelect name="pillarStatus" defaultValue={approved ?? statusOverride ?? "calculated"}>
             <option value="calculated">Use calculated{origin ? ` (${origin.status.label})` : ""}</option>
+            {approvedHasWording && <option value={approved}>{approved} (approved)</option>}
             <option value="AHEAD">Ahead</option>
             <option value="ON_TRACK">On track</option>
             <option value="BEHIND">Behind</option>
@@ -300,6 +306,7 @@ export function MeasureValueEditor({
   origin,
   isPillar = false,
   statusOverride = null,
+  approvedStatus = null,
 }: {
   areaId: string;
   periodId: string;
@@ -311,6 +318,8 @@ export function MeasureValueEditor({
   origin?: MeasureOrigin;
   isPillar?: boolean;
   statusOverride?: PillarStatus | null;
+  /** The approved status exactly as stored, so its wording survives an edit. */
+  approvedStatus?: string | null;
 }) {
   // Enablers have nothing to edit on a loaded value; pillars can still set a status.
   if (source === "import" && !isPillar) {
@@ -339,7 +348,7 @@ export function MeasureValueEditor({
   }
   return (
     <EditForm title={`Edit ${name}`} description={`This measure's value for ${periodLabel}. The status compares it with the target${target ? `, ${target}` : ""}.`} action={editMeasureValue} hidden={{ areaId, periodId }}>
-      <MeasureFields periodLabel={periodLabel} measure={{ value, source, origin, statusOverride }} isPillar={isPillar} />
+      <MeasureFields periodLabel={periodLabel} measure={{ value, source, origin, statusOverride, approvedStatus }} isPillar={isPillar} />
     </EditForm>
   );
 }

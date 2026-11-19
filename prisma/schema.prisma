@@ -552,7 +552,7 @@ model ReviewPillarStatus {
   period          ReviewPeriod  @relation(fields: [periodId], references: [id], onDelete: Cascade)
   strategicAreaId String
   strategicArea   StrategicArea @relation(fields: [strategicAreaId], references: [id], onDelete: Cascade)
-  status          String        // AHEAD | ON_TRACK | BEHIND
+  status          String        // AHEAD | ON_TRACK | BEHIND, optionally followed by the reviewer's wording
   updatedBy       String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt

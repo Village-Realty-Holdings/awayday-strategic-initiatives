@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { SoWhatList, soWhatItems, soWhatToneFromStored, toneForStatus, toneForStatuses } from "./so-whats";
+import { SoWhatList, soWhatItems, soWhatToneFromStored, toneForRag, toneForStatus, toneForStatuses } from "./so-whats";
 
 // So-what presentation: a bold lead statement, the supporting body, a tone that
 // never relies on colour alone, and plain text only (no HTML from the database).
@@ -114,5 +114,26 @@ describe("so-what tone from a status", () => {
     expect(toneForStatuses(["behind", "behind"])).toBe("negative");
     expect(toneForStatuses(["ahead", "behind"])).toBe("neutral");
     expect(toneForStatuses([])).toBe("neutral");
+  });
+});
+
+describe("toneForRag — a section's commentary carries its pillar's colour", () => {
+  it("maps the review's pillar RAG to the same three colours", () => {
+    expect(toneForRag("GREEN")).toBe("positive");
+    expect(toneForRag("AMBER")).toBe("warning");
+    expect(toneForRag("RED")).toBe("negative");
+    expect(toneForRag("GREY")).toBe("neutral");
+    expect(toneForRag(null)).toBe("neutral");
+    expect(toneForRag(undefined)).toBe("neutral");
+  });
+
+  it("colours an on-track pillar's so-whats amber when its pillar RAG is amber", () => {
+    // October's TRevPAR and Margin pillars are "on track" in words but amber in
+    // the review; the commentary under them must not come out green.
+    const items = soWhatItems([{ id: "1", headline: "YTD TRevPAR growth remains positive, October softened", body: null, tone: null }]);
+    const html = renderToStaticMarkup(<SoWhatList items={items} tone={toneForRag("AMBER")} />);
+    expect(html).toContain('data-so-what-tone="warning"');
+    expect(html).toContain("border-warn");
+    expect(html).not.toContain("border-ok");
   });
 });

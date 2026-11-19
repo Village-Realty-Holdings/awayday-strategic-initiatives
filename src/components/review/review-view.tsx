@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import type { ReviewPeriod, ReviewPlan } from "@/lib/review-data";
 import type { FinanceTable } from "@/lib/review-kpi";
 import type { ReviewedReport } from "@/lib/review-report-data";
-import { addDaysIso, FINANCIALS_SCOPE, fmtLong, NOT_CONFIGURED_LABEL, ragLabel, ragTone, STATUS_GAP_TEXT, SUMMARY_SCOPE, type ReviewArea, type ReviewMilestone, type SoWhat } from "@/lib/review-model";
+import { addDaysIso, FINANCIALS_SCOPE, fmtLong, NOT_CONFIGURED_LABEL, ragLabel, ragTone, STATUS_GAP_TEXT, SUMMARY_SCOPE, type Rag, type ReviewArea, type ReviewMilestone, type SoWhat } from "@/lib/review-model";
 import { AsksByLeaderToggle } from "./asks-by-leader";
 import { DataTable } from "./data-table";
 import { AreaEditor, MeasureValueEditor, PlanHeaderEditor, ReviewDetailsEditor, SiUpdateEditor, SoWhatsEditor } from "./edit-dialogs";
@@ -14,7 +14,7 @@ import { PeriodSwitcher } from "./period-switcher";
 import { NoDataNote, SectionTitle } from "./preview";
 import { PageHeader } from "@/components/shell/page-header";
 import { SiCard } from "./si-charter-dialog";
-import { SoWhatList, soWhatItems, toneForStatus, toneForStatuses } from "./so-whats";
+import { SoWhatList, soWhatItems, toneForRag, toneForStatuses } from "./so-whats";
 import { ExecSummary, PopulationCard, ReportSectionTable } from "./report-sections";
 import { PillarScorecardDetails } from "./pillar-scorecard";
 import { TrendChartCard } from "./trend-chart";
@@ -23,7 +23,7 @@ import { PeriodStatusBadge } from "./status";
 import { KpiGauge } from "./kpi-gauge";
 import { KpiStatusBadge, MixedPerformanceChip } from "./kpi-status-badge";
 import { inferGaugeFormat, looksLikeDifferentQuantity, suggestDomain, type GaugeSpec } from "@/lib/kpi-gauge";
-import { resolveDirection, ragToStatus, summarizeStatuses, type KpiStatus } from "@/lib/kpi-status";
+import { resolveDirection, ragToStatus, summarizeStatuses, KPI_STATUS_META, type KpiStatus, type StatusTone } from "@/lib/kpi-status";
 import { parseNumber, parseTargetMarkers, targetMarkerLabel } from "@/lib/review-format";
 import { SummaryGantt } from "./summary-gantt";
 
@@ -31,21 +31,35 @@ function anchor(area: ReviewArea): string {
   return `${area.kind === "ENABLER" ? "enabler" : "pillar"}-${area.code.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 }
 
+/** The review's pillar RAG as badge tones: green ahead, amber on track, red behind. */
+const PILLAR_TONE: Record<Rag, StatusTone> = { GREEN: "good", AMBER: "warn", RED: "crit", GREY: "neutral" };
+
 export function MeasureStatus({ area, className }: { area: ReviewArea; className?: string }) {
   // The measure's own status (a hand-set owner status wins over the calculated
   // one) expressed in the shared KPI vocabulary, so the house, the tables and
   // the scorecards all say the same words.
   const measure = area.measure;
   const status = measure ? ragToStatus(measure.rag) : "no_data";
+  // The pillar RAG is green / amber / red, and "on track" is the amber one: the
+  // badge follows the same colour as the pillar's own house card.
+  const tone = measure ? PILLAR_TONE[measure.rag] : "neutral";
   // October is judged against the 2026 goal. When that goal (or the measure's
   // direction or reporting basis) is not configured, the pillar says so instead
   // of showing a status borrowed from an FY27 figure. A status set by hand is
   // an explicit approval and is shown as such.
   const gap = measure?.statusGap ?? null;
   if (measure && gap && !measure.statusOverride) {
-    return <KpiStatusBadge status={status} label={NOT_CONFIGURED_LABEL} title={STATUS_GAP_TEXT[gap]} className={className} />;
+    return <KpiStatusBadge status={status} tone={tone} label={NOT_CONFIGURED_LABEL} title={STATUS_GAP_TEXT[gap]} className={className} />;
   }
-  return <KpiStatusBadge status={status} className={className} />;
+  // An approved status may carry the reviewer's own wording ("Ahead · CAC off
+  // track"). The status word still sets the colour; the wording is shown as it
+  // was approved so the combined statement survives instead of collapsing into
+  // its first half.
+  const wording = measure?.statusWording ?? null;
+  if (measure && wording && measure.statusOverride) {
+    return <KpiStatusBadge status={status} tone={tone} label={wording} title={`${wording} — ${KPI_STATUS_META[status].meaning}`} className={className} />;
+  }
+  return <KpiStatusBadge status={status} tone={tone} className={className} />;
 }
 
 /** The measure's status in the shared vocabulary, for tones and so-whats. */
@@ -130,7 +144,7 @@ function EditableMeasure({ area, periodId, periodLabel, children }: { area: Revi
     <Editable
       label={`${area.name} measure`}
       periodLocked
-      editor={<MeasureValueEditor areaId={area.id} periodId={periodId} periodLabel={periodLabel} name={measure.name} target={measure.target} value={measure.value} source={measure.source} origin={measure.origin} isPillar={area.kind === "VALUE_DRIVER"} statusOverride={measure.statusOverride ?? null} />}
+      editor={<MeasureValueEditor areaId={area.id} periodId={periodId} periodLabel={periodLabel} name={measure.name} target={measure.target} value={measure.value} source={measure.source} origin={measure.origin} isPillar={area.kind === "VALUE_DRIVER"} statusOverride={measure.statusOverride ?? null} approvedStatus={measure.approvedStatus ?? null} />}
     >
       {children}
     </Editable>
@@ -257,7 +271,7 @@ function AreaSoWhats({ area, soWhats, periodId }: { area: ReviewArea; soWhats: S
   return (
     <Editable label={`${area.name} so-whats`} periodLocked wide className="mt-4" editor={editor}>
       <p className="mb-2 text-xs font-semibold text-ink">So what</p>
-      <SoWhatList items={soWhatItems(soWhats)} tone={toneForStatus(measureStatus(area))} />
+      <SoWhatList items={soWhatItems(soWhats)} tone={toneForRag(area.measure?.rag)} />
     </Editable>
   );
 }

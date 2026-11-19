@@ -4,6 +4,7 @@ import {
   homeReviewPeriod,
   initiativeOwnerMatches,
   openUpdatePeriod,
+  parseApprovedPillarStatus,
   parseIsoDay,
   parseSoWhats,
   periodLabel,
@@ -290,5 +291,40 @@ describe("groupItemsBySi", () => {
   it("puts SIs with past-due items first and finished SIs last", () => {
     const groups = groupItemsBySi([item("done", "1", true), item("open", "2"), item("late", "3", false, true)]);
     expect(groups.map((g) => g.siId)).toEqual(["late", "open", "done"]);
+  });
+});
+
+describe("parseApprovedPillarStatus — an approved status and the wording with it", () => {
+  it("reads the plain form the September review stored", () => {
+    expect(parseApprovedPillarStatus("AHEAD")).toEqual({ status: "AHEAD", wording: "Ahead", custom: false });
+    expect(parseApprovedPillarStatus("ON_TRACK")).toEqual({ status: "ON_TRACK", wording: "On track", custom: false });
+    expect(parseApprovedPillarStatus("BEHIND")).toEqual({ status: "BEHIND", wording: "Behind", custom: false });
+  });
+
+  it("keeps the reviewer's wording exactly as approved", () => {
+    // The October review's combined statements: the second half is the whole
+    // point of the badge, so it has to survive verbatim.
+    expect(parseApprovedPillarStatus("Ahead · CAC off track")).toEqual({ status: "AHEAD", wording: "Ahead · CAC off track", custom: true });
+    expect(parseApprovedPillarStatus("Behind · October beat budget")).toEqual({ status: "BEHIND", wording: "Behind · October beat budget", custom: true });
+    expect(parseApprovedPillarStatus("On track reported · October under PY")).toEqual({
+      status: "ON_TRACK",
+      wording: "On track reported · October under PY",
+      custom: true,
+    });
+    // "On goal" is the review's own wording for the same claim as "On track".
+    expect(parseApprovedPillarStatus("On goal ex-OTA · behind reported")).toEqual({
+      status: "ON_TRACK",
+      wording: "On goal ex-OTA · behind reported",
+      custom: true,
+    });
+  });
+
+  it("gives no status at all to a value it does not recognise, rather than guessing a colour", () => {
+    expect(parseApprovedPillarStatus(null)).toBeNull();
+    expect(parseApprovedPillarStatus("")).toBeNull();
+    expect(parseApprovedPillarStatus("   ")).toBeNull();
+    expect(parseApprovedPillarStatus("GREEN")).toBeNull();
+    expect(parseApprovedPillarStatus("aheadness")).toBeNull();
+    expect(parseApprovedPillarStatus("not ahead")).toBeNull();
   });
 });

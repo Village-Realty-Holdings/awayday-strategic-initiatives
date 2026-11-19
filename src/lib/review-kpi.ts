@@ -1,5 +1,6 @@
 import {
   CONSOLIDATED_REPORTING_SCOPE,
+  DEFAULT_TIME_BASIS,
   selectCurrentObservations,
   type KpiObservationRecord,
 } from "@/lib/kpi";
@@ -129,4 +130,33 @@ export function currentKpiValue<T extends KpiObservationRecord>(rows: readonly T
   // selectCurrentObservations returns the rows it was given, not copies.
   const current = selectCurrentObservations(rows, { reportingPeriod: period }) as T[];
   return current[0] ?? null;
+}
+
+/**
+ * The value a pillar's measure shows: its own approved actual, in the basis the
+ * measure's mapping declares.
+ *
+ * A metric can publish several time bases for the same month — BD unit adds is
+ * both 330 for October and 3,340 year to date — and the selector's presentation
+ * order puts MONTHLY first. Taking that first row ignores what the measure says
+ * it is: a mapping declared YTD would show the month's figure while its status
+ * was worked out from the year-to-date one, so the number and the colour would
+ * describe different facts. The declared basis therefore decides, and only when
+ * the metric does not publish it at all does the value fall back (YTD first,
+ * then any actual) rather than claim a basis it was not given.
+ */
+export function measureValue<T extends KpiObservationRecord>(rows: readonly T[], period: string, timeBasis: string | null | undefined): T | null {
+  const candidates = [
+    timeBasis ? { reportingPeriod: period, comparisonBasis: "ACTUAL", timeBasis } : null,
+    // The basis Finance publishes headline figures on, before the month's own.
+    { reportingPeriod: period, comparisonBasis: "ACTUAL", timeBasis: DEFAULT_TIME_BASIS },
+    { reportingPeriod: period, comparisonBasis: "ACTUAL" },
+    { reportingPeriod: period },
+  ];
+  for (const filter of candidates) {
+    if (!filter) continue;
+    const [row] = selectCurrentObservations(rows, filter) as T[];
+    if (row) return row;
+  }
+  return null;
 }

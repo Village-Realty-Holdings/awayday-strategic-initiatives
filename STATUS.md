@@ -14,7 +14,29 @@ database with both migrations applied._
 | Migration data safety | Verified on the live branch: mapping, So-What and observation fingerprints identical before/after; 5 mappings kept `true/true/false/true/true`; 0 rows carry a tone; 7 So-What rows intact |
 | Production business data | **Unchanged.** No observation, target, pillar status or So-What was written; no import was run |
 | Post-deploy verification | Every authenticated route redirects to `/login` (307) with no 5xx; `/login` 200; `/api/mcp` 405 on GET; the review page's exact `reviewPeriod` + `soWhats(tone)` query and the five-pillar primary query both succeed against the migrated schema. Authenticated browser rendering was not performed (no production sign-in on this machine) |
-| Known gap vs the approved local preview | Production's five pillars still use the FY27 plan definitions and their target text states no 2026 goal, so each pillar renders **"Not configured"** with the documented reason instead of a colour. The reviewed configuration script (`--apply`) has not been run; that is a business-data decision, not a code defect |
+| Pillar colours (hotfix) | **Restored.** The reviewed 2026 primary measures are applied and the five October status statements are stored; the house renders green / green / red / amber / amber with the combined wording. See `docs/october-2026-status-regression-hotfix.md` |
+| So-What tones | Still `NULL` on all 7 October rows; the colour comes from the pillar-RAG fallback. Stored tones are prepared and awaiting approval (5 change no colour, 2 do) |
+
+## Latest: the October status indicators are restored (hotfix, 2026-11-19)
+
+The missing red/green/yellow October pillar indicators were a **code regression
+that exposed a configuration absence**, not a data loss: PR #26 replaced the
+permissive calculation (first KPI, FY27 target as the yardstick) with one that
+requires an active measure mapping, a stated 2026 goal in the measure's own
+quantity, a declared direction and a declared basis — and production had none of
+that for the reviewed October measures. Nothing was deleted; all 224
+observations, the 7 So-Whats and September's 4 statuses were untouched
+throughout.
+
+Fixed in three parts: the reviewed 2026 primary-measure configuration
+(`prisma/configure-october-2026-primary-measures.ts --apply`, 16 changes, drift-safe, `Serializable`, revertible), the five reviewed October status statements
+(`prisma/configure-october-2026-statuses.ts --apply`, audited, 2026-10 only), and
+two application defects — `measureValue` picks the observation in the basis the
+mapping declares (the selector's MONTHLY-first order was showing 330 beside a
+YTD status), and a stored approved status now shows its reviewer wording in full
+and sets the badge colour from the pillar RAG. Full analysis, the cause-by-cause
+table and the prepared So-What tone mapping are in
+`docs/october-2026-status-regression-hotfix.md`.
 
 ## Latest: released — PR #25 and PR #26 are both live (2026-11-19)
 

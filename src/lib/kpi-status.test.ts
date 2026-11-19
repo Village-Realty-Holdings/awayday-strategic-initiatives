@@ -295,3 +295,16 @@ describe("mixed performance", () => {
     expect(summarizeStatuses([]).label).toBe("No measures");
   });
 });
+
+describe("statusToneWithRule — the pillar RAG may state amber for on track", () => {
+  it("lets an on-track pillar say amber, because the review's pillar RAG is green / amber / red", () => {
+    expect(statusToneWithRule("on_track", "warn")).toBe("warn");
+  });
+
+  it("still refuses to make any status look better than it is", () => {
+    expect(statusToneWithRule("on_track", "good")).toBe("good");
+    expect(statusToneWithRule("on_track", "crit")).toBe("good");
+    expect(statusToneWithRule("behind", "good")).toBe("crit");
+    expect(statusToneWithRule("behind", "warn")).toBe("crit");
+  });
+});

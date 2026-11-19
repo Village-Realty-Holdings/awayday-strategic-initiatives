@@ -230,6 +230,46 @@ describe("primary measure selection", () => {
     expect(measure).toMatchObject({ kpiId: "k-primary", name: "Zzz owner unit churn", value: "9%", rag: "GREEN", primary: "selected" });
   });
 
+  it("shows the measure's value in the basis its mapping declares, not the month's figure", async () => {
+    // BD unit adds publishes 330 for October and 3,340 year to date. A YTD
+    // mapping must show — and judge — the year-to-date fact; showing the month
+    // while colouring on the year would describe two different things.
+    const grows = (timeBasis: string) => ({
+      id: "k-grow",
+      name: "BD Unit Adds (BD Master)",
+      target: "2026 goal 2,608",
+      measureMapping: mapping({ calculation: "DIRECT", timeBasis: "YTD", displayFormat: "number" }),
+      observations: [
+        observation("330", { timeBasis: "MONTHLY", reportingScope: "USER_REVIEWED_REPORTED", entityScope: "REPORTED", entityId: null }),
+        observation("3340", { timeBasis, reportingScope: "USER_REVIEWED_REPORTED", entityScope: "REPORTED", entityId: null }),
+      ],
+    });
+    areaFindMany.mockResolvedValue([area([grows("YTD")], { code: "GROW", name: "Grow New Units" })]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({ value: "3340", rag: "GREEN", statusGap: null });
+  });
+
+  it("shows the year-to-date figure while refusing a goal stated in another quantity", async () => {
+    // The reviewed page's Grow goal is a growth percentage. A unit count cannot
+    // be rated against it, so the measure shows its own 3,340 and claims no
+    // colour — never 330 against 23%, and never a colour from the month.
+    const grow = {
+      id: "k-grow",
+      name: "BD Unit Adds (BD Master)",
+      target: "2026 goal 23% growth",
+      measureMapping: mapping({ calculation: "DIRECT", timeBasis: "YTD", displayFormat: "number" }),
+      observations: [
+        observation("330", { timeBasis: "MONTHLY", reportingScope: "USER_REVIEWED_REPORTED", entityScope: "REPORTED", entityId: null }),
+        observation("3340", { timeBasis: "YTD", reportingScope: "USER_REVIEWED_REPORTED", entityScope: "REPORTED", entityId: null }),
+      ],
+    };
+    areaFindMany.mockResolvedValue([area([grow], { code: "GROW", name: "Grow New Units" })]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure?.value).toBe("3340");
+    expect(measure?.rag).toBe("GREY");
+    expect(measure?.statusGap).toBe("goal-not-comparable");
+  });
+
   it("is unaffected by a rename or by adding a KPI", async () => {
     const mapped = (name: string) => ({ id: "k-primary", name, target: "2026 goal 12%", measureMapping: churnMapping, observations: [] });
     areaFindMany.mockResolvedValue([area([mapped("Owner unit churn (TTM)")])]);
@@ -545,5 +585,60 @@ describe("review periods", () => {
     expect(await getReviewPeriod("2026-10")).toMatchObject({ stored: false, status: "DRAFT", preparedBy: null, summary: [], areaSoWhats: {}, dataAsOf: "2026-11-10" });
     periodFindUnique.mockResolvedValueOnce({ id: "2026-11", status: "DRAFT", preparedBy: null, meetingDate: null, updatesDueDate: null, dataAsOf: new Date("2026-12-01T00:00:00Z"), soWhats: [] });
     expect(await getReviewPeriod("2026-11")).toMatchObject({ dataAsOf: "2026-12-01", observedAsOf: "2026-11-10", dataAsOfOverride: "2026-12-01" });
+  });
+});
+
+// The October review keeps an approved status whole. The status word decides the
+// colour; the reviewer's wording after it is shown as it was approved, so
+// "Ahead · CAC off track" never collapses into "Ahead".
+describe("approved pillar statuses for a month", () => {
+  const areaWith = (status: string | null) => ({
+    id: "a-ma",
+    code: "M&A",
+    name: "M&A",
+    kind: "VALUE_DRIVER",
+    goal: null,
+    owner: null,
+    kpiName: "Acquired EBITDA closed",
+    kpiTarget: "FY27 $26M budget",
+    kpis: [] as unknown[],
+    pillarStatuses: status === null ? [] : [{ status }],
+  });
+
+  beforeEach(() => {
+    getActivePlan.mockResolvedValue({ id: "fy27", code: "FY27", title: "FY27" });
+    initiativeFindMany.mockResolvedValue([]);
+  });
+
+  it("asks the database only for the month being reviewed", async () => {
+    areaFindMany.mockResolvedValue([areaWith(null)]);
+    await getReviewPlan("2026-10");
+    expect(areaFindMany.mock.calls.at(-1)?.[0]?.include?.pillarStatuses?.where).toEqual({ periodId: "2026-10" });
+    await getReviewPlan("2026-09");
+    expect(areaFindMany.mock.calls.at(-1)?.[0]?.include?.pillarStatuses?.where).toEqual({ periodId: "2026-09" });
+  });
+
+  it("keeps September's plain statuses working and shows no extra wording for them", async () => {
+    areaFindMany.mockResolvedValue([areaWith("AHEAD")]);
+    const measure = (await getReviewPlan("2026-09")).areas[0].measure;
+    expect(measure).toMatchObject({ rag: "GREEN", statusOverride: "AHEAD", statusWording: null, approvedStatus: "AHEAD" });
+  });
+
+  it("keeps a combined October status whole and colours it by its status word", async () => {
+    areaFindMany.mockResolvedValue([areaWith("Ahead · CAC off track")]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({ rag: "GREEN", statusOverride: "AHEAD", statusWording: "Ahead · CAC off track" });
+  });
+
+  it("colours a combined status by its status word, not by the wording after it", async () => {
+    areaFindMany.mockResolvedValue([areaWith("Behind · October beat budget")]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({ rag: "RED", statusOverride: "BEHIND", statusWording: "Behind · October beat budget" });
+  });
+
+  it("claims no status when the stored value is not an approved status word", async () => {
+    areaFindMany.mockResolvedValue([areaWith("GREEN · looks fine")]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({ rag: "GREY", statusOverride: null, statusWording: null });
   });
 });
