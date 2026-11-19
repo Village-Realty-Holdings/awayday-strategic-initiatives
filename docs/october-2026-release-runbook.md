@@ -1,8 +1,10 @@
 # October 2026 release runbook — applying the two pending migrations
 
-- **Status:** prepared, not executed. PR #26 is reviewed, green and based on
-  `master`, but it is **not merged**, because it must not reach production before
-  its two additive migrations exist there.
+- **Status: executed 2026-11-19.** Both migrations were applied to the production
+  branch with `prisma migrate deploy` on the direct (non-pooler) endpoint, PR #26
+  was merged (`7c034c5`) and Workers Builds deployed version `b4ad6a9d`. The
+  pre-flight in §2 and the post-checks in §4 all passed; see STATUS.md for the
+  recorded results. This document is kept as the rollback reference.
 - **Why this file exists:** PR #25 is merged and deployed. PR #26 changes the
   Prisma schema, and the review page reads the new `ReviewSoWhat.tone` column, so
   deploying it against a database without that column would fail the Strategy
