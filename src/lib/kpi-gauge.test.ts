@@ -145,7 +145,7 @@ describe("formatting", () => {
     expect(formatGaugeValue(-1_200_000, { kind: "currency" })).toBe("−$1.2M");
     expect(formatGaugeValue(12.4, { kind: "percent" })).toBe("12.4%");
     expect(formatGaugeValue(0.8, { kind: "points" })).toBe("+0.8 pt");
-    expect(formatGaugeValue(-1, { kind: "points" })).toBe("−1 pt");
+    expect(formatGaugeValue(-1, { kind: "points" })).toBe("−1.0 pt");
     expect(formatGaugeValue(3340, { kind: "count" })).toBe("3,340");
     expect(formatGaugeValue(4.64, { kind: "number", })).toBe("4.64");
   });

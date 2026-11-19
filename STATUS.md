@@ -1,8 +1,11 @@
 # Status
 
-_Last updated 2026-11-19 (latest). **Both PRs are merged and deployed.** Production
-runs the complete PR #26 application (Worker version `b4ad6a9d`) against a
-database with both migrations applied._
+_Last updated 2026-11-19. **The October parity presentation corrections are
+implemented and verified on branch `fix/october-parity-presentation`; they are
+released only once that branch is merged and Workers Builds has deployed the merge
+commit (see the PR link recorded in the release table). Production still runs the
+PR #28 application until then. The seven October So-What tones are stored; the two
+October goal-line corrections are prepared but not applied (see below)._
 
 ## Release state
 
@@ -16,7 +19,68 @@ database with both migrations applied._
 | Production business data | **Unchanged.** No observation, target, pillar status or So-What was written; no import was run |
 | Post-deploy verification | Every authenticated route redirects to `/login` (307) with no 5xx; `/login` 200; `/api/mcp` 405 on GET; the review page's exact `reviewPeriod` + `soWhats(tone)` query and the five-pillar primary query both succeed against the migrated schema. Authenticated browser rendering was not performed (no production sign-in on this machine) |
 | Pillar colours (hotfix) | **Restored.** The reviewed 2026 primary measures are applied and the five October status statements are stored; the house renders green / green / red / amber / amber with the combined wording. See `docs/october-2026-status-regression-hotfix.md` |
-| So-What tones | Still `NULL` on all 7 October rows; the colour comes from the pillar-RAG fallback. Stored tones are prepared and awaiting approval (5 change no colour, 2 do) |
+| So-What tones | **Stored.** All 7 October rows carry a semantic tone — POSITIVE 1, WARNING 5, NEGATIVE 1 — applied by `prisma/configure-october-2026-so-what-tones.ts`. The script writes its snapshot `.october-so-what-tones-before.json` only after the serializable write transaction commits, so the snapshot timestamp (2026-11-19T17:20:41Z) evidences a successful production write; identity, scope, order and wording were not touched and each record has an audit row. This session had no production credentials, so the rows were not re-read afterwards |
+| October goal lines | **Prepared, not applied.** `prisma/configure-october-2026-goal-lines.ts` computes the Grow and M&A `KpiDefinition.target` corrections and refuses to write on drift, but no production snapshot exists, so the write has not been made. It needs a production `DATABASE_URL` (dry run first, then `--apply --snapshot`). Until then Grow shows no goal line and M&A keeps its stored `$26M total` wording — which the gauge no longer plots as a goal |
+
+## Latest: October parity presentation corrections (PR #30, 2026-11-19)
+
+The five pillar headline cards, the scorecards, the gauges, the executive cards,
+the missing-data labels and the So-What colours now reproduce the reviewed
+October report.
+
+**What was wrong.** The headline cards printed the stored observation string
+(`3340`, `12.4`, `4.1`, `0.8`) instead of the reviewed figure, and captioned every
+one of them with the month even though the primary value is year to date. The
+detailed scorecards judged the **October monthly** figure against the **annual
+2026 goal**, so TRevPAR read "Behind" (Oct −0.9% vs +3.3%) and Margin read
+"Behind" (Oct +0.5 pt vs +0.7 pt) while Retention read "On track" (Oct 12.2% vs
+<12%) — three contradictions with the approved pillar statuses. The M&A gauge
+plotted the old `$26M total` planning figure as a second 2026 goal. The executive
+cards said "no comparison loaded" without saying what was missing. And every
+missing-data state was reported with the same words, so an observation that simply
+had no goal was called "not loaded".
+
+**What changed (code, no schema, no observation touched).**
+
+- `formatMetricValue()` is now the only formatter on the cards — `3,340`,
+  `12.4%`, `+4.1%`, `+0.8 pt`, `$34.8M` — including a currency keyword rule so a
+  money measure declared without a format still prints as money.
+- The headline carries its **real** `timeBasis` (`YTD`), the month appears beside
+  it as context (Grow 3,340 YTD / October 330; Retention 12.4% / 12.2%; TRevPAR
+  +4.1% / −0.9%; Margin +0.8 pt / +0.5 pt; M&A $34.8M / $0.3M), and the
+  other-basis figure is shown as a second line (TRevPAR +0.6% ex-OTA, Margin
+  −1.0 pt reported) from the paired definition's own observation.
+- `judgeAgainstTarget()` refuses to judge a monthly figure against a period goal
+  and `periodGoalRow()` prefers YTD then point-in-time, so the scorecard judges
+  the year-to-date figure against the 2026 goal on the goal's own quantity;
+  approved `ReviewPillarStatus` wording wins over any calculation. Each row
+  carries a typed reason (approved / calculated / no-observation / no-target /
+  goal-not-comparable / no-period-figure / no-definition).
+- The M&A gauge plots exactly one 2026 goal ($23M), then FY27 budget (~$33M) and
+  FY27 stretch ($47M), each labelled; Grow plots its two count budgets on a count
+  axis and never against a percentage.
+- Executive cards state the exact missing identities instead of "no comparison
+  loaded"; where the comparison exists it is rendered with the tone from the
+  declared direction, never from the sign.
+- Scorecard labels distinguish no observation, no target, no comparable
+  budget/prior year, another quantity, no pillar, and no reliable status; an
+  observation without a target is shown normally with a neutral status.
+
+**Verified locally.** `typecheck`, `lint`, `vitest` (70 files / 901 tests),
+`next build` and `prisma validate` all pass. The components are asserted against
+synthetic fixtures shaped like the reviewed plan: the five cards print `$34.8M` /
+`3,340` / `12.4%` / `+4.1%` / `+0.8 pt`, each with `data-pillar-basis="YTD"`, the
+month beside a YTD headline, and both secondary figures resolved from the paired
+definition. This session could not reach the production database (no credentials),
+so the production page itself was not rendered or re-read; code changes touch no
+observation, target, mapping, status or revision.
+
+**Still outstanding, by design** — see `docs/october-2026-parity-corrections.md`
+§12: the executive cards' budget and prior-year observations do not exist for the
+Base Business / lender measures (decision D4); `src/lib/fy27-plan.ts` and the M&A
+`StrategicArea.kpiTarget` still carry the older `$26M` planning wording (D2);
+production holds 7 So-What summaries against the report's 33 bullets (D7); the
+Guest pillar has no active mapping (D8).
 
 ## Latest: hotfix released — the October status indicators are back (2026-11-19)
 

@@ -350,6 +350,78 @@ describe("primary measure selection", () => {
     expect(planDefinition.measureMapping.active).toBe(false);
   });
 
+  it("shows the other reviewed basis without that definition being owned by the pillar", async () => {
+    // The October card states TRevPAR growth on both bases. Only the reported
+    // definition is mapped to the pillar; the ex-OTA one is a reviewed metric the
+    // pillar does not own yet. The card still shows it, looked up by the basis the
+    // primary's own name states, and labelled with *its own* basis.
+    const reported = {
+      id: "k-trevpar-reported",
+      name: "TRevPAR Growth vs PY (Reported)",
+      target: "2026 goal +3.3% reported",
+      displayFormat: "percent",
+      unit: "percent",
+      measureMapping: mapping({ calculation: "DIRECT", displayFormat: "percent", higherIsBetter: true, targetBudget: 1, active: true }),
+      observations: [observation("4.1", { timeBasis: "YTD" }), observation("-0.9", { timeBasis: "MONTHLY" })],
+    };
+    areaFindMany.mockResolvedValue([area([reported], { code: "TREVPAR", kpiName: "TRevPAR Growth vs PY (Reported)" })]);
+    const exOta = {
+      id: "k-trevpar-ex-ota",
+      name: "TRevPAR Growth vs PY (Ex-OTA)",
+      target: null,
+      displayFormat: "percent",
+      unit: "percent",
+      measureMapping: null,
+      observations: [observation("0.6", { timeBasis: "YTD" })],
+    };
+    definitionFindMany.mockImplementation(async (args: { where?: { OR?: unknown } }) =>
+      args?.where?.OR ? [exOta] : [],
+    );
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({
+      name: "TRevPAR Growth vs PY (Reported)",
+      value: "4.1",
+      basisLabel: "YTD",
+      monthValue: "-0.9",
+    });
+    expect(measure?.secondary).toEqual([
+      {
+        kpiId: "k-trevpar-ex-ota",
+        name: "TRevPAR Growth vs PY (Ex-OTA)",
+        label: "ex-OTA",
+        value: "0.6",
+        basis: "YTD",
+        basisLabel: "YTD",
+        displayFormat: "percent",
+        unit: "percent",
+      },
+    ]);
+  });
+
+  it("shows no secondary figure when the other population's observation is absent", async () => {
+    // A definition with no observation on the same basis is not a figure: the
+    // card shows nothing rather than a zero or the primary's own value again.
+    const reported = {
+      id: "k-trevpar-reported",
+      name: "TRevPAR Growth vs PY (Reported)",
+      target: "2026 goal +3.3% reported",
+      displayFormat: "percent",
+      unit: "percent",
+      measureMapping: mapping({ calculation: "DIRECT", displayFormat: "percent", higherIsBetter: true, targetBudget: 1, active: true }),
+      observations: [observation("4.1", { timeBasis: "YTD" })],
+    };
+    areaFindMany.mockResolvedValue([area([reported], { code: "TREVPAR", kpiName: "TRevPAR Growth vs PY (Reported)" })]);
+    definitionFindMany.mockImplementation(async (args: { where?: { OR?: unknown } }) =>
+      args?.where?.OR
+        ? [{ id: "k-trevpar-ex-ota", name: "TRevPAR Growth vs PY (Ex-OTA)", target: null, displayFormat: "percent", unit: "percent", measureMapping: null, observations: [] }]
+        : [],
+    );
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure?.value).toBe("4.1");
+    // No secondary figure at all, rather than a zero or the headline repeated.
+    expect(measure?.secondary).toBeUndefined();
+  });
+
   it("goes neutral, not alphabetical, when both the reviewed and the plan measure stay active", async () => {
     const active = mapping({ calculation: "DIRECT", higherIsBetter: true, targetBudget: 23, active: true });
     areaFindMany.mockResolvedValue([

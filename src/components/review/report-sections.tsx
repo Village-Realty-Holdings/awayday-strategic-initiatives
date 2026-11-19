@@ -196,28 +196,43 @@ export function ExecSummary({ cards, monthName }: { cards: ExecCard[]; monthName
             {card.value ? (
               <>
                 <p className="tabular text-3xl font-semibold leading-none tracking-tight text-ink">{card.value}</p>
-                <p className="text-xs leading-5 text-ink-muted">
-                  {card.delta.display ? (
-                    <>
-                      <span className={`tabular font-medium ${tone ? TONE_CLASS[tone] : ""}`} data-tone={tone ?? undefined}>
-                        {card.delta.display}
-                      </span>{" "}
-                      {card.deltaLabel}
-                    </>
-                  ) : (
-                    card.deltaLabel
-                  )}
-                </p>
+                {/* A loaded value with no comparison says so once, in the sentence
+                    below that names what is missing; repeating the label here read
+                    as two separate absences. */}
+                {(card.delta.display || card.missingIdentities.length === 0) && (
+                  <p className="text-xs leading-5 text-ink-muted">
+                    {card.delta.display ? (
+                      <>
+                        <span className={`tabular font-medium ${tone ? TONE_CLASS[tone] : ""}`} data-tone={tone ?? undefined}>
+                          {card.delta.display}
+                        </span>{" "}
+                        {card.deltaLabel}
+                      </>
+                    ) : (
+                      card.deltaLabel
+                    )}
+                  </p>
+                )}
+                {/* The value is present; only its comparison is absent. Name the exact
+                    identities needed rather than implying the figure failed to load. */}
+                {card.missingIdentities.length > 0 && (
+                  <p className="text-note leading-4 text-ink-faint" data-missing-comparison={card.id}>
+                    Required to compare: {card.missingIdentities.join(" · ")}.
+                  </p>
+                )}
               </>
             ) : (
               <>
                 <p className="tabular text-3xl font-semibold leading-none tracking-tight text-ink-faint">—</p>
-                <p className="text-xs leading-5 text-ink-muted">Not loaded. Expected identity: {card.expected}.</p>
+                <p className="text-xs leading-5 text-ink-muted">No observation for this identity. Expected: {card.expected}.</p>
               </>
             )}
             <p className="text-note leading-4 text-ink-faint">
+              {/* The basis and the review month, each stated once: an LTM card is
+                  read "as at October", a monthly card is already the month. */}
               {card.basisLabel}
-              {card.metricName ? ` · ${card.metricName}` : ""} · {monthName}
+              {card.metricName ? ` · ${card.metricName}` : ""}
+              {card.basisLabel === "Month" ? "" : card.basisLabel === "LTM" ? `, as at ${monthName}` : ` · ${monthName}`}
             </p>
           </Card>
         );

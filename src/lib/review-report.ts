@@ -7,7 +7,8 @@
 // (reportingScope + entityScope + timeBasis + comparisonBasis), and each table
 // section names the population it belongs to.
 
-import { formatDelta, formatMetricValue, metricKind, parseNumber, parseTargetMarkers, goalQuantityFor, primaryGoalMarker, quantityCompatibility, quantityOfKind, sameQuantity, type MetricKind } from "@/lib/review-format";
+import { formatDelta, formatMetricValue, metricKind, pairedBasisName, parseNumber, parseTargetMarkers, goalQuantityFor, primaryGoalMarker, quantityCompatibility, quantityOfKind, sameQuantity, type MetricKind } from "@/lib/review-format";
+import { parseApprovedPillarStatus } from "@/lib/review-model";
 
 // Formatters live in review-format.ts so client components can use them without
 // importing the Prisma-backed KPI module. Re-exported here for existing callers.
@@ -54,6 +55,7 @@ export const REPORTED_SCOPE: ReportScope = { reportingScope: "USER_REVIEWED_REPO
 const SCOPE_LABELS: Record<string, string> = {
   "BASE_BUSINESS|BASE_BUSINESS": "Base Business",
   "USER_REVIEWED_REPORTED|REPORTED": "Finance reported",
+  "USER_REVIEWED_EX_OTA|EX_OTA": "Ex-OTA",
   AWAYDAY_CONSOLIDATED: "Awayday consolidated",
   BASE_BUSINESS: "Base Business",
   USER_REVIEWED_REPORTED: "Finance reported",
@@ -417,9 +419,24 @@ export type ExecCard = {
   delta: ComparisonCell;
   deltaLabel: string;
   basisLabel: string;
+  /**
+   * Whether a budget or prior-year figure was actually found for this card's
+   * identity. When none was, `missingIdentities` names exactly what is absent, so
+   * a missing comparison is never reported as if the value itself were missing.
+   */
+  comparisonState: "loaded" | "no-budget-or-prior-year";
+  missingIdentities: string[];
 };
 
 const BASIS_LABEL: Record<ExecCardSpec["timeBasis"], string> = { MONTHLY: "Month", YTD: "YTD", LTM: "LTM" };
+
+/** How a missing comparison is described. Not "no comparison loaded": the
+ * value is loaded, it is the budget/prior-year figure that is absent. */
+export const NO_COMPARISON_LABEL = "No budget or prior-year figure for this population";
+
+/** The scorecard's shorter wording for the same condition (the column is narrow). */
+export const NO_SCORECARD_COMPARISON_LABEL = "No budget or prior-year figure";
+
 
 /**
  * How a row's time basis is shown. A row with no declared basis reads as YTD,
@@ -480,8 +497,10 @@ export function buildExecCards(metrics: readonly ReportMetric[], rows: readonly 
         metricName: null,
         value: null,
         delta: EMPTY_CELL,
-        deltaLabel: "no comparison loaded",
+        deltaLabel: NO_COMPARISON_LABEL,
         basisLabel: BASIS_LABEL[spec.timeBasis],
+        comparisonState: "no-budget-or-prior-year" as const,
+        missingIdentities: [],
       };
     }
     const { metric, row } = found;
@@ -513,10 +532,14 @@ export function buildExecCards(metrics: readonly ReportMetric[], rows: readonly 
           delta: deltaCell(kind, actual, cell(metric, comparison)),
           deltaLabel: basis === "BUDGET" ? "vs budget" : "vs prior year",
           basisLabel: BASIS_LABEL[spec.timeBasis],
+          comparisonState: "loaded" as const,
+          missingIdentities: [],
         };
       }
     }
 
+    // The value is present; only its comparison is absent. Name the exact
+    // identities required rather than implying the figure itself failed to load.
     return {
       id: spec.id,
       title: spec.title,
@@ -528,8 +551,12 @@ export function buildExecCards(metrics: readonly ReportMetric[], rows: readonly 
       higherIsBetter: metric.higherIsBetter,
       value: actual.display,
       delta: EMPTY_CELL,
-      deltaLabel: "no comparison loaded",
+      deltaLabel: NO_COMPARISON_LABEL,
       basisLabel: BASIS_LABEL[spec.timeBasis],
+      comparisonState: "no-budget-or-prior-year" as const,
+      missingIdentities: (["BUDGET", "PRIOR_YEAR"] as const).map(
+        (basis) => `${BASIS_LABEL[spec.timeBasis]} ${basis === "BUDGET" ? "budget" : "prior year"} · ${metric.name} · ${scopeLabel(foundScope)}`,
+      ),
     };
   });
 }
@@ -610,6 +637,27 @@ export const PILLAR_EXPECTATIONS: Record<string, MetricExpectation[]> = {
   FINANCE: [{ label: "Accounting close cycle time", match: /accounting close|close cycle/i }],
 };
 
+/**
+ * Why a row does or does not carry a status. These are distinct conditions and
+ * are named separately: an observation with no target is not missing data, and a
+ * goal written in another quantity is not the same gap as no observation at all.
+ */
+export type ScorecardStatusReason =
+  /** The reviewer's approved ReviewPillarStatus for this pillar and period. */
+  | "approved"
+  /** Derived from the definition's own 2026 goal, in the measure's own quantity. */
+  | "calculated"
+  /** A. No observation exists for this month and population. */
+  | "no-observation"
+  /** B. An observation exists but the definition has no target configured. */
+  | "no-target"
+  /** D/F. The goal is written in a different quantity, so no verdict is possible. */
+  | "goal-not-comparable"
+  /** F. Only a month's figure exists, so no period goal can be judged. */
+  | "no-period-figure"
+  /** E. The reviewed report expects this line, but no definition is linked to it. */
+  | "no-definition";
+
 export type ScorecardRow = {
   id: string;
   label: string;
@@ -625,6 +673,14 @@ export type ScorecardRow = {
   deltaLabel: string;
   target: string | null;
   status: "ahead" | "on_track" | "behind" | "no_data";
+  statusReason: ScorecardStatusReason;
+  /**
+   * The reviewer's approved wording, when this row is the pillar's primary
+   * measure and a status was approved. The scorecard renders it exactly, so a
+   * combined reading ("Ahead · CAC off track") cannot collapse into its first
+   * word and contradict the headline card.
+   */
+  approvedLabel?: string | null;
   metricName: string | null;
 };
 
@@ -634,23 +690,55 @@ export type PillarScorecard = {
   expectedMissing: number;
   /** Definitions linked to the area that have a value this month. */
   loaded: number;
+  /** Linked definitions that exist but recorded no value this month. */
+  missingValue: number;
   scopeLabels: string[];
   totalMetrics: number;
 };
 
-const STATUS_LABEL: Record<ScorecardRow["status"], string> = { ahead: "Ahead", on_track: "On track", behind: "Behind", no_data: "No data" };
+const STATUS_LABEL: Record<ScorecardRow["status"], string> = { ahead: "Ahead", on_track: "On track", behind: "Behind", no_data: "No status" };
 
 export function scorecardStatusLabel(status: ScorecardRow["status"]): string {
   return STATUS_LABEL[status];
 }
 
 /**
- * Status of a value against the reference the reviewed report judges it by: the
- * definition's own goal, in the measure's own quantity. The October report sets
- * the 2026 goal beside the FY27 budget and stretch and judges against the 2026
- * goal, so a figure the target text labels FY27 is never used, and a goal
- * written in another quantity (a growth percentage beside a unit count) is not
- * used either.
+ * The words shown for a row that carries no coloured status. Each condition says
+ * what is actually absent, so "no observation" is never used to describe a
+ * metric whose value is present.
+ */
+const STATUS_REASON_LABEL: Record<ScorecardStatusReason, string> = {
+  approved: "Approved pillar status",
+  calculated: "Against the 2026 goal",
+  "no-observation": "No observation this month",
+  "no-target": "No target configured",
+  "goal-not-comparable": "Goal not comparable with this measure",
+  "no-period-figure": "Month figure only — no period goal to judge",
+  "no-definition": "No definition linked",
+};
+
+export function scorecardStatusReasonLabel(reason: ScorecardStatusReason): string {
+  return STATUS_REASON_LABEL[reason];
+}
+
+/** The row status an approved ReviewPillarStatus resolves to. */
+const APPROVED_ROW_STATUS: Record<string, ScorecardRow["status"]> = { AHEAD: "ahead", ON_TRACK: "on_track", BEHIND: "behind" };
+
+export type TargetJudgement = { status: ScorecardRow["status"]; reason: ScorecardStatusReason };
+
+/**
+ * Judge a value against the reference the reviewed report judges it by: the
+ * definition's own goal, in the measure's own quantity, on the basis the goal is
+ * stated. The October report sets the 2026 goal beside the FY27 budget and
+ * stretch and judges against the 2026 goal, so a figure the target text labels
+ * FY27 is never used, and a goal written in another quantity (a growth
+ * percentage beside a unit count) is not used either.
+ *
+ * A month's figure is never rated against a period goal. The defect this
+ * replaces judged October's month (−0.9% TRevPAR) against the annual +3.3% goal
+ * and printed "Behind" beside the approved "On track reported". The caller
+ * passes the basis of the value it selected, and a MONTHLY value returns no
+ * status.
  *
  * There is no fallback. An earlier version fell back to the first number in the
  * target text when no goal matched the measure's quantity, which rated 3,340
@@ -660,36 +748,90 @@ export function scorecardStatusLabel(status: ScorecardRow["status"]): string {
  * Amber within 10% of the target on either side, matching the app's other
  * target comparisons.
  */
-export function statusAgainstTarget(
+export function judgeAgainstTarget(
   value: string | null | undefined,
   target: string | null | undefined,
   kind?: MetricKind,
-): ScorecardRow["status"] {
+  basis?: string | null,
+): TargetJudgement {
   const actual = parseNumber(value ?? null);
-  if (actual === null) return "no_data";
-  const goal = primaryGoalMarker(parseTargetMarkers(target), kind);
-  if (goal === null) return "no_data";
+  if (actual === null) return { status: "no_data", reason: "no-observation" };
+  if (!target || target.trim() === "") return { status: "no_data", reason: "no-target" };
+  const markers = parseTargetMarkers(target);
+  if (markers.length === 0) return { status: "no_data", reason: "no-target" };
+  // A month is not a year: never rate a MONTHLY value against a period goal.
+  if ((basis ?? "YTD").toUpperCase() === "MONTHLY") return { status: "no_data", reason: "no-period-figure" };
+  const goal = primaryGoalMarker(markers, kind);
+  if (goal === null) return { status: "no_data", reason: "goal-not-comparable" };
   // Explicit quantity compatibility: a percentage goal is never applied to a
   // count, a currency goal never to a percentage, and an unstated quantity is
   // never compared at all.
   const measuredIn = kind ? quantityOfKind(kind) : "unknown";
-  if (quantityCompatibility(measuredIn, goalQuantityFor(goal.unit, measuredIn)) !== "compatible") return "no_data";
-  if (!sameQuantity(actual, goal.value)) return "no_data";
-  if (Math.abs(actual - goal.value) <= Math.abs(goal.value) * 0.1) return "on_track";
-  const better = goal.lowerIsBetter ? actual < goal.value : actual > goal.value;
-  return better ? "ahead" : "behind";
+  if (quantityCompatibility(measuredIn, goalQuantityFor(goal.unit, measuredIn)) !== "compatible") {
+    return { status: "no_data", reason: "goal-not-comparable" };
+  }
+  if (!sameQuantity(actual, goal.value)) return { status: "no_data", reason: "goal-not-comparable" };
+  // Meeting the goal is the line that decides the colour. A figure that misses it
+  // is behind however small the shortfall — the reviewed October report calls 12.4%
+  // churn against a "<12%" goal Behind, and a tolerance band that turned a miss
+  // into "on track" contradicted the approved pillar status. Meeting the goal but
+  // landing within a tenth of it reads as on track; further beyond reads as ahead.
+  const meetsGoal = goal.lowerIsBetter ? actual <= goal.value : actual >= goal.value;
+  if (!meetsGoal) return { status: "behind", reason: "calculated" };
+  if (Math.abs(actual - goal.value) <= Math.abs(goal.value) * 0.1) return { status: "on_track", reason: "calculated" };
+  return { status: "ahead", reason: "calculated" };
 }
+
+/**
+ * The verdict alone, for callers that do not need the reason. `judgeAgainstTarget`
+ * is the same rule and also says why a row carries no status.
+ */
+export function statusAgainstTarget(
+  value: string | null | undefined,
+  target: string | null | undefined,
+  kind?: MetricKind,
+  basis?: string | null,
+): ScorecardRow["status"] {
+  return judgeAgainstTarget(value, target, kind, basis).status;
+}
+
+/**
+ * The basis a period goal is judged on. The 2026 goals are period goals, so the
+ * year-to-date observation is the one that answers them; a stock measure is
+ * judged on its point-in-time figure. A definition that publishes only a month's
+ * number still shows that number, but is never rated against a period goal.
+ */
+function periodGoalRow(rows: readonly ReportObservation[]): ReportObservation | null {
+  for (const basis of ["YTD", "POINT_IN_TIME"] as const) {
+    const row = rows.find((candidate) => (candidate.timeBasis ?? "YTD") === basis);
+    if (row) return row;
+  }
+  return rows.find((candidate) => (candidate.timeBasis ?? "YTD") === "MONTHLY") ?? rows[0] ?? null;
+}
+
+export type PillarScorecardOptions = {
+  /**
+   * The area's primary measure, by definition name. An approved
+   * ReviewPillarStatus for the pillar is applied to this line, so the headline,
+   * the scorecard and the gauge cannot contradict one another.
+   */
+  primaryName?: string | null;
+  /** The reviewer's approved status wording for the period, if entered. */
+  approvedStatus?: string | null;
+};
 
 /**
  * The detailed scorecard for one area: every KPI definition linked to it, plus
  * the report's expected lines that have no definition yet. Values are read for
- * the review month; comparisons use the same population as the value itself.
+ * the review month on the basis their goal is stated; comparisons use the same
+ * population as the value itself.
  */
 export function buildPillarScorecard(
   area: { id: string | null; code: string; name: string },
   metrics: readonly ReportMetric[],
   observations: readonly ReportObservation[],
   period: string,
+  options: PillarScorecardOptions = {},
 ): PillarScorecard {
   const periodRows = currentPeriodRows(observations, period).filter((row) => (row.entityId ?? null) === null);
   const expectations = PILLAR_EXPECTATIONS[area.code.toUpperCase()] ?? PILLAR_EXPECTATIONS[area.code] ?? [];
@@ -718,12 +860,25 @@ export function buildPillarScorecard(
               scopeKey({ reportingScope: b.reportingScope ?? "", entityScope: b.entityScope ?? "" }),
             ) || (a.timeBasis ?? "").localeCompare(b.timeBasis ?? ""),
         );
-      if (own.length === 0) return null;
-      const scope = { reportingScope: own[0].reportingScope ?? "", entityScope: own[0].entityScope ?? "" };
+      const scope = { reportingScope: own[0]?.reportingScope ?? "", entityScope: own[0]?.entityScope ?? "" };
       for (const row of own) scopes.add(scopeLabel({ reportingScope: row.reportingScope ?? "", entityScope: row.entityScope ?? "" }));
       const kind = metricKind(metric);
-      const actualRow = own.find((row) => (row.timeBasis ?? "YTD") === "MONTHLY" && (row.comparisonBasis ?? "ACTUAL") === "ACTUAL") ?? own.find((row) => (row.comparisonBasis ?? "ACTUAL") === "ACTUAL");
-      const actual = cell(metric, actualRow);
+      // A definition that publishes under two populations is read from the one its
+      // own name states: "…Growth vs PY (Reported)" from the reported population,
+      // "…(Ex-OTA)" from the ex-OTA one. Sorting alone picked whichever scope name
+      // sorted first, which could rate the reported figure against the ex-OTA
+      // budget — the exact blend the brief forbids.
+      const statedBasis = pairedBasisName(metric.name)?.label ?? null;
+      const normalised = (text: string) => text.toLowerCase().replace(/[^a-z]/g, "");
+      const ownPopulation = statedBasis
+        ? own.filter((row) => normalised(scopeLabel({ reportingScope: row.reportingScope ?? "", entityScope: row.entityScope ?? "" })).includes(normalised(statedBasis)))
+        : own;
+      const rowsInPopulation = ownPopulation.length > 0 ? ownPopulation : own;
+      // The value shown is the one the definition's goal is stated on. Reading the
+      // month first is what rated October's month against an annual goal.
+      const actualRows = rowsInPopulation.filter((row) => (row.comparisonBasis ?? "ACTUAL") === "ACTUAL");
+      const actualRow = periodGoalRow(actualRows);
+      const actual = cell(metric, actualRow ?? undefined);
       const budget = actualRow
         ? own.find((row) => row.reportingScope === actualRow.reportingScope && (row.entityScope ?? "") === (actualRow.entityScope ?? "") && (row.timeBasis ?? "YTD") === (actualRow.timeBasis ?? "YTD") && row.comparisonBasis === "BUDGET")
         : undefined;
@@ -734,18 +889,29 @@ export function buildPillarScorecard(
       const rowScope = actualRow
         ? scopeLabel({ reportingScope: actualRow.reportingScope ?? "", entityScope: actualRow.entityScope ?? "" })
         : scopeLabel(scope);
+      const judgement: TargetJudgement = actualRow
+        ? judgeAgainstTarget(actualRow.value, metric.target ?? null, kind, actualRow.timeBasis)
+        : { status: "no_data", reason: "no-observation" };
+      // An approved ReviewPillarStatus outranks a derived one: the reviewer's
+      // judgement is the pillar's status, and the scorecard line for the primary
+      // measure must say the same thing as the headline and the gauge.
+      const isPrimary = options.primaryName != null && metric.name.trim().toLowerCase() === options.primaryName.trim().toLowerCase();
+      const approved = isPrimary && options.approvedStatus ? parseApprovedPillarStatus(options.approvedStatus) : null;
+      const approvedRowStatus = approved ? APPROVED_ROW_STATUS[approved.status] : undefined;
       return {
         id: metric.metricKey,
         label: metric.name,
         kind,
         expectedOnly: false,
         value: actual.display,
-        basisLabel: timeBasisLabel(actualRow?.timeBasis),
+        basisLabel: actualRow ? timeBasisLabel(actualRow.timeBasis) : "",
         scopeLabel: rowScope,
         delta: delta?.cell ?? EMPTY_CELL,
-        deltaLabel: delta?.label ?? "no comparison loaded",
+        deltaLabel: delta?.label ?? (actualRow ? NO_SCORECARD_COMPARISON_LABEL : ""),
         target: metric.target,
-        status: statusAgainstTarget(actualRow?.value ?? null, metric.target ?? null, kind),
+        status: approvedRowStatus ?? judgement.status,
+        statusReason: approvedRowStatus ? "approved" : judgement.reason,
+        ...(approvedRowStatus && approved ? { approvedLabel: approved.wording } : {}),
         metricName: metric.name,
       } satisfies ScorecardRow;
     });
@@ -775,18 +941,23 @@ export function buildPillarScorecard(
       basisLabel: "",
       scopeLabel: "",
       delta: EMPTY_CELL,
-      deltaLabel: "no definition linked",
+      deltaLabel: "No definition linked",
       target: null,
       status: "no_data" as const,
+      statusReason: "no-definition" as const,
       metricName: null,
     }));
 
+  // A row is "loaded" when it has a value. A definition that exists but recorded
+  // nothing this month is listed separately rather than counted as missing data.
+  const withValue = rows.filter((row) => row.value !== null).length;
   return {
     rows: [...rows, ...missing],
     expectedMissing: missing.length,
-    loaded: rows.length,
+    loaded: withValue,
     scopeLabels: [...scopes].sort(),
     totalMetrics: candidates.length,
+    missingValue: rows.length - withValue,
   };
 }
 

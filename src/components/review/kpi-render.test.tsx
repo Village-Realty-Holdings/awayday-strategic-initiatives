@@ -90,8 +90,8 @@ describe("KpiGauge", () => {
         status="behind"
       />,
     );
-    expect(html).toContain("−2 pt");
-    expect(html).toContain("+2 pt");
+    expect(html).toContain("−2.0 pt");
+    expect(html).toContain("+2.0 pt");
     expect(html).toContain("Actual −0.6 pt");
     expect(html).toContain("Goal +0.7 pt");
   });
