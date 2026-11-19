@@ -409,7 +409,11 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
               observation: obs,
               number: numericValue,
               calculatedValue: calculated && mapping ? formatDerivedMeasure(calculated.value, mapping) : null,
-              rag: calculatedRag,
+              // The approved status word wins the colour, so the origin must
+              // carry it too: the "how the value was reached" line may not
+              // describe "Ahead" beside an approved "Behind".
+              rag,
+              approvedLabel: approved?.wording ?? null,
               target,
               mapping,
               reference,
