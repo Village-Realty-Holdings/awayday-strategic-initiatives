@@ -419,7 +419,7 @@ describe("pillar scorecards", () => {
   });
   const expectations = [
     acquired,
-    metric({ id: "loi", name: "Active LOI pipeline", metricKey: "user_review:active_loi_pipeline", unit: "count", target: "5" }),
+    metric({ id: "loi", name: "Active LOI pipeline", metricKey: "user_review:active_loi_pipeline", unit: "count", displayFormat: "number", target: "5" }),
   ].map((definition) => ({ ...definition, strategicAreaId: "area-ma" }));
 
   it("lists loaded metrics and marks the expected lines that are missing", () => {

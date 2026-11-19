@@ -9,10 +9,23 @@ read-only handoff bundle (`october-2026-production-kpi-identities.json`, extract
 `Awayday October 2026 Strategy Review(2).html`. Nothing in the reference bundle is
 committed to git.
 
+> **Reference-bundle availability, this session.** Neither
+> `Awayday October 2026 Strategy Review(2).html` nor the handoff JSON is present in
+> this working copy (searched `~/Downloads`, `~/Desktop`, `~/Documents`,
+> `~/repos`, `/tmp`, `/var/tmp`). Every reference fact below is therefore the
+> extraction recorded in the previous session's version of this document and in
+> `docs/october-2026-primary-kpi-mapping-audit.md`; nothing was reconstructed from
+> memory, and any claim not supported by those records is marked **NOT VERIFIED**.
+> The two files are **requested** so the bridge commentary (§8.2) and the
+> production-mapping evidence can be confirmed before any import runs.
+
 **Verdict: CONDITIONAL PASS** — the application now selects, labels and judges the
-October measures correctly, but four configuration and content changes need
-business approval and a reviewed production data change before the numbers match
-the reference page. §12 lists them.
+October measures correctly, refuses to invent a status where the 2026 goal is
+missing, stores per-item commentary tone with a backward-compatible migration, and
+carries a runnable, idempotent, dry-run-by-default configuration script for the five
+primaries. What remains is business approval plus reviewed production data changes:
+FY27 target refresh, Base Business basis, the imports, and the four bridge texts.
+§12 lists them.
 
 ---
 
@@ -90,24 +103,64 @@ or moving observations. Nothing was renamed, repointed or written in this phase.
 | The pillar measure passes the 2026 goal into the status when the definition states one. | `src/lib/review-data.ts` | The October status follows the 2026 reference. |
 | Gauge markers are labelled with their context (`2026 goal`, `FY27 budget`, `FY27 stretch`). | `src/components/review/review-view.tsx` | A marker's meaning must be readable, not implied. |
 | The measure editor says which reference it compared with. | `src/components/review/edit-dialogs.tsx` | Same reason, in the editing surface. |
+| A pillar with no usable 2026 goal shows a neutral **"Not configured"** badge, and the caption names the missing piece (`no-goal`, `goal-not-comparable`, `no-basis`, `no-direction`, `no-value`). | `src/lib/kpi-measure-mapping.ts`, `src/lib/review-model.ts`, `src/components/review/kpi-status-badge.tsx`, `src/components/review/review-view.tsx` | A grey badge alone hides the cause; the owner needs to know what to configure. |
+| FY27 figures are shown as *context only*, never as the yardstick. | `src/lib/kpi-measure-mapping.ts`, `src/components/review/edit-dialogs.tsx` | Satisfies "FY27 budget/stretch remain displayed" without letting them set a colour. |
+| So-What items store an optional semantic tone; the bridge commentary has a `FINANCIALS` scope. | `prisma/schema.prisma` + migration, `src/lib/review-model.ts`, `src/components/review/so-whats.tsx`, `so-what-editor.tsx`, `review-editor.tsx`, `review-view.tsx`, `src/lib/review-edits.ts`, `src/lib/mcp.ts` | Page parity for commentary (§8). |
 
 ### 2026 goal versus FY27 target — the rule now enforced
 
 1. **Status** is judged against the pillar definition's own stated goal, in the
    measure's own quantity. A figure the target text labels FY27 is never used.
 2. **FY27 budget and stretch** stay where they are — on the measure mapping
-   (`targetBudget` / `targetStretch`). They are displayed as FY27, never as the
-   October yardstick.
-3. When the definition states no usable 2026 goal, the app falls back to the
-   mapping's FY27 target **and says so** (`reference: "FY27 budget"`); when even
-   that is in a different quantity, it claims no status at all (`GREY`).
+   (`targetBudget` / `targetStretch`). They are displayed as FY27 context beside
+   the measure, never as the October yardstick.
+3. **There is no fallback.** Earlier in this branch the calculator fell back to the
+   mapping's FY27 target when no 2026 goal was stated, and labelled the fallback.
+   That path is gone: `mappingRag()` now requires a goal before it will return any
+   colour, so no code path runs from an FY27 figure to a red/amber/green status.
+   When the 2026 goal cannot be established the pillar shows a neutral **"Not
+   configured"** badge and names what is missing.
+3a. **An unlabelled figure that *is* the FY27 budget is refused too.** Production's
+   M&A target text reads `$26M total` — the stored FY27 budget written without a
+   label — and a naive parser reads that as a goal. `isPlanningFigure()` therefore
+   compares an unlabelled goal with the mapping's own `targetBudget` /
+   `targetStretch` (0.5% tolerance, so `$26.0M` still matches 25,980,000) and
+   refuses it as FY27 planning data. A figure the text explicitly calls `2026` is
+   never refused this way. This is what makes "FY27 never determines October
+   status" true in production *before* the configuration script runs, rather than
+   only after.
 4. **No production target was rewritten.** The stored FY27 figures differ from the
-   board pre-read in four places (§11, D2) and remain untouched.
+   board pre-read in four places (§12, D2) and remain untouched.
 
-Regression tests added: 17 (`review-format`, `kpi-measure-mapping`, `review-report`,
-`review-data`), including a test that a reviewed measure becomes the primary once
-linked and mapped, that two active mappings go neutral, that an FY27-labelled goal
-is refused, and that a count is never rated against a percentage.
+### The gap vocabulary — what "Not configured" says, and why
+
+A bare grey badge hides the cause. `statusGap()` returns one of five named gaps,
+which the badge tooltip and the caption under the measure print:
+
+| Gap | Meaning | What an owner must do |
+| --- | --- | --- |
+| `no-goal` | The definition states no 2026 goal (only FY27 figures, or nothing). | Write the 2026 goal into the target wording. |
+| `goal-not-comparable` | A goal exists but is a different quantity from the measure (e.g. 3,340 units against a 23% growth goal). | State the goal in the measure's own unit. |
+| `no-basis` | The mapping declares no reporting time basis, so "YTD" cannot be assumed. | Set the mapping's basis. |
+| `no-direction` | Nobody said whether higher or lower is better. | Set the direction. |
+| `no-value` | There is no usable observation for the period. | Ingest the observation. |
+
+Rules that survive unchanged:
+- **A manually approved `ReviewPillarStatus` stays authoritative.** The view shows
+  "Not configured" only when a gap exists *and* no one has approved a status; an
+  approved status still wins over every calculated one.
+- **Direction rules are preserved**: higher-is-better, lower-is-better, and *not
+  stated* is neutral (never green).
+- FY27 budget/stretch remain visible as context in the measure editor, labelled
+  "context only, not the October yardstick".
+
+Regression tests added: 17 in the earlier pass plus 12 in this one
+(`review-format`, `kpi-measure-mapping`, `review-report`, `review-data`,
+`october-primary-measures`), including: a reviewed measure becomes the primary
+once linked and mapped; two active mappings go neutral; an FY27-labelled goal is
+refused; a count is never rated against a percentage; a missing goal, an
+unparseable goal, a missing basis and a missing direction each yield "Not
+configured" with the right gap name; and an approved status survives a gap.
 
 ---
 
@@ -136,6 +189,55 @@ Rules for applying it (in this order, per pillar, in one edit):
 3. Put the 2026 goal into the pillar's target wording (e.g. M&A
    `2026 goal $23M · FY27 ~$33M / $47M stretch`).
 4. Leave the old FY27 definition published: it is the supporting row.
+
+### 4.1 The reviewed configuration, as code (dry run by default; not applied)
+
+The change is expressed as explicit configuration, not as a name heuristic, in
+`src/lib/october-primary-measures.ts`, and executed by
+`prisma/configure-october-2026-primary-measures.ts`:
+
+```
+npx tsx prisma/configure-october-2026-primary-measures.ts                     # dry run
+npx tsx prisma/configure-october-2026-primary-measures.ts --apply --snapshot before.json
+npx tsx prisma/configure-october-2026-primary-measures.ts --revert --snapshot before.json
+```
+
+Why it is safe to hand to engineering:
+
+| Property | How it is guaranteed |
+| --- | --- |
+| Dry run by default | Nothing is written without `--apply`. The default prints a plan summary and the human-readable change lines. |
+| Identity by key, never by name/position | Pillars are loaded by `StrategicArea.code`; definitions by `metricKey`. A missing reviewed definition aborts with "Create the reviewed definition first; this script never invents one." |
+| Exactly one active primary per driver | The planner proves the end state, and the executor re-checks inside the transaction: `if (active > 1) throw`. Two active mappings would render a pillar *ambiguous*, so the script refuses rather than guessing. |
+| Old primary switched off in the same pass | Deactivating `FY27:GROW / RETENTION / TREVPAR / MARGIN` is a planned change, so there is no window in which two primaries are active. |
+| FY27 figures untouched | `set-mapping` never writes `targetBudget` / `targetStretch` on update, and the M&A identity keeps its mapping (so no mapping write at all for M&A). The HTML's ~$33M is **not** written — that is D2, FP&A's decision (§12). |
+| No observation, rename or publication | The script writes only definition→area links, mapping rows and target *wording*; it never touches `KpiObservation`, never renames a KPI, never publishes. |
+| Idempotent | Running it on its own output yields "Already configured: nothing to write." A target already stating the same goal is left alone. |
+| Rollback | `--apply --snapshot` records the prior definition/mapping state; `--revert --snapshot` restores it. |
+
+Exact planned target wording, taken from the tests (the 2026 goal is **prefixed** to
+wording the business already has — no existing figure is rewritten):
+
+| Definition | Before (production wording) | After |
+| --- | --- | --- |
+| `FY27:M&A` | `$26M total` | `2026 goal $23M · $26M total` |
+| `user_review:annualized_unit_churn` | (none) | `2026 goal <12%` |
+| `user_review:trevpar_growth_reported` | (none) | `2026 goal +3.3% reported` |
+| `user_review:shop_noi_margin_delta_py_ex_ota` | (none) | `2026 goal +0.7 pt ex-OTA` |
+| `user_review:bd_unit_adds` | (none) | **no goal written** — see below |
+
+**Grow is deliberately goal-less.** The reference's Grow goal is a growth percentage
+(23%) while the October primary is a BD Master unit count (3,340 YTD). Writing one
+beside the other would recreate exactly the bug §3 removed. The script records
+`GROW: no 2026 goal written` in its notes; the pillar shows "Not configured" until
+an owner supplies a count-based 2026 goal or approves a `ReviewPillarStatus`. That is
+the honest state, not a gap in the script.
+
+Dry-run evidence on the local dev seed: the script aborts and writes nothing, because
+the reviewed definitions are absent from the seeded local database
+(`KPI user_review:bd_unit_adds (GROW primary) does not exist…`). The plan itself is
+covered by 12 unit tests against a production-shaped fixture. **The production run
+remains pending engineering approval.**
 
 ---
 
@@ -186,6 +288,51 @@ chart data; each row becomes one approved observation with the basis stated. Mis
 months stay missing on the chart — the chart already keeps them as gaps and never
 interpolates.
 
+### 6.0 Reconciliation — 37 reference observations, not 26 rows to import
+
+The earlier pass reported "26 historical rows". That number was the sum of two of
+the three series and omitted the Base Business line entirely. The reference page
+carries **37** monthly observations. The arithmetic and the per-series split:
+
+| # | Series | Expected | Present in production | Missing | Conflicting | Needs a new definition | Blocked by unresolved basis | Rows proposed for import |
+| --- | --- | --- | --- | --- | --- | --- | --- | ---: |
+| A | LTM Pro Forma Lender EBITDA (`user_review:ltm_pf_lender_ebitda`) | 11 | 1 (Oct-26 $136.0M) | 10 | 1 (Sep-26: holds $133.4M rev 1; reference $135.4M) | 0 | 0 | 11 |
+| B | Base Business Adjusted EBITDA, chart series | 11 | 0 as its own series | 11 | 0 | 11 | 11 | 0 |
+| C | AwayDNA PMS TRevPAR (`user_review:trevpar_awaydna_pms`) | 15 | 1 (Oct-26 $90.7) | 14 | 1 (Sep-26: holds $121.9; reference $129.4) | 0 | 0 | 15 |
+| — | **Total** | **37** | **2** | **35** | **2** | **11** | **11** | **26** |
+
+Arithmetic, stated plainly:
+
+- Expected: 11 + 11 + 15 = **37**.
+- Present: 1 + 0 + 1 = **2** (the two October observations production already
+  holds).
+- Missing: 10 + 11 + 14 = **35**. Check: 2 present + 35 missing = 37 expected.
+- Of the missing, **11** (series B) need a *new* definition before any row can be
+  written, because the Base Business line is a different fact from the lender line.
+- Of those 11, **all 11** are also blocked pending Finance naming the series'
+  accounting basis — so B contributes **0** rows proposed today.
+- Rows proposed now: 11 (A) + 0 (B) + 15 (C) = **26**. This is where the earlier
+  "26" came from: 37 reference observations − 11 blocked Base Business points =
+  26 importable rows. The figure was right; the label ("26 historical rows") was
+  wrong because it silently dropped series B.
+
+Two reconciliations that must not be collapsed:
+
+1. **Series B's Oct-26 point is $77.3M; the October YTD Adjusted EBITDA headline is
+   $79.9M.** They are different reported facts — a rolling chart point versus a
+   year-to-date total. Neither may be substituted for the other, and the app never
+   derives one from the other.
+2. **The two "conflicting" rows are restatements, not edits.** Sep-26 lender
+   $133.4M → $135.4M and Sep-26 AwayDNA $121.9 → $129.4. They are published as
+   **revision 2** (superseding revision 1), so the September review's published
+   history is preserved rather than overwritten. The chart marks a revised point.
+
+Production existence caveat: the "present in production" column records the two
+October rows the handoff bundle shows. Any claim about other production rows is
+**NOT VERIFIED** — production was not reachable from this session (no Neon MCP, no
+`neonctl`, no production credentials), so the handoff extraction remains the only
+evidence and no additional presence is assumed.
+
 ### 6.1 LTM Pro Forma Lender EBITDA and Base Business Adjusted EBITDA
 
 Definition: `user_review:ltm_pf_lender_ebitda` (`user-review-def-ltm_pf_lender_ebitda`),
@@ -213,9 +360,11 @@ lender row.
 basis. It is drawn dashed, sits below the lender line, and its October point is
 $77.3M after a $1.2M weather addback and a +$0.5M tuck-in. Until the pack names the
 basis (rolling twelve-month base business Adj. EBITDA including addbacks, or
-excluding), this series must not be published. **Flagged, not guessed.** Sep-26
-lender $135.4M is itself a **restatement** of the September review's $133.4M and
-must be published as revision 2, not as an edit.
+excluding), this series must not be published. **Flagged, not guessed.** It
+therefore shows **11 expected / 11 missing / 11 needing a new definition / 11
+blocked / 0 rows proposed** in §6.0. Sep-26 lender $135.4M is itself a
+**restatement** of the September review's $133.4M and is published as revision 2,
+not as an edit; the same is true of Sep-26 AwayDNA $129.4 (was $121.9).
 
 ### 6.2 AwayDNA PMS TRevPAR
 
@@ -341,24 +490,103 @@ by the review page from the database and edited only through the existing
 `ReviewSoWhat` editor; nothing in this branch generates, rewrites or re-orders
 them, and no Anthropic credential, endpoint, prompt or job was added.
 
-Two limits to record, neither of them a reason to introduce a parallel system:
+Both limits recorded in the previous pass are now closed, with the smallest
+additive change that keeps existing rows valid:
 
-1. **Per-item tone is not stored.** `ReviewSoWhat` has `headline` and `body` only.
-   The page colours each item red / green / yellow individually; the app currently
-   colours a whole section by the pillar's status and each item inherits it. To
-   match the page exactly, the store needs an optional per-item tone
-   (`positive` / `negative` / `warning` / `neutral`) — an additive column that is
-   engineering-owned and out of scope for this phase. The renderer already accepts
-   the tone when it exists (`SoWhatList`'s `tone` field), so adding it later changes
-   no presentation code.
-2. **The "So what in the bridge" block** on the reference page (four items under the
-   financials) has no home in the current scope model, which is summary + one scope
-   per area. Representing it would mean a new scope value (e.g. `FINANCIALS`) and
-   four rows — a content-and-schema decision, not a code change to make silently.
+**A. Per-item tone is stored (optional).** `ReviewSoWhat` gained a nullable
+`tone` column typed by a new `SoWhatTone` enum — `POSITIVE`, `WARNING`, `NEGATIVE`,
+`NEUTRAL`. Persisted values are semantic, **never CSS class names**; the renderer
+maps them to presentation tones (`soWhatToneFromStored`). Backward compatibility:
+absent or unrecognised tone renders neutrally and *inherits the section's tone*, so
+every pre-existing row keeps exactly the presentation it had. No default, no
+backfill, no row rewritten. The editor gained an optional per-item select
+("Inherit the section" plus the four values), `set_so_whats` accepts the same enum
+through the existing MCP tool, and tone changes are written to the audit trail
+alongside the headline.
+
+**B. The bridge commentary has a dedicated scope.** `FINANCIALS` is now a
+first-class scope, grouped separately from the area so-whats and rendered by a
+dedicated `FinancialSoWhats` block under the financial bridge. It is *reserved*
+safely: `reviewSoWhatScopes()` returns `financials: null` if an area of the active
+plan already uses the code `FINANCIALS`, so a stored row can never be attributed to
+the wrong section. The local plan's finance area is coded `FINANCE`, so the scope is
+available here.
+
+**What is not done — deliberately.** The four bridge texts themselves are **not
+imported**: the reference HTML is not present in this working copy, so the exact
+wording cannot be transcribed, and inventing it would breach the "preserve Alex's
+exact commentary" rule. That is a content import, previewed in §8.2 and marked
+BLOCKED. Equally: no Claude/Anthropic integration, no generated commentary, no
+background job, no auto-publishing, no model credentials — that remains the separate
+future feature described in `docs/claude-so-what-generation-design.md`.
 
 Everything else — the wording, the numbers quoted inside the sentences, the order,
 and the red/green/yellow intent — is preserved because it lives in the database and
-is untouched by this branch.
+is untouched by this branch; nothing is hardcoded in a component.
+
+### 8.1 Proposed schema change (applied to local dev only)
+
+`prisma/migrations/20261119044941_review_so_what_tone/migration.sql`:
+
+```sql
+CREATE TYPE "SoWhatTone" AS ENUM ('POSITIVE', 'WARNING', 'NEGATIVE', 'NEUTRAL');
+ALTER TABLE "ReviewSoWhat" ADD COLUMN "tone" "SoWhatTone";
+```
+
+Additive and backward-compatible: the column is nullable with no default, so all
+existing rows (29 in the local DRAFT period, all `NULL`) remain valid and unchanged.
+Applied **only** to the local `awayday_si_dev` database in this session; not applied
+to staging or production. Verified afterwards: the column type is `USER-DEFINED`,
+`is_nullable = YES`, no default, and `prisma migrate status` reports the schema up to
+date.
+
+### 8.2 Content-import preview for the bridge commentary (not executed)
+
+| Field | Value |
+| --- | --- |
+| Metric identity | Not a metric. Rows in `ReviewSoWhat` with `scope = 'FINANCIALS'`, `periodId = '2026-10'`. |
+| Reporting period | `2026-10` (DRAFT). |
+| Reporting scope | `FINANCIALS`. |
+| Comparison basis | n/a (commentary). |
+| Time basis | n/a (commentary). |
+| Entity scope / ID | Tenant's own review; `entityId = null`. |
+| Source document | `Awayday October 2026 Strategy Review(2).html`, "So what in the bridge" block. |
+| Source location | Financials section, immediately below the bridge table. |
+| Value | **NOT SUPPLIED** — 4 items expected; exact headline/body/tone cannot be transcribed because the reference HTML is absent from this working copy. |
+| Publication state | Would be authored in DRAFT and approved with the period; not published here. |
+| Revision policy | Replace-within-period (the existing `set_so_whats` semantics), audited. |
+| Validation / rollback | Preview, then user-confirmed write through the authenticated editor or MCP tool; rollback = re-save prior rows (captured in the audit trail). |
+| Status | **BLOCKED — reference content unavailable. Do not invent.** |
+
+---
+
+## 8A. Import register — the ten required fields, per proposed import
+
+Every proposed production import is recorded here against the same ten fields, so
+engineering can review a row without re-deriving its meaning. **Nothing in this
+register has been executed.** Presence claims about production come from the
+read-only handoff extraction; anything it does not show is **NOT VERIFIED**.
+
+| Field | (1) Base Business comparisons | (2) LTM lender + Base Business history | (3) AwayDNA TRevPAR history | (4) 49-brand churn | (5) Missing So-What content/tones |
+| --- | --- | --- | --- | --- | --- |
+| Metric identity | `user_review:base_*` (8 existing definitions, §5) | `user_review:ltm_pf_lender_ebitda`; Base Business needs a **new** definition | `user_review:trevpar_awaydna_pms` | 5 new definitions (§7) | `ReviewSoWhat` rows, not metrics |
+| Reporting period | `2026-10` | Dec-25 … Oct-26 (11 months each) | Aug-25 … Oct-26 (15 months) | `2026-10` (LTM columns cover Nov-25→Oct-26) | `2026-10` |
+| Reporting scope | `BASE_BUSINESS` | lender: `REPORTED`; Base Business: `BASE_BUSINESS` | `AWAYDNA_PMS` | `AWAYDNA_PMS` | `SUMMARY`, area codes, `FINANCIALS` |
+| Comparison basis | `BUDGET`, `PRIOR_YEAR` | `ACTUAL` | `ACTUAL` | `ACTUAL` | n/a |
+| Time basis | `MONTHLY`, `YTD` | `LTM` (lender); **unstated → BLOCKED** (Base Business) | `MONTHLY` | `POINT_IN_TIME` (16 Nov 26), `MONTHLY`, `LTM` per column | n/a |
+| Entity scope / ID | `BASE_BUSINESS` / `null` | `BASE_BUSINESS` / `null` | `AWAYDNA_PMS` / `null` | `BRAND` / brand name in `entityId` | tenant review / `null` |
+| Source document | *Awayday 2026-10 Results (Internal), Flash EBITDA Final 11 Nov* | same pack + *Reporting Pack vFinal (Ares & LightBay)* | *AwayDNA dbt Semantic Layer* (queried 16 Nov) | AwayDNA dbt | `Awayday October 2026 Strategy Review(2).html` |
+| Source location | P&L tab, budget & PY columns | EBITDA bridge / chart tab | TRevPAR tab | brand churn table | "So what in the bridge" block |
+| Value | 32 values from the pack (**not** back-solved from printed variances) | 22 chart values (§6.1) | 15 chart values (§6.2) | 245 values (§7.1) | **NOT SUPPLIED** |
+| Publication state | `APPROVED` on import, revision 1 | `APPROVED`, revision 1; Sep-26 as **revision 2** | `APPROVED`, revision 1; Sep-26 **revision 2** | `APPROVED`, revision 1 | DRAFT, approved with the period |
+| Revision / restatement policy | New period observations; no edits to history | Restatements supersede by revision; never overwrite | Same | One row per brand per column per population; never merged | Replace-within-period, audited |
+| Validation / rollback | Reconcile totals to the pack; rollback = delete the period's rows by id | Reconcile totals to $136.0M / $77.3M; rollback by id | Reconcile Oct $90.7; rollback by id | Totals 15,324 / 169 / 1,868 must tie; rollback by id | Re-save prior rows (audit trail) |
+| Rows proposed now | 32 | **11** (lender); 0 Base Business (**blocked**) | 15 | 245 | 4 items + tones (**blocked**) |
+
+Reading the register: only sets (2) and (3) are importable without a business
+decision, and only after the §12 decisions below are answered; (1) needs the pack
+and D4; (4) needs D5 and the Beach Retreats / Rent Branson exceptions; (5) needs the
+reference HTML. **No set is authorised to run from this branch.**
 
 ---
 
@@ -379,6 +607,21 @@ is untouched by this branch.
 
 Static review only; nothing applied to production or staging in this phase.
 
+### 9.1 The So-What tone migration (applied to local dev only)
+
+`prisma/migrations/20261119044941_review_so_what_tone/` — `CREATE TYPE "SoWhatTone"`
+plus `ALTER TABLE "ReviewSoWhat" ADD COLUMN "tone" "SoWhatTone"` (see §8.1).
+
+| Check | Result |
+| --- | --- |
+| Additive only | Creates an enum and one nullable column. No `DROP`, no type change, no data migration. |
+| Existing rows stay valid | Nullable with no default, so the 29 local DRAFT rows were untouched (`tone = NULL` verified by query afterwards). |
+| Old code keeps working | The column is optional on read; the renderer treats absent/unknown tone as neutral, inheriting the section tone. |
+| Unknown values rejected at the boundary | `normalizeSoWhatTone()` accepts only the four semantic values (case-insensitive) and rejects CSS class names and non-strings — tested. |
+| No arbitrary presentation strings stored | Values are `POSITIVE/WARNING/NEGATIVE/NEUTRAL`; the presentation tone is derived, never stored. |
+| Applied where | Local `awayday_si_dev` only. `npx prisma migrate status` → 19 migrations, schema up to date. Staging and production untouched. |
+| Rollback | `DROP COLUMN "tone"` then `DROP TYPE "SoWhatTone"`; lossless for existing rows because no row's other fields change. |
+
 ---
 
 ## 10. Self-review findings and corrections
@@ -398,6 +641,31 @@ Static review only; nothing applied to production or staging in this phase.
 | Security / authorization | No auth, session, MFA, token, entitlement, audit or infrastructure file touched. `dev-auth` untouched; no new route. | Verified by diff |
 | Protected files | Diff limited to `src/lib/review-format.ts`, `src/lib/kpi-measure-mapping.ts`, `src/lib/review-model.ts`, `src/lib/review-data.ts`, `src/lib/review-report.ts`, `src/components/review/review-view.tsx`, `src/components/review/edit-dialogs.tsx`, four test files and documentation. | Verified |
 
+### 10.1 Second-pass self-review (this session)
+
+| Area | Finding | Action |
+| --- | --- | --- |
+| Status colouring | The FY27-fallback path still produced a confident colour when a 2026 goal was absent — the exact defect Finding #1 names. | Removed by construction: `mappingRag` requires a goal, so no path runs from FY27 to a colour. Pillar shows "Not configured". Tests added. |
+| Status colouring (2) | Production target text `$26M total` is the FY27 budget without a label; it parsed as a goal and would still have coloured the pillar. | `isPlanningFigure()` refuses an unlabelled goal that equals the mapping's FY27 budget/stretch. Tests: `$26M total` → `no-goal`; `$47M stretch` → `no-goal`; `$20M goal` still rates; `2026 goal $23M · $26M total` judges against $23M. |
+| Status display | The "Not configured" state was only proven at the helper level, not shown to render. | `MeasureStatus` exported and covered by 7 render tests: each gap prints "Not configured" plus its explanation, an approved status still wins, and no verdict word leaks. |
+| 2026 / FY27 selection | `statusGap()` was receiving the *accepted* reference instead of the *parsed* goal, so a count-vs-percentage case named `no-goal` rather than `goal-not-comparable`. | Fixed: pass the parsed goal to `statusGap`, the accepted reference only to `mappingRag`. Test asserts `goal-not-comparable`. |
+| Metric identity | "Owner unit churn" was classified as a **count** because of the word "unit", so the measure refused its own percentage goal and went grey. | Fixed in `metricKind`: "churned units"/"units churned" match *before* the percent list. Test added (primary chosen by mapping, not list position). |
+| Scorecard vs pillar agreement | `statusAgainstTarget` silently used the *first number in the target text* when no comparable goal existed — it rated 3,340 units against 23%. | Fixed: returns `no_data` unless a comparable 2026 goal exists. LOI fixture given an explicit `displayFormat`. Test kept. |
+| % vs percentage point | Margin primaries are `points`, growth primaries are `percent`; `formatDelta` prints `pp` for point deltas. | Verified unchanged; no regression. |
+| Reporting-scope / time basis mixing | Retention's stored FY27 mapping is **LTM** while the October primary is **YTD** annualized; TRevPAR/Margin have reported vs ex-OTA populations. | The reviewed primaries declare `timeBasis: YTD` explicitly; `mappingRag` returns `GREY` when a mapping declares no basis. Test for `no-basis`. |
+| Missing chart periods | Charts keep missing months as gaps and never interpolate; a single point is not drawn as a trend. | No change; reconciliation in §6.0 adds counts, not code. |
+| Restatements | Sep-26 lender/AwayDNA corrections are revisions, not edits. | Unchanged; documented as revision 2 in §6.0 and §8A. |
+| Brand double counting | Rows keyed by population + brand; totals sum counts and derive percentages. | Unchanged; import preview keeps one row per brand per column. |
+| Commentary XSS | `SoWhatList` renders stored text as text. | Re-verified with new tone tests; escaping tests retained. |
+| So-What ordering / tone | Adding tone risked reordering or overriding sections. | Tone is per item and optional; item tone beats section tone only when set; order preserved by `order`. Tests assert mixed section and exact wording. |
+| Authorization | So-What writes must reject unknown scopes and require the existing edit entitlement. | `setSoWhats` validates against `reviewSoWhatScopeList` (accepts `FINANCIALS`, refuses anything else); editor/API path unchanged. Test added. |
+| Migration compatibility | A non-null column or default would break existing rows. | Nullable, no default, no backfill; verified on local DB. |
+| Duplicate active primaries | Activating a reviewed mapping without switching off the FY27 one yields two actives. | Script plans deactivation in the same pass and refuses if `active > 1`. Test asserts one active per driver. |
+| Production database access | Risk of the config script or tests touching production. | Script reads `DATABASE_URL` (local `.env` only) and is dry-run by default; no test connects to a database; no production credential exists in the repo. |
+| Hardcoded financial observations | Risk of embedding figures in components/docs as data. | Figures appear only in documentation and test fixtures, never in app components; So-What content is DB-only. |
+| Protected auth paths | Risk of touching Entra/Better Auth/session/roles. | Diff touches none of `src/lib/auth.ts`, `sso.ts`, `session.ts`, `roles.ts`, `api-tokens.ts`, `mfa-policy.ts`, `audit.ts` (only *calls* `audit`), `dev-auth.ts`. Verified by file list. |
+| React render warning | A `<title>` with an array of children warned during chart render. | Fixed in `trend-chart.tsx` (single template string). |
+
 ---
 
 ## 11. Validation
@@ -405,11 +673,13 @@ Static review only; nothing applied to production or staging in this phase.
 | Gate | Result |
 | --- | --- |
 | `npm run typecheck` | pass |
-| `npm run lint` | pass |
-| `npm test` | **63 files, 762 tests, all pass** (was 745; +17) |
+| `npm run lint` | pass (0 problems) |
+| `npm test` | **65 files, 803 tests, all pass** (was 762 two passes ago; +41) |
 | `npm run build` | pass |
 | `npx prisma validate` | "The schema at prisma/schema.prisma is valid" |
-| Local preview | `http://127.0.0.1:3000`, local Postgres `awayday_si_dev` only; strategy house, reviewer page and measure editor render; light and dark themes verified |
+| `npx prisma migrate status` | 19 migrations found; "Database schema is up to date!" |
+| `prisma/migrations/20261119044941_review_so_what_tone` | applied to local `awayday_si_dev` only; column verified nullable, no default |
+| Local preview | `http://127.0.0.1:3000`, loopback only, local Postgres `awayday_si_dev`; `/`, `/review/2026-10`, `/review/2026-10/edit`, `/scorecard`, `/reporting` all 200 |
 
 ---
 
@@ -417,19 +687,21 @@ Static review only; nothing applied to production or staging in this phase.
 
 | # | Decision | Owner | Blocks |
 | --- | --- | --- | --- |
-| D1 | Link `user_review:bd_unit_adds` / `annualized_unit_churn` / `trevpar_growth_reported` / `shop_noi_margin_delta_py_ex_ota` to their pillars, then activate their mappings and switch the FY27 mappings off. | Pillar owners + engineering (data change) | The five-pillar identity match |
-| D2 | FY27 targets in production are the earlier set; the board pre-read supersedes them for four pillars (M&A ~$33M vs $26M stored; Grow 22/30 vs 23/28; Retention 12/11 vs 11/9; TRevPAR 1/3 vs 1/5). Refresh the mappings? | FP&A + owners | FY27 markers, not the October status |
-| D3 | Base Business line basis for the chart series ($77.3M October) — name it before publishing the series. | Finance | Historical chart |
+| D1 | **Resolved to a runnable plan.** Link `user_review:bd_unit_adds` / `annualized_unit_churn` / `trevpar_growth_reported` / `shop_noi_margin_delta_py_ex_ota` to their pillars, activate their mappings and switch the FY27 mappings off — now encoded in `configure-october-2026-primary-measures.ts` (§4.1). Approval to *run it* is still required. | Engineering (run) | The five-pillar identity match |
+| D1a | **Grow's 2026 goal is a percentage, the primary is a unit count.** Supply a count-based 2026 goal, or approve a `ReviewPillarStatus` for Grow. | Grow owner / FP&A | Grow's status colour |
+| D2 | FY27 targets in production are the earlier set; the board pre-read differs for four pillars (M&A ~$33M vs $26M stored; Grow 22/30 vs 23/28; Retention 12/11 vs 11/9; TRevPAR 1/3 vs 1/5). Refresh the mappings? | FP&A + owners | FY27 markers, **never** the October status |
+| D3 | Base Business line basis for the chart series ($77.3M October) — name it before publishing the series. | Finance | Historical chart (11 blocked points) |
 | D4 | Publish the 32 Base Business comparison observations from the Finance pack. | FP&A | P&L "vs Bud / vs PY" columns |
-| D5 | Approve the 26 historical rows and 245 brand-churn rows for import (after D3). | Finance + Strategy | Charts and the brand table |
-| D6 | Add an optional per-item So-What tone and a `FINANCIALS` scope for the bridge so-whats. | Engineering + Strategy | Exact page parity for commentary |
+| D5 | Approve the 26 importable historical rows (11 lender + 15 AwayDNA) and 245 brand-churn rows. Base Business history waits on D3. | Finance + Strategy | Charts and the brand table |
+| D6 | **Implemented in this branch (local dev only).** Per-item So-What tone + `FINANCIALS` scope; migration `20261119044941_review_so_what_tone`. Remaining action: author the four bridge texts from the reference HTML (content, not schema). | Strategy (content) + engineering (migration to release) | Exact page parity for commentary |
 
 ### Execution order
 
 1. Engineering review + merge decisions for PR #25 → #26 (stacked, unchanged).
-2. Apply the migration through the approved release process.
-3. D1 configuration (per pillar, one edit each: link → activate → switch off → target text).
-4. D2 FY27 target refresh, if approved.
-5. D3/D4/D5 approved imports, published as revision 1 (restatements as revision 2).
-6. D6 schema decision for per-item tone.
-7. Re-check the strategy house and the October page against the reference; then deploy.
+2. Apply the two migrations (`kpi_mapping_direction_optional`, `review_so_what_tone`) through the approved release process.
+3. D1 configuration: run the reviewed script with `--apply --snapshot` (per pillar: link → activate → switch off → target text).
+4. D1a Grow goal decision, then re-run the script (idempotent).
+5. D2 FY27 target refresh, if approved.
+6. D3/D4/D5 approved imports, published as revision 1 (restatements as revision 2).
+7. D6 author the four bridge texts and their tones through the editor/MCP (no code change).
+8. Re-check the strategy house and the October page against the reference; then deploy.

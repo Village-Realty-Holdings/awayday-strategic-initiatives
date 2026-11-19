@@ -14,6 +14,8 @@ import {
   monthAfter,
   ragFor,
   reviewPeriods,
+  reviewSoWhatScopeList,
+  reviewSoWhatScopes,
   shortCode,
   splitNames,
   synthesiseAreas,
@@ -203,11 +205,24 @@ describe("parseSoWhats", () => {
       { scope: "M&A", headline: "Pipeline is full", body: null },
     ]);
     expect(parseSoWhats(json, scopes)).toEqual([
-      { scope: "M&A", order: 0, headline: "Four closes", body: "942 units" },
-      { scope: "SUMMARY", order: 0, headline: "Shops beat", body: null },
-      { scope: "SUMMARY", order: 1, headline: "CAC is the number nobody has explained.", body: null },
-      { scope: "M&A", order: 1, headline: "Pipeline is full", body: null },
+      { scope: "M&A", order: 0, headline: "Four closes", body: "942 units", tone: null },
+      { scope: "SUMMARY", order: 0, headline: "Shops beat", body: null, tone: null },
+      { scope: "SUMMARY", order: 1, headline: "CAC is the number nobody has explained.", body: null, tone: null },
+      { scope: "M&A", order: 1, headline: "Pipeline is full", body: null, tone: null },
     ]);
+  });
+
+  it("stores a tone only when it is one of the four values, and never a class name", () => {
+    const json = JSON.stringify([
+      { scope: "M&A", headline: "Volume ahead", body: null, tone: "POSITIVE" },
+      { scope: "M&A", headline: "CAC off track", body: null, tone: "warning" },
+      { scope: "M&A", headline: "Churn worse", body: null, tone: "NEGATIVE" },
+      { scope: "M&A", headline: "A note", body: null, tone: "NEUTRAL" },
+      { scope: "M&A", headline: "Unknown", body: null, tone: "text-risk" },
+      { scope: "M&A", headline: "Absent", body: null },
+      { scope: "M&A", headline: "Not a string", body: null, tone: 7 },
+    ]);
+    expect(parseSoWhats(json, scopes).map((s) => s.tone)).toEqual(["POSITIVE", "WARNING", "NEGATIVE", "NEUTRAL", null, null, null]);
   });
 
   it("caps text length and the number per scope", () => {
@@ -216,6 +231,14 @@ describe("parseSoWhats", () => {
     expect(out).toHaveLength(12);
     expect(out[0].headline).toHaveLength(200);
     expect(out[0].body).toHaveLength(2000);
+  });
+
+  it("offers the summary, the financial bridge and each area, and reserves FINANCIALS", () => {
+    expect(reviewSoWhatScopeList(["M&A", "GROW"])).toEqual(["SUMMARY", "FINANCIALS", "M&A", "GROW"]);
+    // A plan that happens to name an area FINANCIALS keeps it: the bridge is then
+    // not offered, so a stored row is never read as the wrong section.
+    expect(reviewSoWhatScopes(["FINANCIALS", "GROW"])).toEqual({ summary: "SUMMARY", financials: null, areas: ["FINANCIALS", "GROW"] });
+    expect(reviewSoWhatScopeList(["FINANCIALS"])).toEqual(["SUMMARY", "FINANCIALS"]);
   });
 
   it("yields nothing for invalid or non-array JSON", () => {

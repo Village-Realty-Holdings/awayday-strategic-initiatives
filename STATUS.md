@@ -3,7 +3,53 @@
 _Last updated 2026-11-18 (latest), on branch `feat/review-visual-parity`
 (stacked on PR #25; neither branch is merged or deployed)._
 
-## Latest: October 2026 parity — the 2026 goal is the yardstick, not the FY27 target (PR #26, not merged)
+## Latest: no status colour without a 2026 goal; So-What tone stored; October configuration ready to run (PR #26, not merged)
+
+Three findings from the previous review are closed, and the production configuration
+is now a reviewed script rather than a prose plan. Nothing was merged, deployed or
+written to production, and no import was executed.
+
+- **No FY27 fallback for October status.** The calculator no longer falls back to a
+  mapping's FY27 target when a definition states no 2026 goal, and it also refuses
+  an *unlabelled* figure that equals the mapping's own FY27 budget/stretch (e.g.
+  production's `$26M total`). A missing, unparseable or incompatible goal, or a
+  mapping with no declared time basis, now yields a neutral **"Not configured"**
+  badge that names the gap (`no-goal` / `goal-not-comparable` / `no-basis` /
+  `no-direction` / `no-value`). FY27 budget/stretch stay visible as context only.
+  An approved `ReviewPillarStatus` still wins.
+- **Historical series reconciled to 37 observations, not 26 rows.** 11 LTM lender +
+  11 Base Business + 15 AwayDNA = 37 expected; 2 present in production; 35 missing;
+  11 need a new definition (the Base Business line, which is a different fact from
+  the $79.9M YTD headline and is **blocked** pending Finance naming its basis);
+  26 rows importable today (11 + 15). Sep-26 restatements ($135.4M lender, $129.4
+  AwayDNA) stay as revision 2, never edits.
+- **So-What presentation parity.** `ReviewSoWhat` gained an optional semantic
+  `tone` (`POSITIVE`/`WARNING`/`NEGATIVE`/`NEUTRAL`, never CSS classes) through a
+  backward-compatible additive migration, applied to the **local dev database
+  only**; the bridge commentary got a dedicated `FINANCIALS` scope. Absent or
+  unknown tone renders neutrally and inherits the section. The four bridge texts
+  themselves are **not** imported — the reference HTML is absent, so that is a
+  documented blocker, not an invention.
+- **Configuration script for the five primaries** — dry run by default, identity by
+  `metricKey`, exactly one active mapping per driver, FY27 figures never written,
+  idempotent, with `--snapshot` / `--revert`. Grow is deliberately left goal-less
+  (percentage goal vs unit count) and reported as such.
+- 803 tests pass (65 files). Typecheck, lint, build, `prisma validate` and
+  `migrate status` pass. Browser smoke test at 1440×900 and 390×844 in both
+  themes: all five routes render, no console errors, no horizontal overflow, the
+  so-what editor exposes a tone select per item. Local preview on
+  `127.0.0.1:3000` against `awayday_si_dev`. Details and the import register:
+  [docs/october-2026-parity-corrections.md](docs/october-2026-parity-corrections.md).
+
+### Blocker to record
+
+The reference HTML (`Awayday October 2026 Strategy Review(2).html`) and the handoff
+JSON (`october-2026-production-kpi-identities.json`) are **not present** in this
+working copy. Corrections were made from the extractions already recorded in the
+repo; the two files are requested before the bridge content import and the
+production-mapping evidence can be confirmed.
+
+## Previous: October 2026 parity — the 2026 goal is the yardstick, not the FY27 target (PR #26, not merged)
 
 The reference page (`Awayday October 2026 Strategy Review(2).html`) sets each
 pillar's **2026 goal** beside its **FY27 budget and stretch** and judges status

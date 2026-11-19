@@ -23,11 +23,20 @@ export function KpiStatusBadge({
   status,
   tone,
   className,
+  label,
+  title,
 }: {
   status: KpiStatus;
   /** Overrides the documented colour for under_budget / floor_breached only. */
   tone?: StatusTone;
   className?: string;
+  /**
+   * Wording override, e.g. "Not configured" for a pillar whose goal, direction
+   * or reporting basis is not set up. The status itself is unchanged, so the
+   * colour, glyph and tone semantics stay in one vocabulary.
+   */
+  label?: string;
+  title?: string;
 }) {
   const resolved = statusToneWithRule(status, tone);
   return (
@@ -35,14 +44,14 @@ export function KpiStatusBadge({
       variant={BADGE_VARIANT[resolved]}
       shape="pill"
       className={className}
-      title={statusMeaning(status)}
+      title={title ?? statusMeaning(status)}
       data-status={status}
       data-tone={resolved}
     >
       <span aria-hidden className="text-nano leading-none">
         {KPI_STATUS_META[status].glyph}
       </span>
-      {KPI_STATUS_META[status].label}
+      {label ?? KPI_STATUS_META[status].label}
     </Badge>
   );
 }

@@ -7,7 +7,7 @@
 // (reportingScope + entityScope + timeBasis + comparisonBasis), and each table
 // section names the population it belongs to.
 
-import { formatDelta, formatMetricValue, metricKind, parseNumber, parseTargetMarkers, parseTargetNumber, primaryGoalMarker, sameQuantity, type MetricKind } from "@/lib/review-format";
+import { formatDelta, formatMetricValue, metricKind, parseNumber, parseTargetMarkers, primaryGoalMarker, sameQuantity, type MetricKind } from "@/lib/review-format";
 
 // Formatters live in review-format.ts so client components can use them without
 // importing the Prisma-backed KPI module. Re-exported here for existing callers.
@@ -650,9 +650,15 @@ export function scorecardStatusLabel(status: ScorecardRow["status"]): string {
  * the 2026 goal beside the FY27 budget and stretch and judges against the 2026
  * goal, so a figure the target text labels FY27 is never used, and a goal
  * written in another quantity (a growth percentage beside a unit count) is not
- * used either. Amber within 10% of the target on either side, matching the app's
- * other target comparisons; no status when either side is missing or not a
- * single comparable figure.
+ * used either.
+ *
+ * There is no fallback. An earlier version fell back to the first number in the
+ * target text when no goal matched the measure's quantity, which rated 3,340
+ * units against a 23% growth goal and called it "ahead". A row with no
+ * comparable goal is `no_data`, never a confident verdict.
+ *
+ * Amber within 10% of the target on either side, matching the app's other
+ * target comparisons.
  */
 export function statusAgainstTarget(
   value: string | null | undefined,
@@ -662,13 +668,9 @@ export function statusAgainstTarget(
   const actual = parseNumber(value ?? null);
   if (actual === null) return "no_data";
   const goal = primaryGoalMarker(parseTargetMarkers(target), kind);
-  const parsed =
-    goal && sameQuantity(actual, goal.value)
-      ? { value: goal.value, lowerIsBetter: goal.lowerIsBetter }
-      : parseTargetNumber(target);
-  if (parsed === null) return "no_data";
-  if (Math.abs(actual - parsed.value) <= Math.abs(parsed.value) * 0.1) return "on_track";
-  const better = parsed.lowerIsBetter ? actual < parsed.value : actual > parsed.value;
+  if (goal === null || !sameQuantity(actual, goal.value)) return "no_data";
+  if (Math.abs(actual - goal.value) <= Math.abs(goal.value) * 0.1) return "on_track";
+  const better = goal.lowerIsBetter ? actual < goal.value : actual > goal.value;
   return better ? "ahead" : "behind";
 }
 

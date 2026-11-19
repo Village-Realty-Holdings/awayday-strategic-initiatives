@@ -98,7 +98,7 @@ describe("getReviewPlan", () => {
   it("works a mapped measure out from imported metrics, and a value on the measure wins", async () => {
     const mapping = { active: true, calculation: "YOY_PCT", inputMetricKey: "trevpar_finance", denominatorMetricKey: null, timeBasis: "YTD", displayFormat: "percent", higherIsBetter: true, targetBudget: 1, targetStretch: 5 };
     const obs = (value: string, comparisonBasis: string) => ({ kpiId: "t", value, reportingPeriod: "2026-09", observedAt: new Date("2026-09-30"), refreshedAt: new Date("2026-10-23"), quality: "VALID", publicationState: "APPROVED", revision: 1, reportingScope: "AWAYDAY_CONSOLIDATED", comparisonBasis, timeBasis: "YTD", entityScope: "CONSOLIDATED", entityId: "AWAYDAY_CONSOLIDATED", authorityRank: 15, sourceCategory: "ares_lightbay_financials" });
-    const area = (observations: unknown[]) => ({ id: "a-t", code: "TREVPAR", name: "TRevPAR Expansion", kind: "VALUE_DRIVER", goal: null, owner: null, kpiName: "TRevPAR growth (YoY)", kpiTarget: "1% budget; 5% stretch", kpis: [{ id: "k-t", name: "TRevPAR growth (YoY)", target: "1% budget; 5% stretch", measureMapping: mapping, observations }] });
+    const area = (observations: unknown[]) => ({ id: "a-t", code: "TREVPAR", name: "TRevPAR Expansion", kind: "VALUE_DRIVER", goal: null, owner: null, kpiName: "TRevPAR growth (YoY)", kpiTarget: "2026 goal 1%; FY27 1% budget; 5% stretch", kpis: [{ id: "k-t", name: "TRevPAR growth (YoY)", target: "2026 goal 1%; FY27 1% budget; 5% stretch", measureMapping: mapping, observations }] });
     getActivePlan.mockResolvedValue({ id: "fy27", code: "FY27", title: "FY27" });
     initiativeFindMany.mockResolvedValue([]);
     definitionFindMany.mockResolvedValue([{ metricKey: "trevpar_finance", name: "TRevPAR (Finance definition)", observations: [obs("136.30", "ACTUAL"), obs("133.00", "PRIOR_YEAR")] }]);
@@ -223,7 +223,7 @@ describe("primary measure selection", () => {
 
   it("reads the measure from the KPI with the active mapping, not from list position", async () => {
     const unmappedWithValue = { id: "k-support", name: "AAA supporting metric", target: "5%", measureMapping: null, observations: [observation("4%")] };
-    const mapped = { id: "k-primary", name: "Zzz owner unit churn", target: "12% budget", measureMapping: churnMapping, observations: [observation("9%")] };
+    const mapped = { id: "k-primary", name: "Zzz owner unit churn", target: "2026 goal 12%", measureMapping: churnMapping, observations: [observation("9%")] };
     // The supporting KPI sorts first and carries an observation; it must not win.
     areaFindMany.mockResolvedValue([area([unmappedWithValue, mapped])]);
     const measure = (await getReviewPlan("2026-10")).areas[0].measure;
@@ -231,7 +231,7 @@ describe("primary measure selection", () => {
   });
 
   it("is unaffected by a rename or by adding a KPI", async () => {
-    const mapped = (name: string) => ({ id: "k-primary", name, target: "12% budget", measureMapping: churnMapping, observations: [] });
+    const mapped = (name: string) => ({ id: "k-primary", name, target: "2026 goal 12%", measureMapping: churnMapping, observations: [] });
     areaFindMany.mockResolvedValue([area([mapped("Owner unit churn (TTM)")])]);
     const before = (await getReviewPlan("2026-10")).areas[0].measure;
     areaFindMany.mockResolvedValue([area([{ id: "k-new", name: "AAA new metric", measureMapping: null, observations: [] }, mapped("Renamed churn measure")])]);
@@ -276,9 +276,9 @@ describe("primary measure selection", () => {
     expect(measure).toMatchObject({ rag: "GREY", higherIsBetter: null, primary: "selected" });
   });
 
-  it("rates a declared lower-is-better measure against its budget", async () => {
+  it("rates a declared lower-is-better measure against its 2026 goal", async () => {
     areaFindMany.mockResolvedValue([
-      area([{ id: "k1", name: "Owner unit churn (TTM)", target: "12% budget", measureMapping: churnMapping, observations: [observation("9%")] }]),
+      area([{ id: "k1", name: "Owner unit churn (TTM)", target: "2026 goal 12%", measureMapping: churnMapping, observations: [observation("9%")] }]),
     ]);
     expect((await getReviewPlan("2026-10")).areas[0].measure).toMatchObject({ rag: "GREEN", higherIsBetter: false });
   });
@@ -342,8 +342,11 @@ describe("primary measure selection", () => {
     expect(measure?.origin?.status).toMatchObject({ budget: "$20.0M", reference: "2026 goal" });
   });
 
-  it("falls back to the mapping's FY27 budget when the definition states no 2026 goal", async () => {
-    const ma = mapping({ calculation: "DIRECT", displayFormat: "currency", higherIsBetter: true, targetBudget: 26_000_000 });
+  it("never falls back to the mapping's FY27 budget when the definition states no 2026 goal", async () => {
+    // The FY27 figures are planning data from the board pre-read. They are shown
+    // for context and never determine an October status, so a definition whose
+    // target text states only an FY27 budget gets no status at all.
+    const ma = mapping({ calculation: "DIRECT", displayFormat: "currency", higherIsBetter: true, targetBudget: 26_000_000, targetStretch: 47_000_000 });
     areaFindMany.mockResolvedValue([
       area([{ id: "k-ma", name: "Acquired EBITDA closed", target: "FY27 $33M budget", measureMapping: ma, observations: [observation("$24M")] }], {
         code: "M&A",
@@ -351,8 +354,105 @@ describe("primary measure selection", () => {
       }),
     ]);
     const measure = (await getReviewPlan("2026-10")).areas[0].measure;
-    expect(measure).toMatchObject({ rag: "AMBER" });
-    expect(measure?.origin?.status).toMatchObject({ budget: "$26.0M", reference: "FY27 budget" });
+    expect(measure).toMatchObject({ rag: "GREY", calculatedRag: "GREY", statusGap: "no-goal" });
+    expect(measure?.origin?.status).toMatchObject({ budget: null, reference: null, gap: "no-goal", difference: null });
+    // The FY27 budget is still reported, in its own context field.
+    expect(measure?.origin?.status.context).toBe("FY27 budget $26.0M · stretch $47.0M");
+  });
+
+  it("refuses an unlabelled figure that is the mapping's own FY27 budget", async () => {
+    // Production's M&A target text reads "$26M total" — the stored FY27 budget
+    // written without a label. It is indistinguishable from plain target text, so
+    // it must not be read as a 2026 goal: FY27 never determines October status.
+    const ma = mapping({ calculation: "DIRECT", displayFormat: "currency", higherIsBetter: true, targetBudget: 26_000_000, targetStretch: 47_000_000 });
+    areaFindMany.mockResolvedValue([
+      area([{ id: "k-ma", name: "Acquired EBITDA closed", target: "$26M total", measureMapping: ma, observations: [observation("$34.8M")] }], {
+        code: "M&A",
+        kpiName: "Acquired EBITDA closed",
+      }),
+    ]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({ rag: "GREY", calculatedRag: "GREY", statusGap: "no-goal" });
+    expect(measure?.origin?.status).toMatchObject({ reference: null, difference: null });
+  });
+
+  it("also refuses an unlabelled figure equal to the FY27 stretch", async () => {
+    const ma = mapping({ calculation: "DIRECT", displayFormat: "currency", higherIsBetter: true, targetBudget: 26_000_000, targetStretch: 47_000_000 });
+    areaFindMany.mockResolvedValue([
+      area([{ id: "k-ma", name: "Acquired EBITDA closed", target: "$47M stretch", measureMapping: ma, observations: [observation("$34.8M")] }], {
+        code: "M&A",
+        kpiName: "Acquired EBITDA closed",
+      }),
+    ]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({ rag: "GREY", statusGap: "no-goal" });
+  });
+
+  it("still judges an unlabelled goal that is genuinely not the FY27 figures", async () => {
+    // A definition that states its own goal without the word "2026" keeps working;
+    // only a figure indistinguishable from the FY27 budget/stretch is refused.
+    const ma = mapping({ calculation: "DIRECT", displayFormat: "currency", higherIsBetter: true, targetBudget: 26_000_000, targetStretch: 47_000_000 });
+    areaFindMany.mockResolvedValue([
+      area([{ id: "k-ma", name: "Acquired EBITDA closed", target: "$20M goal", measureMapping: ma, observations: [observation("$24M")] }], {
+        code: "M&A",
+        kpiName: "Acquired EBITDA closed",
+      }),
+    ]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({ rag: "GREEN", calculatedRag: "GREEN", statusGap: null });
+    expect(measure?.origin?.status.reference).toBe("goal");
+  });
+
+  it("prefers the labelled 2026 goal over the FY27 figure beside it", async () => {
+    // After the reviewed configuration the text reads "2026 goal $23M · $26M total":
+    // the explicit 2026 goal wins and the FY27 figure stays as context. $28M is
+    // 21.7% above $23M (ahead) but only 7.7% above $26M (on track), so the colour
+    // proves which figure was used.
+    const ma = mapping({ calculation: "DIRECT", displayFormat: "currency", higherIsBetter: true, targetBudget: 26_000_000, targetStretch: 47_000_000 });
+    areaFindMany.mockResolvedValue([
+      area([{ id: "k-ma", name: "Acquired EBITDA closed", target: "2026 goal $23M · $26M total", measureMapping: ma, observations: [observation("$28M")] }], {
+        code: "M&A",
+        kpiName: "Acquired EBITDA closed",
+      }),
+    ]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({ rag: "GREEN" });
+    expect(measure?.origin?.status.reference).toBe("2026 goal");
+    expect(measure?.origin?.status.context).toBe("FY27 budget $26.0M · stretch $47.0M");
+  });
+
+  it("keeps a status approved by hand even when the calculated one cannot be established", async () => {
+    // ReviewPillarStatus is an explicit human approval, so it remains authoritative.
+    const ma = mapping({ calculation: "DIRECT", displayFormat: "currency", higherIsBetter: true, targetBudget: 26_000_000 });
+    areaFindMany.mockResolvedValue([
+      { ...area([{ id: "k-ma", name: "Acquired EBITDA closed", target: "FY27 $26M budget", measureMapping: ma, observations: [observation("$24M")] }], { code: "M&A", kpiName: "Acquired EBITDA closed" }), pillarStatuses: [{ status: "AHEAD" }] },
+    ]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({ rag: "GREEN", calculatedRag: "GREY", statusOverride: "AHEAD", statusGap: "no-goal" });
+  });
+
+  it("treats an unparseable 2026 goal as not configured", async () => {
+    const ma = mapping({ calculation: "DIRECT", displayFormat: "currency", higherIsBetter: true, targetBudget: 26_000_000 });
+    areaFindMany.mockResolvedValue([
+      area([{ id: "k-ma", name: "Acquired EBITDA closed", target: "2026 goal TBD", measureMapping: ma, observations: [observation("$24M")] }], {
+        code: "M&A",
+        kpiName: "Acquired EBITDA closed",
+      }),
+    ]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({ rag: "GREY", calculatedRag: "GREY", statusGap: "no-goal" });
+  });
+
+  it("treats a measure mapping with no declared reporting basis as not configured", async () => {
+    const ma = mapping({ calculation: "DIRECT", displayFormat: "currency", higherIsBetter: true, targetBudget: 26_000_000, timeBasis: "" });
+    areaFindMany.mockResolvedValue([
+      area([{ id: "k-ma", name: "Acquired EBITDA closed", target: "2026 goal $23M", measureMapping: ma, observations: [observation("$24M")] }], {
+        code: "M&A",
+        kpiName: "Acquired EBITDA closed",
+      }),
+    ]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({ rag: "GREY", calculatedRag: "GREY", statusGap: "no-basis" });
   });
 
   it("never rates a unit count against a growth percentage", async () => {
@@ -366,11 +466,10 @@ describe("primary measure selection", () => {
       }),
     ]);
     const measure = (await getReviewPlan("2026-10")).areas[0].measure;
-    // The goal is ignored (different quantity) and the mapping's own 22% target
-    // is three orders of magnitude from 3,340 units, so no status is claimed at
-    // all rather than a confident green from a meaningless ratio.
-    expect(measure?.origin?.status.reference).toBe("FY27 budget");
-    expect(measure).toMatchObject({ rag: "GREY", calculatedRag: "GREY" });
+    // The goal is refused for its quantity, and nothing else is substituted, so
+    // no status is claimed rather than a confident green from a meaningless ratio.
+    expect(measure?.origin?.status.reference).toBeNull();
+    expect(measure).toMatchObject({ rag: "GREY", calculatedRag: "GREY", statusGap: "goal-not-comparable" });
   });
 
   it("keeps reporting populations separate when deriving the primary measure", async () => {
@@ -418,8 +517,9 @@ describe("review periods", () => {
       updatesDueDate: null,
       dataAsOf: null,
       soWhats: [
-        { id: "s2", scope: "M&A", headline: "Four closes", body: "942 units" },
-        { id: "s1", scope: "SUMMARY", headline: "Shops beat", body: null },
+        { id: "s2", scope: "M&A", headline: "Four closes", body: "942 units", tone: "POSITIVE" },
+        { id: "s1", scope: "SUMMARY", headline: "Shops beat", body: null, tone: null },
+        { id: "s3", scope: "FINANCIALS", headline: "Bridge: shops beat, centre spent it", body: null, tone: "WARNING" },
       ],
     });
     const period = await getReviewPeriod("2026-09");
@@ -432,8 +532,10 @@ describe("review periods", () => {
       dataAsOf: "2026-10-13",
       dataAsOfOverride: null,
       sources: ["September Flash Results"],
-      summary: [{ id: "s1", headline: "Shops beat", body: null }],
-      areaSoWhats: { "M&A": [{ id: "s2", headline: "Four closes", body: "942 units" }] },
+      summary: [{ id: "s1", headline: "Shops beat", body: null, tone: null }],
+      // The financial bridge is its own list, never an area of the plan.
+      financials: [{ id: "s3", headline: "Bridge: shops beat, centre spent it", body: null, tone: "WARNING" }],
+      areaSoWhats: { "M&A": [{ id: "s2", headline: "Four closes", body: "942 units", tone: "POSITIVE" }] },
     });
   });
 

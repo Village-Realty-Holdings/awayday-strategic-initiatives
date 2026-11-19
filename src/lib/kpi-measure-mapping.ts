@@ -1,6 +1,6 @@
 import { CONSOLIDATED_REPORTING_SCOPE, selectCurrentObservations } from "@/lib/kpi";
 import { BASIS_LABEL, formatKpiValue, TIME_LABEL, type KpiRow } from "@/lib/review-kpi";
-import { fmtLong, isoDay, ragAgainst, ragLabel, type MeasureOrigin, type Rag } from "@/lib/review-model";
+import { fmtLong, isoDay, ragAgainst, ragLabel, STATUS_GAP_TEXT, type MeasureOrigin, type MeasureStatusGap, type Rag } from "@/lib/review-model";
 import { sameQuantity } from "@/lib/review-format";
 
 // How a pillar's measure gets its value from the metrics the import publishes.
@@ -21,6 +21,8 @@ export type MeasureMapping = {
   /** true = higher is better, false = lower is better, null = not stated (neutral). */
   higherIsBetter: boolean | null;
   targetBudget: number | null;
+  /** FY27 stretch, shown for context beside the budget; never a review status. */
+  targetStretch?: number | null;
 };
 
 export type DerivedMeasure = { value: number; quality: string };
@@ -131,41 +133,76 @@ export function formatDerivedMeasure(value: number, mapping: Pick<MeasureMapping
 export type StatusReference = { value: number; label: string; lowerIsBetter?: boolean };
 
 /**
- * Rates a value against the reference it is judged by: the definition's 2026
- * goal when it states one, otherwise the mapping's budget target. Always in the
- * mapping's stated direction.
- *
- * A mapping that states no direction gets `GREY`. Even a value that happens to
- * sit above its target is not "good" until someone says which way is better:
- * an unknown direction must never become green.
+ * Why a review status could not be established. The reviewed report states its
+ * own rule — "Pillar status is judged against the 2026 goal; FY27 shows budget /
+ * stretch from the 12 Nov board pre-read" — so when that goal cannot be
+ * established the pillar has no status. It does not inherit one from an FY27
+ * figure, and it is never coloured on a comparison the report does not make.
  */
-export function mappingRag(
-  value: number | null,
-  mapping: Pick<MeasureMapping, "higherIsBetter" | "targetBudget">,
-  quality = "VALID",
-  reference?: StatusReference | null,
-): Rag {
-  const target = reference ? reference.value : mapping.targetBudget;
-  if (value === null || target === null) return "GREY";
-  if (mapping.higherIsBetter === null) return "GREY";
-  if (quality === "UNAVAILABLE" || quality === "INVALID") return "GREY";
-  if (quality === "STALE") return "AMBER";
-  // A target and a value in different quantities are not a comparison. The
-  // stored target may be a percentage while the measure is a unit count (a
-  // mapping whose identity changed); claiming green from that ratio would be
-  // worse than claiming nothing.
-  if (!sameQuantity(value, target)) return "GREY";
-  // The mapping's declared direction is authoritative. A goal marked "<" only
-  // speaks when the mapping states no direction, which is already GREY above.
-  const lowerIsBetter = mapping.higherIsBetter === false;
+export type StatusGap = MeasureStatusGap;
+
+/** A value rated against a target in the target's own direction. Pure arithmetic. */
+export function ragAgainstTarget(value: number, target: number, higherIsBetter: boolean): Rag {
   // Expenses are reported as negative numbers. For a lower-is-better metric
   // whose target is negative, "less negative" is better, so the comparison is
   // on magnitude (-14 against -15 is 1 less spend, which is an improvement).
   // Without this, a negative-budget expense mapping would rate every reduction
   // as worse. Positive targets, and higher-is-better metrics (including a
   // negative EBITDA budget), keep the plain comparison.
+  const lowerIsBetter = !higherIsBetter;
   if (lowerIsBetter && target < 0) return ragAgainst(Math.abs(value), Math.abs(target), true);
   return ragAgainst(value, target, lowerIsBetter);
+}
+
+/**
+ * The October review status: the value against the definition's **2026 goal**,
+ * in the mapping's declared direction and reporting basis.
+ *
+ * There is deliberately no fallback. A pillar whose 2026 goal is absent,
+ * unreadable, or written in another quantity gets `GREY` — never a green, amber
+ * or red inherited from the FY27 budget, which is a different statement (the
+ * board pre-read's planning figures, shown for context only). An undeclared
+ * direction, or a mapping that names no reporting basis, is also `GREY`: a
+ * status is only claimed when the comparison the report makes can actually be
+ * made.
+ *
+ * A status set by hand (`ReviewPillarStatus`) is applied by the caller after
+ * this, and remains authoritative.
+ */
+export function mappingRag(
+  value: number | null,
+  mapping: Pick<MeasureMapping, "higherIsBetter" | "timeBasis">,
+  quality = "VALID",
+  goal: StatusReference | null = null,
+): Rag {
+  if (mapping.higherIsBetter === null) return "GREY";
+  if (!(MAPPING_TIME_BASES as readonly string[]).includes(mapping.timeBasis)) return "GREY";
+  if (goal === null || !Number.isFinite(goal.value)) return "GREY";
+  if (value === null || !Number.isFinite(value)) return "GREY";
+  if (quality === "UNAVAILABLE" || quality === "INVALID") return "GREY";
+  // A target and a value in different quantities are not a comparison. The goal
+  // may be a percentage while the measure is a unit count (Grow: 3,340 units
+  // against a 23% growth goal); claiming green from that ratio would be worse
+  // than claiming nothing.
+  if (!sameQuantity(value, goal.value)) return "GREY";
+  if (quality === "STALE") return "AMBER";
+  return ragAgainstTarget(value, goal.value, mapping.higherIsBetter);
+}
+
+/** Why a review status could not be established, or null when one was. */
+export function statusGap(
+  value: number | null,
+  mapping: Pick<MeasureMapping, "higherIsBetter" | "timeBasis">,
+  quality = "VALID",
+  goal: StatusReference | null = null,
+): StatusGap | null {
+  if (mapping.higherIsBetter === null) return "no-direction";
+  if (!(MAPPING_TIME_BASES as readonly string[]).includes(mapping.timeBasis)) return "no-basis";
+  if (goal === null || !Number.isFinite(goal.value)) return "no-goal";
+  if (value === null || !Number.isFinite(value)) return "no-value";
+  if (quality === "UNAVAILABLE" || quality === "INVALID") return "no-value";
+  if (!sameQuantity(value, goal.value)) return "goal-not-comparable";
+  return null;
 }
 
 const CALCULATION_TEXT: Record<string, string> = {
@@ -233,11 +270,12 @@ export type MeasureOriginInput = {
   target: string | null;
   mapping: (MeasureMapping & { active?: boolean }) | null;
   /**
-   * The figure the status was judged against when it is not the mapping's own
-   * budget target — the definition's 2026 goal. Absent means the mapping's
-   * targetBudget was used.
+   * The figure the status is judged against: the definition's 2026 goal. There
+   * is no fallback to the mapping's FY27 budget.
    */
   reference?: StatusReference | null;
+  /** Why no status is claimed, when one is not. */
+  gap?: StatusGap | null;
   rows: RowsByMetric;
   names: ReadonlyMap<string, string>;
   period: string;
@@ -245,50 +283,65 @@ export type MeasureOriginInput = {
 
 /** Where a measure's value came from and how its status was reached. */
 export function measureOrigin(input: MeasureOriginInput): MeasureOrigin {
-  const { number, rag, target, mapping, reference } = input;
+  const { number, rag, target, mapping, reference, gap } = input;
   const value = valueOrigin(input);
   const calculated = calculatedOrigin(input);
-  const label = ragLabel(rag);
+  const label = ragLabel(rag, gap ?? null);
   if (!mapping) {
     const basis = target ? `Compared with the first number in the target text, "${target}". ${STATUS_RULE}` : "No target to compare with.";
-    return { value, calculated, status: { label, budget: null, reference: null, difference: null, verdict: null, direction: null, basis } };
+    return { value, calculated, status: { label, budget: null, reference: null, context: null, gap: gap ?? null, difference: null, verdict: null, direction: null, basis } };
   }
   const direction = mapping.higherIsBetter === null ? null : mapping.higherIsBetter ? "Higher is better" : "Lower is better";
-  if (mapping.higherIsBetter === null) {
+  // FY27 planning figures are context only. They are never the reference a
+  // review status is judged against, so they are reported in their own field.
+  const context = fy27Context(mapping);
+  if (mapping.higherIsBetter === null || gap) {
     return {
       value,
       calculated,
       status: {
         label,
-        budget: mapping.targetBudget === null ? null : formatInUnits(mapping.targetBudget, mapping.displayFormat),
-        reference: mapping.targetBudget === null ? null : "FY27 budget",
+        budget: null,
+        reference: null,
+        context,
+        gap: gap ?? "no-direction",
         difference: null,
         verdict: null,
         direction,
-        basis: "The mapping does not state which direction is better, so no status is claimed.",
+        basis: STATUS_GAP_TEXT[gap ?? "no-direction"],
       },
     };
   }
-  const comparedValue = reference ? reference.value : mapping.targetBudget;
-  const comparedLabel = reference ? (reference.label ?? "goal") : "FY27 budget";
-  if (comparedValue === null) return { value, calculated, status: { label, budget: null, reference: null, difference: null, verdict: null, direction, basis: "No budget target is set on the mapping, so there's no rating." } };
-  const budget = formatInUnits(comparedValue, mapping.displayFormat);
-  if (number === null) return { value, calculated, status: { label, budget, reference: comparedLabel, difference: null, verdict: null, direction, basis: `No value to compare with the ${comparedLabel.toLowerCase()}. ${STATUS_RULE}` } };
-  const difference = number - comparedValue;
-  const verdict = difference === 0 ? "on target" : difference > 0 === mapping.higherIsBetter ? "better" : "worse";
+  if (!reference) {
+    // Defensive: a status with no gap and no goal should not reach here, but if
+    // it does the review claims nothing rather than falling back to FY27.
+    return { value, calculated, status: { label, budget: null, reference: null, context, gap: "no-goal", difference: null, verdict: null, direction, basis: STATUS_GAP_TEXT["no-goal"] } };
+  }
+  const budget = formatInUnits(reference.value, mapping.displayFormat);
+  if (number === null) return { value, calculated, status: { label, budget, reference: reference.label, context, gap: "no-value", difference: null, verdict: null, direction, basis: `No value to compare with the ${reference.label.toLowerCase()}.` } };
+  const difference = number - reference.value;
+  const verdict = difference === 0 ? "on target" : difference > 0 === Boolean(mapping.higherIsBetter) ? "better" : "worse";
   return {
     value,
     calculated,
     status: {
       label,
       budget,
-      reference: comparedLabel,
-      difference: formatDifference(difference, comparedValue, mapping.displayFormat),
+      reference: reference.label,
+      context,
+      gap: null,
+      difference: formatDifference(difference, reference.value, mapping.displayFormat),
       verdict,
       direction,
-      basis: reference
-        ? `Compared with the ${comparedLabel.toLowerCase()}, the figure this measure's definition states. ${STATUS_RULE}`
-        : STATUS_RULE,
+      basis: `Compared with the ${reference.label.toLowerCase()}, the figure this measure's definition states. ${STATUS_RULE}`,
     },
   };
+}
+
+/** "FY27 budget $26.0M · stretch $47.0M", or null when the mapping states neither. */
+function fy27Context(mapping: Pick<MeasureMapping, "displayFormat" | "targetBudget" | "targetStretch">): string | null {
+  const budget = mapping.targetBudget === null || mapping.targetBudget === undefined ? null : formatInUnits(mapping.targetBudget, mapping.displayFormat);
+  const stretch = mapping.targetStretch === null || mapping.targetStretch === undefined ? null : formatInUnits(mapping.targetStretch, mapping.displayFormat);
+  if (!budget && !stretch) return null;
+  return [budget && `FY27 budget ${budget}`, stretch && `stretch ${stretch}`].filter((part): part is string => Boolean(part)).join(" · ");
 }

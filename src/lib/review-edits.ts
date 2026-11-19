@@ -8,7 +8,7 @@ import { MANUAL_MEASURE_IDENTITY, MANUAL_SOURCE_CATEGORY } from "@/lib/review-kp
 import { selectPrimaryMeasure } from "@/lib/primary-measure";
 import { parseStatus } from "@/lib/initiatives";
 import { canEdit } from "@/lib/roles";
-import { initiativeOwnerMatches, isoDay, normalizeSoWhats, parseIsoDay, PERIOD_PATTERN, PILLAR_STATUSES, SUMMARY_SCOPE, type PillarStatus } from "@/lib/review-model";
+import { initiativeOwnerMatches, isoDay, normalizeSoWhats, parseIsoDay, PERIOD_PATTERN, PILLAR_STATUSES, reviewSoWhatScopeList, type PillarStatus } from "@/lib/review-model";
 import { recordSiUpdate } from "@/lib/si-updates";
 
 // ---------------------------------------------------------------------------
@@ -93,11 +93,13 @@ export async function setSoWhats(actor: Actor, input: { periodId: string; scope:
   if (!validPeriod(id) || !scope) return UNKNOWN_MONTH;
   const existing = await prisma.reviewPeriod.findUnique({
     where: { id },
-    select: { status: true, soWhats: { where: { scope }, orderBy: { order: "asc" }, select: { headline: true } } },
+    select: { status: true, soWhats: { where: { scope }, orderBy: { order: "asc" }, select: { headline: true, tone: true } } },
   });
   if (existing?.status === "PUBLISHED") return LOCKED;
   const plan = await getReviewPlan(id);
-  if (scope !== SUMMARY_SCOPE && !plan.areas.some((a) => a.code === scope)) return { ok: false, error: "That pillar is not in the active plan." };
+  // The summary, the financial bridge and one scope per area of the active plan.
+  // A scope outside that list is refused rather than stored where nothing reads it.
+  if (!reviewSoWhatScopeList(plan.areas.map((a) => a.code)).includes(scope)) return { ok: false, error: "That is not a section of the active plan." };
   const soWhats = normalizeSoWhats(input.items, [scope]);
 
   await prisma.$transaction([
@@ -105,9 +107,10 @@ export async function setSoWhats(actor: Actor, input: { periodId: string; scope:
     prisma.reviewSoWhat.deleteMany({ where: { periodId: id, scope } }),
     prisma.reviewSoWhat.createMany({ data: soWhats.map((s) => ({ periodId: id, ...s })) }),
   ]);
+  // Headlines and tones are both recorded: a tone decides how an item is read.
   await audit(actor.id, "UPDATE", "ReviewSoWhat", `${id}:${scope}`, {
-    before: existing?.soWhats.map((s) => s.headline) ?? [],
-    after: soWhats.map((s) => s.headline),
+    before: existing?.soWhats.map((s) => ({ headline: s.headline, tone: s.tone })) ?? [],
+    after: soWhats.map((s) => ({ headline: s.headline, tone: s.tone })),
   });
   revalidateReview();
   return { ok: true };

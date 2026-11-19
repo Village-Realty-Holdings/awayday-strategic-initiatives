@@ -127,7 +127,23 @@ describe("editSoWhats", () => {
     const result = await editSoWhats(form({ periodId: "2026-10", scope: "GROW", soWhats }));
     expect(result).toEqual({ ok: true });
     expect(m.soWhatDeleteMany).toHaveBeenCalledWith({ where: { periodId: "2026-10", scope: "GROW" } });
-    expect(m.soWhatCreateMany).toHaveBeenCalledWith({ data: [{ periodId: "2026-10", scope: "GROW", order: 0, headline: "Units up", body: null }] });
+    expect(m.soWhatCreateMany).toHaveBeenCalledWith({ data: [{ periodId: "2026-10", scope: "GROW", order: 0, headline: "Units up", body: null, tone: null }] });
+  });
+
+  it("stores a tone when the editor sends one, and leaves it null when it does not", async () => {
+    const soWhats = JSON.stringify([
+      { scope: "GROW", headline: "Volume ahead", body: "", tone: "POSITIVE" },
+      { scope: "GROW", headline: "CAC off track", body: "", tone: "WARNING" },
+      { scope: "GROW", headline: "No tone", body: "" },
+    ]);
+    expect(await editSoWhats(form({ periodId: "2026-10", scope: "GROW", soWhats }))).toEqual({ ok: true });
+    const lastCall = m.soWhatCreateMany.mock.calls.at(-1)?.[0] as { data: { tone: string | null }[] };
+    expect(lastCall.data.map((row) => row.tone)).toEqual(["POSITIVE", "WARNING", null]);
+  });
+
+  it("accepts the financial bridge scope and refuses an unknown one", async () => {
+    expect(await editSoWhats(form({ periodId: "2026-10", scope: "FINANCIALS", soWhats: JSON.stringify([{ scope: "FINANCIALS", headline: "Bridge", body: "" }]) }))).toEqual({ ok: true });
+    expect(m.soWhatDeleteMany).toHaveBeenLastCalledWith({ where: { periodId: "2026-10", scope: "FINANCIALS" } });
   });
 
   it("refuses a scope outside the active plan", async () => {

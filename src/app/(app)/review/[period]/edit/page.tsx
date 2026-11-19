@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireAdmin } from "@/lib/session";
 import { allSis, getReviewPeriod, getReviewPlan, resolvePeriod } from "@/lib/review-data";
-import { PERIOD_PATTERN, monthAfter } from "@/lib/review-model";
+import { PERIOD_PATTERN, monthAfter, reviewSoWhatScopes } from "@/lib/review-model";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +57,8 @@ export default async function ReviewEditPage({ params }: { params: Promise<{ per
         dataAsOf={period.dataAsOfOverride}
         observedAsOf={period.observedAsOf}
         summary={period.summary}
+        financials={period.financials}
+        financialsOpen={reviewSoWhatScopes(plan.areas.map((a) => a.code)).financials !== null}
         areas={plan.areas.map((a) => ({
           code: a.code,
           name: a.name,

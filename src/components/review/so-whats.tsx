@@ -1,4 +1,4 @@
-import type { SoWhat } from "@/lib/review-model";
+import type { SoWhat, SoWhatToneValue } from "@/lib/review-model";
 import type { KpiStatus } from "@/lib/kpi-status";
 
 /**
@@ -52,7 +52,32 @@ export function SoWhatList({
 
 export type SoWhatTone = "positive" | "negative" | "warning" | "neutral";
 
-export type SoWhatItem = SoWhat & { tone?: SoWhatTone };
+export type SoWhatItem = Omit<SoWhat, "tone"> & { tone?: SoWhatTone };
+
+/**
+ * The stored tone (POSITIVE / WARNING / NEGATIVE / NEUTRAL) as the presentation
+ * tone. An item written before tones existed, or saved without one, has none and
+ * inherits the section's tone; unknown values never become a colour of their own.
+ */
+export function soWhatToneFromStored(tone: SoWhatToneValue | null | undefined): SoWhatTone | undefined {
+  switch (tone) {
+    case "POSITIVE":
+      return "positive";
+    case "NEGATIVE":
+      return "negative";
+    case "WARNING":
+      return "warning";
+    case "NEUTRAL":
+      return "neutral";
+    default:
+      return undefined;
+  }
+}
+
+/** Stored so-whats as the renderer takes them: wording untouched, tone mapped. */
+export function soWhatItems(items: readonly SoWhat[]): SoWhatItem[] {
+  return items.map((item) => ({ ...item, tone: soWhatToneFromStored(item.tone) }));
+}
 
 const TONE_STYLE: Record<SoWhatTone, { border: string; dot: string; glyph: string; spoken: string }> = {
   positive: { border: "border-ok", dot: "text-ok", glyph: "▲", spoken: "Positive" },

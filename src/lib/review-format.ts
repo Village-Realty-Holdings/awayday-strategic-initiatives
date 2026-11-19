@@ -26,9 +26,14 @@ export function metricKind(metric: MetricFormat): MetricKind {
   if (/usd|currency|dollar|\$/.test(declared)) return "currency";
   if (/\bunits?\b|count|night|day|property|properties|review|deal|offer/.test(declared)) return "count";
 
-  // Counts first: "churned units" is a count while "annualized churn" is a rate.
-  if (/\bunits?\b|\bdeals?\b|\boffers?\b|reviews received|properties/.test(name)) return "count";
+  // Names that state a rate and a count in the same phrase are resolved by the
+  // phrase: "churned units" is a count, while "unit churn" and "owner unit
+  // retention" are rates even though the name contains "unit". Without this,
+  // "Owner unit churn" read as a count and its percentage goal was refused as a
+  // different quantity.
+  if (/\bchurn(ed)?\s+units?\b|\bunits?\s+churned\b/.test(name)) return "count";
   if (/margin|occupancy|churn|% of|percentage|growth|take rate|retention/.test(name)) return "percent";
+  if (/\bunits?\b|\bdeals?\b|\boffers?\b|reviews received|properties/.test(name)) return "count";
   return "number";
 }
 
@@ -325,6 +330,27 @@ export function primaryGoalMarker(markers: readonly TargetMarker[], kind?: Metri
     (marker) => marker.style === "goal" && marker.reference !== "FY27" && (kind === undefined || markerMatchesKind(marker, kind)),
   );
   return goals.find((marker) => marker.reference === "2026") ?? goals[0] ?? null;
+}
+
+/**
+ * Whether an unlabelled goal figure is indistinguishable from one of the
+ * mapping's FY27 planning figures (budget or stretch). Target text that states
+ * only "$26M total" carries the FY27 budget; it is not a 2026 goal and must not
+ * set an October status. A figure the text explicitly calls 2026 is never
+ * refused this way — the business has said which one it means.
+ *
+ * The comparison allows a small relative tolerance so "$26.0M" written in the
+ * text still matches a stored 25,980,000, but stays tight enough that a genuine
+ * nearby goal (23 against a 23.4 budget) is not mistaken for planning data.
+ */
+export function isPlanningFigure(value: number, figures: readonly (number | null | undefined)[], tolerance = 0.005): boolean {
+  if (!Number.isFinite(value)) return false;
+  return figures.some((figure) => {
+    if (figure === null || figure === undefined || !Number.isFinite(figure)) return false;
+    const scale = Math.max(Math.abs(figure), Math.abs(value));
+    if (scale === 0) return true;
+    return Math.abs(value - figure) <= scale * tolerance;
+  });
 }
 
 /** How a target marker is labelled, naming its planning context when the text does. */

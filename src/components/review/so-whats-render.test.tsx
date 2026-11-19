@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { SoWhatList, toneForStatus, toneForStatuses } from "./so-whats";
+import { SoWhatList, soWhatItems, soWhatToneFromStored, toneForStatus, toneForStatuses } from "./so-whats";
 
 // So-what presentation: a bold lead statement, the supporting body, a tone that
 // never relies on colour alone, and plain text only (no HTML from the database).
@@ -56,6 +56,45 @@ describe("SoWhatList", () => {
 
   it("renders nothing for an empty list", () => {
     expect(renderToStaticMarkup(<SoWhatList items={[]} />)).toBe("<ul class=\"flex flex-col gap-3 \"></ul>");
+  });
+});
+
+describe("stored so-what tones", () => {
+  it("maps each stored value to its presentation tone", () => {
+    expect(soWhatToneFromStored("POSITIVE")).toBe("positive");
+    expect(soWhatToneFromStored("NEGATIVE")).toBe("negative");
+    expect(soWhatToneFromStored("WARNING")).toBe("warning");
+    expect(soWhatToneFromStored("NEUTRAL")).toBe("neutral");
+    // A row written before tones existed carries none, and neither does an
+    // unknown value: both inherit the section rather than inventing a colour.
+    expect(soWhatToneFromStored(null)).toBeUndefined();
+    expect(soWhatToneFromStored(undefined)).toBeUndefined();
+    expect(soWhatToneFromStored("text-risk" as never)).toBeUndefined();
+  });
+
+  it("renders a mixed section: each item keeps its own tone over the section's", () => {
+    const items = soWhatItems([
+      { id: "1", headline: "Volume ahead", body: null, tone: "POSITIVE" },
+      { id: "2", headline: "CAC off track", body: null, tone: "NEGATIVE" },
+      { id: "3", headline: "Watch cycle time", body: null, tone: "WARNING" },
+      { id: "4", headline: "No tone stored", body: null, tone: null },
+    ]);
+    const html = renderToStaticMarkup(<SoWhatList items={items} tone="negative" />);
+    expect(html.match(/data-so-what-tone="positive"/g)).toHaveLength(1);
+    expect(html.match(/data-so-what-tone="negative"/g)).toHaveLength(2);
+    expect(html.match(/data-so-what-tone="warning"/g)).toHaveLength(1);
+    // The item with no tone inherits the section's tone, never a guessed one.
+    expect(html).toContain("Positive:");
+    expect(html).toContain("Watch:");
+    expect(html).toContain("Negative:");
+  });
+
+  it("keeps the headline and wording exactly as stored", () => {
+    const html = renderToStaticMarkup(
+      <SoWhatList items={soWhatItems([{ id: "x", headline: "Shops beat, centre spent it", body: "Shop NOI $1.0M over budget.\nSecond line.", tone: "POSITIVE" }])} />,
+    );
+    expect(html).toContain("Shops beat, centre spent it");
+    expect(html).toContain("Shop NOI $1.0M over budget.");
   });
 });
 

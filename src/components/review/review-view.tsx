@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import type { ReviewPeriod, ReviewPlan } from "@/lib/review-data";
 import type { FinanceTable } from "@/lib/review-kpi";
 import type { ReviewedReport } from "@/lib/review-report-data";
-import { addDaysIso, fmtLong, ragLabel, ragTone, SUMMARY_SCOPE, type ReviewArea, type ReviewMilestone, type SoWhat } from "@/lib/review-model";
+import { addDaysIso, FINANCIALS_SCOPE, fmtLong, NOT_CONFIGURED_LABEL, ragLabel, ragTone, STATUS_GAP_TEXT, SUMMARY_SCOPE, type ReviewArea, type ReviewMilestone, type SoWhat } from "@/lib/review-model";
 import { AsksByLeaderToggle } from "./asks-by-leader";
 import { DataTable } from "./data-table";
 import { AreaEditor, MeasureValueEditor, PlanHeaderEditor, ReviewDetailsEditor, SiUpdateEditor, SoWhatsEditor } from "./edit-dialogs";
@@ -14,7 +14,7 @@ import { PeriodSwitcher } from "./period-switcher";
 import { NoDataNote, SectionTitle } from "./preview";
 import { PageHeader } from "@/components/shell/page-header";
 import { SiCard } from "./si-charter-dialog";
-import { SoWhatList, toneForStatus, toneForStatuses } from "./so-whats";
+import { SoWhatList, soWhatItems, toneForStatus, toneForStatuses } from "./so-whats";
 import { ExecSummary, PopulationCard, ReportSectionTable } from "./report-sections";
 import { PillarScorecardDetails } from "./pillar-scorecard";
 import { TrendChartCard } from "./trend-chart";
@@ -31,11 +31,20 @@ function anchor(area: ReviewArea): string {
   return `${area.kind === "ENABLER" ? "enabler" : "pillar"}-${area.code.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 }
 
-function MeasureStatus({ area, className }: { area: ReviewArea; className?: string }) {
+export function MeasureStatus({ area, className }: { area: ReviewArea; className?: string }) {
   // The measure's own status (a hand-set owner status wins over the calculated
   // one) expressed in the shared KPI vocabulary, so the house, the tables and
   // the scorecards all say the same words.
-  const status = area.measure ? ragToStatus(area.measure.rag) : "no_data";
+  const measure = area.measure;
+  const status = measure ? ragToStatus(measure.rag) : "no_data";
+  // October is judged against the 2026 goal. When that goal (or the measure's
+  // direction or reporting basis) is not configured, the pillar says so instead
+  // of showing a status borrowed from an FY27 figure. A status set by hand is
+  // an explicit approval and is shown as such.
+  const gap = measure?.statusGap ?? null;
+  if (measure && gap && !measure.statusOverride) {
+    return <KpiStatusBadge status={status} label={NOT_CONFIGURED_LABEL} title={STATUS_GAP_TEXT[gap]} className={className} />;
+  }
   return <KpiStatusBadge status={status} className={className} />;
 }
 
@@ -173,6 +182,9 @@ function AreaSection({
             {area.measure?.value && area.measure.source === "derived" && <p className="mt-1 text-xs text-ink-faint">Calculated from {area.measure.inputs?.join(" and ")}.</p>}
             {!area.measure?.value && <p className="mt-1 text-xs text-ink-faint">No value loaded for this month.</p>}
             {area.measure?.statusOverride && <p className="mt-1 text-xs text-ink-faint">Status set by hand. Calculated: {ragLabel(area.measure.calculatedRag ?? "GREY")}.</p>}
+            {area.measure?.statusGap && !area.measure.statusOverride && (
+              <p className="mt-1 text-xs text-ink-faint">{STATUS_GAP_TEXT[area.measure.statusGap]}</p>
+            )}
             {area.measure?.primary === "missing" && (
               <p className="mt-1 text-xs text-ink-faint">Primary measure not configured. Choose one on Admin › Measure mappings; no status is claimed until then.</p>
             )}
@@ -245,7 +257,34 @@ function AreaSoWhats({ area, soWhats, periodId }: { area: ReviewArea; soWhats: S
   return (
     <Editable label={`${area.name} so-whats`} periodLocked wide className="mt-4" editor={editor}>
       <p className="mb-2 text-xs font-semibold text-ink">So what</p>
-      <SoWhatList items={soWhats} tone={toneForStatus(measureStatus(area))} />
+      <SoWhatList items={soWhatItems(soWhats)} tone={toneForStatus(measureStatus(area))} />
+    </Editable>
+  );
+}
+
+/**
+ * The commentary under the financial tables — the reviewed report's "so what in
+ * the bridge" items. Its own scope, so it is never confused with a pillar's
+ * commentary. Tones come from the stored value, item by item; nothing is
+ * inferred from the wording.
+ */
+function FinancialSoWhats({ items, periodId }: { items: SoWhat[]; periodId: string }) {
+  const editor = <SoWhatsEditor periodId={periodId} scope={FINANCIALS_SCOPE} scopeLabel="financial bridge" items={items} />;
+  if (items.length === 0) {
+    return (
+      <EditOnly>
+        <Editable label="financial bridge so-whats" periodLocked wide className="mt-4" editor={editor}>
+          <p className="rounded-lg border border-dashed border-border px-3 py-2 pr-20 text-xs text-ink-faint">
+            No finance so-whats for this month. Click to add some.
+          </p>
+        </Editable>
+      </EditOnly>
+    );
+  }
+  return (
+    <Editable label="financial bridge so-whats" periodLocked wide className="mt-4" editor={editor}>
+      <p className="mb-2 text-xs font-semibold text-ink">So what in the bridge</p>
+      <SoWhatList items={soWhatItems(items)} />
     </Editable>
   );
 }
@@ -451,7 +490,7 @@ export function ReviewView({
           {period.summary.length > 0 ? (
             <Card className="gap-0 p-5">
               <p className="mb-3 text-xs font-semibold text-ink">So what</p>
-              <SoWhatList items={period.summary} tone={toneForStatuses(pillars.map(measureStatus))} />
+              <SoWhatList items={soWhatItems(period.summary)} tone={toneForStatuses(pillars.map(measureStatus))} />
             </Card>
           ) : (
             <NoDataNote>Strategy hasn&apos;t written the so-whats for {period.label} yet.</NoDataNote>
@@ -519,6 +558,8 @@ export function ReviewView({
             No user-reviewed report tables are loaded for {period.label}.
           </p>
         )}
+        <FinancialSoWhats items={period.financials} periodId={period.id} />
+
         {!hasTrend && (
           <p className="mt-3 text-note text-ink-faint">
             Historical series are not loaded for {period.label}. Expected identity: one approved actual per month — LTM for the LTM Pro Forma Lender EBITDA, year

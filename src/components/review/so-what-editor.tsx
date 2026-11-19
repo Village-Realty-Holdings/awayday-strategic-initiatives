@@ -6,14 +6,26 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { SO_WHAT_LIMITS } from "@/lib/review-model";
+import { NativeSelect } from "@/components/ui/native-select";
+import { SO_WHAT_LIMITS, SO_WHAT_TONES, type SoWhatToneValue } from "@/lib/review-model";
 
-export type EditorSoWhat = { key: string; headline: string; body: string };
+/**
+ * One so-what while it is being edited. `tone` is the stored value (or "" when
+ * none is chosen); the editor never holds a CSS class name.
+ */
+export type EditorSoWhat = { key: string; headline: string; body: string; tone: SoWhatToneValue | "" };
 
 let nextKey = 0;
 export function newSoWhat(): EditorSoWhat {
-  return { key: `new-${Date.now()}-${nextKey++}`, headline: "", body: "" };
+  return { key: `new-${Date.now()}-${nextKey++}`, headline: "", body: "", tone: "" };
 }
+
+const TONE_LABEL: Record<SoWhatToneValue, string> = {
+  POSITIVE: "Positive",
+  WARNING: "Watch",
+  NEGATIVE: "Negative",
+  NEUTRAL: "Note",
+};
 
 function move<T>(list: T[], from: number, to: number): T[] {
   const next = [...list];
@@ -68,6 +80,23 @@ export function SoWhatEditor({
                       placeholder="The numbers behind it, and what the ELT should take from it."
                       onChange={(e) => update(s.key, { body: e.target.value })}
                     />
+                  </Label>
+                  <Label className="flex flex-col gap-1.5">
+                    Tone
+                    <NativeSelect
+                      name="soWhatTone"
+                      aria-label={`Tone for ${scopeLabel} so-what ${i + 1}`}
+                      value={s.tone}
+                      disabled={locked}
+                      onChange={(e) => update(s.key, { tone: e.target.value as SoWhatToneValue | "" })}
+                    >
+                      <option value="">Inherit the section</option>
+                      {SO_WHAT_TONES.map((tone) => (
+                        <option key={tone} value={tone}>
+                          {TONE_LABEL[tone]}
+                        </option>
+                      ))}
+                    </NativeSelect>
                   </Label>
                 </div>
                 {!locked && (

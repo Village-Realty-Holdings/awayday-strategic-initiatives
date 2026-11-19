@@ -19,6 +19,28 @@ export type PillarStatus = (typeof PILLAR_STATUSES)[number];
 export const PILLAR_STATUS_RAG: Record<PillarStatus, Rag> = { AHEAD: "GREEN", ON_TRACK: "AMBER", BEHIND: "RED" };
 export type Rag = "GREEN" | "AMBER" | "RED" | "GREY";
 
+/**
+ * Why a review pillar's calculated status could not be established. The
+ * reviewed October report judges each pillar against its 2026 goal, so a pillar
+ * whose goal, direction or reporting basis is not configured shows "Not
+ * configured" rather than a status borrowed from an FY27 figure.
+ */
+export const MEASURE_STATUS_GAPS = ["no-direction", "no-basis", "no-goal", "goal-not-comparable", "no-value"] as const;
+export type MeasureStatusGap = (typeof MEASURE_STATUS_GAPS)[number];
+
+/** The neutral label the review uses when no status can be claimed. */
+export const NOT_CONFIGURED_LABEL = "Not configured";
+
+/** What each gap means, in the review's own words. Shown beside a neutral status. */
+export const STATUS_GAP_TEXT: Record<MeasureStatusGap, string> = {
+  "no-direction": "The measure mapping does not state which direction is better, so no status is claimed.",
+  "no-basis": "The measure mapping does not declare a reporting basis, so the figures cannot be judged against a goal.",
+  "no-goal": "No 2026 goal is stated for this measure, so no status is claimed. FY27 budget and stretch are shown for context only.",
+  "goal-not-comparable":
+    "The 2026 goal is written in a different quantity from the measure, so the two are not compared and no status is claimed.",
+  "no-value": "There is no value for this month, so no status is claimed.",
+};
+
 export type ReviewMilestone = {
   id: string;
   siId: string;
@@ -111,14 +133,18 @@ export type ReviewMeasure = {
    */
   primary?: "selected" | "missing" | "ambiguous";
   /** When `primary` is ambiguous, the measures that each claim to be primary. */
-  ambiguousKpis?: string[];
-  /**
+  ambiguousKpis?: string[];  /**
    * The direction the approved measure mapping declares, when one is configured.
    * `true`/`false` is an explicit declaration; `null` means a mapping exists but
    * states no direction (neutral); `undefined` means there is no mapping, so the
    * measure's name is the only direction source.
    */
   higherIsBetter?: boolean | null;
+  /**
+   * Why no calculated status is claimed (no 2026 goal, no declared basis, no
+   * direction, or a goal in another quantity). Null when a status was reached.
+   */
+  statusGap?: MeasureStatusGap | null;
   /** Where the value came from and how its status was reached, for the pillar editor. */
   origin?: MeasureOrigin;
 };
@@ -129,11 +155,15 @@ export type MeasureOrigin = {
   calculated: { value: string | null; note: string | null };
   status: {
     label: string;
-    /** The figure the status compares with, or null when it has none (2026 goal, else FY27 budget). */
+    /** The goal the status compares with, or null when no status is claimed. */
     budget: string | null;
-    /** What that figure is: "2026 goal", "FY27 budget", or null when nothing is stated. */
+    /** What that figure is: "2026 goal" (or "goal"). Never an FY27 figure. */
     reference: string | null;
-    /** Value minus that figure, signed, e.g. "+$8.5M (+32.7%)". */
+    /** FY27 budget/stretch, shown for context only; never the review's yardstick. */
+    context: string | null;
+    /** Why no status is claimed, or null when one is. */
+    gap: MeasureStatusGap | null;
+    /** Value minus that goal, signed, e.g. "+$8.5M (+32.7%)". */
     difference: string | null;
     verdict: "better" | "worse" | "on target" | null;
     direction: "Higher is better" | "Lower is better" | null;
@@ -277,16 +307,34 @@ export type ReviewPeriodStatus = (typeof REVIEW_PERIOD_STATUSES)[number];
 /** So-what scope for the review summary; any other scope is a StrategicArea code. */
 export const SUMMARY_SCOPE = "SUMMARY";
 
-export type SoWhat = { id: string; headline: string; body: string | null };
+/**
+ * So-what scope for the commentary under the financial tables — the reviewed
+ * report's "so what in the bridge" items. It is its own scope because it is not
+ * a pillar and not the summary: four items about the financial bridge belong to
+ * neither.
+ */
+export const FINANCIALS_SCOPE = "FINANCIALS";
 
-export type SoWhatInput = { scope: string; order: number; headline: string; body: string | null };
+/**
+ * The tones a so-what can carry, as stored. These are meanings, not CSS class
+ * names: presentation maps each one to its own border, glyph and spoken word.
+ */
+export const SO_WHAT_TONES = ["POSITIVE", "WARNING", "NEGATIVE", "NEUTRAL"] as const;
+export type SoWhatToneValue = (typeof SO_WHAT_TONES)[number];
+
+export type SoWhat = { id: string; headline: string; body: string | null; tone: SoWhatToneValue | null };
+
+export type SoWhatInput = { scope: string; order: number; headline: string; body: string | null; tone: SoWhatToneValue | null };
 
 export const SO_WHAT_LIMITS = { perScope: 12, headline: 200, body: 2000 } as const;
 
 /**
- * The editor's so-whats (JSON `[{ scope, headline, body }]`) as rows to store:
- * unknown scopes and blank rows dropped, text trimmed and capped, and `order`
- * numbered per scope in the order given. Invalid JSON yields no rows.
+ * The editor's so-whats (JSON `[{ scope, headline, body, tone }]`) as rows to
+ * store: unknown scopes and blank rows dropped, text trimmed and capped, tones
+ * validated against the stored vocabulary, and `order` numbered per scope in the
+ * order given. Invalid JSON yields no rows. A tone that is absent or not one of
+ * the four values is stored as null, which renders neutrally — never guessed
+ * from the wording.
  */
 export function parseSoWhats(json: string | null, scopes: readonly string[]): SoWhatInput[] {
   let raw: unknown;
@@ -306,7 +354,7 @@ export function normalizeSoWhats(raw: unknown, scopes: readonly string[]): SoWha
   const out: SoWhatInput[] = [];
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
-    const { scope, headline, body } = item as Record<string, unknown>;
+    const { scope, headline, body, tone } = item as Record<string, unknown>;
     if (typeof scope !== "string" || !allowed.has(scope)) continue;
     const h = typeof headline === "string" ? headline.trim().slice(0, SO_WHAT_LIMITS.headline) : "";
     const b = typeof body === "string" ? body.trim().slice(0, SO_WHAT_LIMITS.body) : "";
@@ -315,9 +363,35 @@ export function normalizeSoWhats(raw: unknown, scopes: readonly string[]): SoWha
     if (order >= SO_WHAT_LIMITS.perScope) continue;
     count.set(scope, order + 1);
     // A body with no headline leads with its first sentence as the headline.
-    out.push({ scope, order, headline: h || b.slice(0, SO_WHAT_LIMITS.headline), body: h ? b || null : null });
+    out.push({ scope, order, headline: h || b.slice(0, SO_WHAT_LIMITS.headline), body: h ? b || null : null, tone: normalizeSoWhatTone(tone) });
   }
   return out;
+}
+
+/** A stored or submitted tone, or null when it is absent or not one of the four. */
+export function normalizeSoWhatTone(value: unknown): SoWhatToneValue | null {
+  if (typeof value !== "string") return null;
+  const upper = value.trim().toUpperCase();
+  return (SO_WHAT_TONES as readonly string[]).includes(upper) ? (upper as SoWhatToneValue) : null;
+}
+
+/**
+ * Which scopes a month may store so-whats for: the summary, the financial
+ * bridge, and one per area of the active plan.
+ *
+ * `FINANCIALS` is reserved. If an active plan happens to name a strategic area
+ * with that code, the area keeps its own rows and the bridge scope is not
+ * offered — a stored row is then never attributed to the wrong section.
+ */
+export function reviewSoWhatScopes(areaCodes: readonly string[]): { summary: string; financials: string | null; areas: string[] } {
+  const areas = [...areaCodes];
+  return { summary: SUMMARY_SCOPE, financials: areas.includes(FINANCIALS_SCOPE) ? null : FINANCIALS_SCOPE, areas };
+}
+
+/** Every scope a month may write, in the order the editor offers them. */
+export function reviewSoWhatScopeList(areaCodes: readonly string[]): string[] {
+  const { financials, areas } = reviewSoWhatScopes(areaCodes);
+  return [SUMMARY_SCOPE, ...(financials ? [financials] : []), ...areas];
 }
 
 /** "2026-11-05" → a Date at UTC midnight; anything else → null. */
@@ -420,9 +494,11 @@ export function ragTone(rag: Rag): PillarTone | null {
   return null;
 }
 
-export function ragLabel(rag: Rag): string {
+export function ragLabel(rag: Rag, gap: MeasureStatusGap | null = null): string {
   if (rag === "GREEN") return "Ahead";
   if (rag === "AMBER") return "On track";
   if (rag === "RED") return "Behind";
-  return "No data";
+  // A neutral status that is neutral because nothing is configured says so, so
+  // "No data" and "not set up" are not confused on the review.
+  return gap ? NOT_CONFIGURED_LABEL : "No data";
 }

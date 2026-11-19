@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseTargetMarkers, parseTargetNumber, primaryGoalMarker, targetMarkerLabel } from "@/lib/review-format";
+import { isPlanningFigure, parseTargetMarkers, parseTargetNumber, primaryGoalMarker, targetMarkerLabel } from "@/lib/review-format";
 
 // Target prose is definition data, so these fixtures are illustrative labels and
 // numbers of the kind a KPI definition contains, not report figures.
@@ -151,5 +151,26 @@ describe("primaryGoalMarker", () => {
     expect(targetMarkerLabel(explicit)).toBe("2026 goal");
     expect(targetMarkerLabel(fy27)).toBe("FY27 budget");
     expect(targetMarkerLabel(plain)).toBe("Goal");
+  });
+});
+
+describe("isPlanningFigure", () => {
+  it("recognises a figure that is the mapping's own FY27 budget or stretch", () => {
+    expect(isPlanningFigure(26_000_000, [26_000_000, 47_000_000])).toBe(true);
+    expect(isPlanningFigure(47_000_000, [26_000_000, 47_000_000])).toBe(true);
+    // Rounded presentation of the same stored figure still matches.
+    expect(isPlanningFigure(25_980_000, [26_000_000])).toBe(true);
+  });
+
+  it("leaves a genuinely different goal alone", () => {
+    expect(isPlanningFigure(23_000_000, [26_000_000, 47_000_000])).toBe(false);
+    expect(isPlanningFigure(0.7, [0.25, 1])).toBe(false);
+    expect(isPlanningFigure(12, [11, 9])).toBe(false);
+  });
+
+  it("treats absent or non-finite planning figures as no evidence", () => {
+    expect(isPlanningFigure(23, [null, undefined])).toBe(false);
+    expect(isPlanningFigure(Number.NaN, [23])).toBe(false);
+    expect(isPlanningFigure(23, [Number.NaN])).toBe(false);
   });
 });
