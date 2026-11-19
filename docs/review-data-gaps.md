@@ -1,5 +1,13 @@
 # Strategy Review: data the database doesn't hold yet
 
+> **Update 2026-11-18.** The review now presents the reviewed-report tables,
+> pillar scorecards, historical charts and brand-level churn described in this
+> document, reading every figure from `KpiObservation`. Where a figure is still
+> absent it is shown as missing with the identity it needs, rather than left
+> out. See [strategy-review-parity.md](strategy-review-parity.md) for the current
+> gap list; the rows below that describe *schema* gaps still apply, while the
+> rows describing KPI data now surface explicitly in the UI.
+
 The Strategy Review at `/` (with Inbox, Asks by leader, Timeline, Below
 the line and Metric definitions) reads only from the database. Where a figure or
 note has nowhere to live yet, the section shows an empty state or is left out.

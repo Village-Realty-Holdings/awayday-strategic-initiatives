@@ -203,9 +203,12 @@ export function comparePeriods(a: string, b: string): number {
  * most recently observed / refreshed value.
  */
 export function compareObservations(a: KpiObservationRecord, b: KpiObservationRecord): number {
-  const rankDelta =
-    (a.authorityRank ?? Number.POSITIVE_INFINITY) - (b.authorityRank ?? Number.POSITIVE_INFINITY);
-  if (rankDelta !== 0) return rankDelta;
+  // Ranks are compared, not subtracted: a missing rank is the weakest rank, and
+  // `Infinity - Infinity` is NaN, which a comparator must never return. This is
+  // the same rule as `isStrongerRow` in review-report.ts.
+  const aRank = a.authorityRank ?? Number.POSITIVE_INFINITY;
+  const bRank = b.authorityRank ?? Number.POSITIVE_INFINITY;
+  if (aRank !== bRank) return aRank < bRank ? -1 : 1;
 
   const observedDelta = b.observedAt.getTime() - a.observedAt.getTime();
   if (observedDelta !== 0) return observedDelta;

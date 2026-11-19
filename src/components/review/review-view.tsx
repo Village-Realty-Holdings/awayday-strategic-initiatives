@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { ReviewPeriod, ReviewPlan } from "@/lib/review-data";
 import type { FinanceTable } from "@/lib/review-kpi";
+import type { ReviewedReport } from "@/lib/review-report-data";
 import { addDaysIso, fmtLong, ragLabel, ragTone, SUMMARY_SCOPE, type ReviewArea, type ReviewMilestone, type SoWhat } from "@/lib/review-model";
 import { AsksByLeaderToggle } from "./asks-by-leader";
 import { DataTable } from "./data-table";
@@ -14,6 +15,10 @@ import { NoDataNote, SectionTitle } from "./preview";
 import { PageHeader } from "@/components/shell/page-header";
 import { SiCard } from "./si-charter-dialog";
 import { SoWhatList } from "./so-whats";
+import { ExecSummary, PopulationCard, ReportSectionTable } from "./report-sections";
+import { PillarScorecardDetails } from "./pillar-scorecard";
+import { TrendChartCard } from "./trend-chart";
+import { BrandChurnTable } from "./brand-churn-table";
 import { PeriodStatusBadge, PillarLabelBadge } from "./status";
 import { SummaryGantt } from "./summary-gantt";
 
@@ -59,7 +64,21 @@ function EditableMeasure({ area, periodId, periodLabel, children }: { area: Revi
   );
 }
 
-function AreaSection({ area, soWhats, periodId, periodLabel }: { area: ReviewArea; soWhats: SoWhat[]; periodId: string; periodLabel: string }) {
+function AreaSection({
+  area,
+  soWhats,
+  periodId,
+  periodLabel,
+  monthName,
+  scorecard,
+}: {
+  area: ReviewArea;
+  soWhats: SoWhat[];
+  periodId: string;
+  periodLabel: string;
+  monthName: string;
+  scorecard: ReviewedReport["scorecards"][string] | undefined;
+}) {
   const isPillar = area.kind === "VALUE_DRIVER";
   return (
     <Card id={anchor(area)} className="scroll-mt-20 gap-0 p-5">
@@ -103,6 +122,8 @@ function AreaSection({ area, soWhats, periodId, periodLabel }: { area: ReviewAre
         </div>
       )}
 
+      <PillarScorecardDetails scorecard={scorecard} monthName={monthName} />
+
       <AreaSoWhats area={area} soWhats={soWhats} periodId={periodId} />
 
       <div className="mt-5">
@@ -145,6 +166,7 @@ export function ReviewView({
   periods,
   home,
   finance,
+  report,
   today,
   canAuthor = false,
   canEdit = false,
@@ -155,6 +177,7 @@ export function ReviewView({
   /** The month `/` shows; the switcher links it to `/`. */
   home: string;
   finance: FinanceTable;
+  report: ReviewedReport;
   today: string;
   /** Admins (Strategy) get the full editor, where months are published. */
   canAuthor?: boolean;
@@ -172,10 +195,14 @@ export function ReviewView({
     .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
   const withMeasure = plan.areas.filter((a) => a.measure);
   const statusTbd = sis.every((s) => !s.status);
+  const hasTrend = report.charts.some((chart) => chart.series.some((series) => series.points.length > 0));
   const jump: [string, string][] = [
+    ["#exec", "Executive summary"],
     ["#summary", "Summary"],
     ["#financials", "Financials"],
+    ...(hasTrend ? [["#trends", "Trends"] as [string, string]] : []),
     ...pillars.map((a): [string, string] => [`#${anchor(a)}`, a.name]),
+    ...(report.brandChurn.rows.length > 0 ? [["#churn", "Brand churn"] as [string, string]] : []),
     ...(enablers.length ? [["#enablers", "Enablers"] as [string, string]] : []),
     ["#milestones", "Milestones"],
     ["#asks", "Asks"],
@@ -254,6 +281,19 @@ export function ReviewView({
       </nav>
 
       {statusTbd && <p className="-mt-4 text-xs text-ink-faint">No SI has a status yet. Owners set it in Inbox.</p>}
+
+      <section id="exec" className="scroll-mt-20">
+        <SectionTitle>Executive summary · {period.monthName}</SectionTitle>
+        <ExecSummary cards={report.execCards} monthName={period.monthName} />
+        <p className="mt-2 text-note text-ink-faint">
+          {report.counts.metricsWithValues > 0
+            ? `${report.counts.metricsWithValues} reviewed metrics have a value for ${period.label}, across ${report.counts.populations} reporting ${report.counts.populations === 1 ? "population" : "populations"}. Each card names the population it belongs to; values are never carried across populations.`
+            : `No reviewed-report observations are loaded for ${period.label}. The cards show the identity each one needs.`}
+          {report.counts.unlinkedMetrics > 0
+            ? ` ${report.counts.unlinkedMetrics} reviewed ${report.counts.unlinkedMetrics === 1 ? "metric is" : "metrics are"} not linked to a pillar yet, so they appear in the report tables but not in a scorecard.`
+            : ""}
+        </p>
+      </section>
 
       <section className="strategy-house" aria-label="Strategy house">
         {houseEditor ? <Editable label="strategy house" editor={houseEditor}>{roof}</Editable> : roof}
@@ -348,28 +388,72 @@ export function ReviewView({
             <p className="mt-2 text-note text-ink-faint">Approved, consolidated values loaded for {period.label}.</p>
           </Card>
         ) : (
-          <NoDataNote>No Finance figures have been loaded for {period.label}.</NoDataNote>
+          <NoDataNote>No Awayday consolidated Finance figures have been loaded for {period.label}. The reviewed report tables below use their own populations and are not a substitute for consolidated accounts.</NoDataNote>
         )}
-        {finance.supplemental?.map((section) => (
-          <Card key={section.id} className="mt-4 gap-0 p-5">
-            <h3 className="mb-3 text-base font-semibold text-ink">{section.title}</h3>
-            <DataTable
-              minWidth="40rem"
-              columns={[{ key: "line", label: "Line" }, ...section.table.columns.map((c) => ({ key: c.key, label: c.label, numeric: true }))]}
-              rows={section.table.rows.map((r) => ({
-                id: r.id,
-                cells: { line: r.label, ...Object.fromEntries(section.table.columns.map((c) => [c.key, r.cells[c.key] ?? "—"])) },
-              }))}
-            />
-            <p className="mt-2 text-note text-ink-faint">{section.description}</p>
-          </Card>
+        {report.sections.map((section) => (
+          <PopulationCard
+            key={section.id}
+            title={section.kind === "base-business" ? "Base Business P&L" : "Operating, unit economics and other reviewed KPIs"}
+            scopeLabel={section.scopeLabel}
+            description={
+              section.kind === "base-business"
+                ? "User-reviewed strategy report, Base Business only. Not directly comparable with Awayday consolidated totals."
+                : "User-reviewed strategy report. Source definitions and reporting populations vary by metric; each metric keeps its own identity."
+            }
+          >
+            <ReportSectionTable section={section} monthName={period.monthName} />
+          </PopulationCard>
         ))}
+        {report.sections.length === 0 && (
+          <p className="mt-4 rounded-lg border border-dashed border-border px-4 py-3 text-xs text-ink-muted">
+            No user-reviewed report tables are loaded for {period.label}.
+          </p>
+        )}
+        {!hasTrend && (
+          <p className="mt-3 text-note text-ink-faint">
+            Historical series are not loaded for {period.label}. Expected identity: one approved actual per month — LTM for the LTM Pro Forma Lender EBITDA, year
+            to date for Base Business Adjusted EBITDA, and monthly for AwayDNA TRevPAR. They appear here once those observations exist.
+          </p>
+        )}
+        {report.brandChurn.rows.length === 0 && (
+          <p className="mt-1 text-note text-ink-faint">
+            Brand-level churn is not loaded: no reviewed churn observation carries a brand in its entityId for {period.label}.
+          </p>
+        )}
       </section>
+
+      {hasTrend && (
+        <section id="trends" className="scroll-mt-20">
+          <SectionTitle>Where the trend is going</SectionTitle>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {report.charts.map((chart) => (
+              <TrendChartCard key={chart.id} chart={chart} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {report.brandChurn.rows.length > 0 && (
+        <section id="churn" className="scroll-mt-20">
+          <SectionTitle>Brand-level owner churn · {period.monthName}</SectionTitle>
+          <Card className="gap-0 p-5">
+            <BrandChurnTable churn={report.brandChurn} monthName={period.monthName} />
+          </Card>
+        </section>
+      )}
 
       <section id="pillars" className="flex scroll-mt-20 flex-col gap-4">
         <SectionTitle>Value creation pillars</SectionTitle>
         {pillars.map((a) => (
-          <AreaSection key={a.code} area={a} soWhats={period.areaSoWhats[a.code] ?? []} periodId={period.id} periodLabel={period.label} />
+          <AreaSection
+            key={a.code}
+            area={a}
+            soWhats={period.areaSoWhats[a.code] ?? []}
+            periodId={period.id}
+            periodLabel={period.label}
+            monthName={period.monthName}
+            scorecard={report.scorecards[a.code]}
+          />
         ))}
         {pillars.length === 0 && <NoDataNote>The active plan has no value drivers.</NoDataNote>}
       </section>
@@ -378,7 +462,15 @@ export function ReviewView({
         <section id="enablers" className="flex scroll-mt-20 flex-col gap-4">
           <SectionTitle>Enablers</SectionTitle>
           {enablers.map((a) => (
-            <AreaSection key={a.code} area={a} soWhats={period.areaSoWhats[a.code] ?? []} periodId={period.id} periodLabel={period.label} />
+            <AreaSection
+              key={a.code}
+              area={a}
+              soWhats={period.areaSoWhats[a.code] ?? []}
+              periodId={period.id}
+              periodLabel={period.label}
+              monthName={period.monthName}
+              scorecard={report.scorecards[a.code]}
+            />
           ))}
         </section>
       )}
