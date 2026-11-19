@@ -75,7 +75,21 @@ export function KpiStatusChips({
   return (
     <span className={`flex flex-wrap items-center gap-1 ${className ?? ""}`}>
       {statuses.map((entry, index) => (
-        <KpiStatusBadge key={`${entry.status}-${entry.label ?? index}`} status={entry.status} tone={entry.tone} />
+        // The entry's own label is part of the business meaning ("CAC off
+        // track"), so it is rendered rather than replaced with the generic
+        // status word. Without it a combined reading collapses into a single
+        // colour and the reader loses which measure it was about.
+        <KpiStatusBadge
+          key={`${entry.status}-${entry.label ?? index}`}
+          status={entry.status}
+          tone={entry.tone}
+          label={entry.label}
+          title={
+            entry.label
+              ? `${entry.label} — ${KPI_STATUS_META[entry.status].label}. ${KPI_STATUS_META[entry.status].meaning}`
+              : undefined
+          }
+        />
       ))}
     </span>
   );

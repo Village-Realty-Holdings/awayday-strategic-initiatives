@@ -111,8 +111,10 @@ describe("ragAgainstTarget — the arithmetic a status is made of", () => {
 // 2026 goal; FY27 shows budget / stretch from the 12 Nov board pre-read." These
 // tests pin that rule, including every case where the goal cannot be used.
 describe("mappingRag — the October status, judged against the 2026 goal only", () => {
-  const MA = { higherIsBetter: true, timeBasis: "YTD" } as const;
-  const GOAL_23M = { value: 23_000_000, label: "2026 goal" };
+  // Every mapping states its quantity through displayFormat, and every goal
+  // states its own. Nothing here relies on the numbers looking similar.
+  const MA = { higherIsBetter: true, timeBasis: "YTD", displayFormat: "currency" } as const;
+  const GOAL_23M = { value: 23_000_000, label: "2026 goal", quantity: "currency" as const };
 
   it("judges the value by the 2026 goal the definition states", () => {
     // M&A: the board pre-read's FY27 budget is $26M; the 2026 goal is $23M. A
@@ -124,8 +126,6 @@ describe("mappingRag — the October status, judged against the 2026 goal only",
   });
 
   it("never falls back to an FY27 target when no 2026 goal is stated", () => {
-    // This is the finding this change fixes. Without a goal there is no status,
-    // even though a $26M FY27 budget exists on the mapping.
     expect(mappingRag(24_000_000, MA, "VALID", null)).toBe("GREY");
     expect(mappingRag(34_800_000, MA, "VALID", null)).toBe("GREY");
     expect(mappingRag(24_000_000, MA)).toBe("GREY");
@@ -134,33 +134,54 @@ describe("mappingRag — the October status, judged against the 2026 goal only",
   it("keeps the declared direction when a goal is supplied", () => {
     // Churn: 2026 goal 12%, and lower is better. The goal figure being different
     // from the FY27 budget must not flip the verdict.
-    const churn = { higherIsBetter: false, timeBasis: "YTD" } as const;
-    expect(mappingRag(12.4, churn, "VALID", { value: 12, label: "2026 goal" })).toBe("AMBER");
-    expect(mappingRag(13.5, churn, "VALID", { value: 12, label: "2026 goal" })).toBe("RED");
-    expect(mappingRag(10.5, churn, "VALID", { value: 12, label: "2026 goal" })).toBe("GREEN");
+    const churn = { higherIsBetter: false, timeBasis: "YTD", displayFormat: "percent" } as const;
+    const goal12 = { value: 12, label: "2026 goal", quantity: "percent" as const };
+    expect(mappingRag(12.4, churn, "VALID", goal12)).toBe("AMBER");
+    expect(mappingRag(13.5, churn, "VALID", goal12)).toBe("RED");
+    expect(mappingRag(10.5, churn, "VALID", goal12)).toBe("GREEN");
   });
 
-  it("claims no status when the goal and the value are in different quantities", () => {
-    // Grow: 3,340 BD unit adds against a 23% growth goal is not a comparison.
-    expect(mappingRag(3340, MA, "VALID", { value: 23, label: "2026 goal" })).toBe("GREY");
-    // A currency goal and a currency value are.
-    expect(mappingRag(34_800_000, MA, "VALID", { value: 23_000_000, label: "2026 goal" })).toBe("GREEN");
+  it("claims no status when the goal and the measure are in different quantities", () => {
+    // Grow: a count measure against a 23% growth goal is not a comparison.
+    const grow = { higherIsBetter: true, timeBasis: "YTD", displayFormat: "number" } as const;
+    expect(mappingRag(3340, grow, "VALID", { value: 23, label: "2026 goal", quantity: "percent" }, "count")).toBe("GREY");
+    // The same numbers in the same quantity are a comparison.
+    expect(mappingRag(3340, grow, "VALID", { value: 2_608, label: "2026 goal", quantity: "count" }, "count")).toBe("GREEN");
+  });
+
+  it("never treats a percentage as a count just because the numbers are alike", () => {
+    // 12% against 12 units: identical magnitudes, different quantities.
+    const churn = { higherIsBetter: false, timeBasis: "YTD", displayFormat: "percent" } as const;
+    expect(mappingRag(12, churn, "VALID", { value: 12, label: "2026 goal", quantity: "count" }, "percent")).toBe("GREY");
+    // ... and currency against a count is likewise refused.
+    expect(mappingRag(5, MA, "VALID", { value: 5, label: "2026 goal", quantity: "count" })).toBe("GREY");
+  });
+
+  it("compares percentage points only with percentage points", () => {
+    const margin = { higherIsBetter: true, timeBasis: "YTD", displayFormat: "number" } as const;
+    expect(mappingRag(0.8, margin, "VALID", { value: 0.7, label: "2026 goal", quantity: "points" }, "points")).toBe("GREEN");
+    // A points measure against a percent goal is a different quantity.
+    expect(mappingRag(0.8, margin, "VALID", { value: 0.7, label: "2026 goal", quantity: "percent" }, "points")).toBe("GREY");
+  });
+
+  it("stays neutral when a quantity is not stated on either side", () => {
+    const bare = { higherIsBetter: true, timeBasis: "YTD", displayFormat: "number" } as const;
+    const noQuantity = { value: 100, label: "2026 goal" };
+    expect(mappingRag(120, bare, "VALID", noQuantity)).toBe("GREY");
+    expect(mappingRag(120, bare, "VALID", { value: 100, label: "2026 goal", quantity: "count" })).toBe("GREY");
+    expect(statusGap(120, bare, "VALID", { value: 100, label: "2026 goal", quantity: "count" })).toBe("goal-quantity-unknown");
   });
 
   it("never colours a measure when the mapping states no direction", () => {
-    const unknown = { higherIsBetter: null, timeBasis: "YTD" } as const;
-    // Above, below and exactly on goal all stay neutral: an unknown direction
-    // must not become green, even when the number looks favourable.
-    expect(mappingRag(120, unknown, "VALID", { value: 100, label: "2026 goal" })).toBe("GREY");
-    expect(mappingRag(80, unknown, "VALID", { value: 100, label: "2026 goal" })).toBe("GREY");
-    expect(mappingRag(100, unknown, "VALID", { value: 100, label: "2026 goal" })).toBe("GREY");
+    const unknown = { higherIsBetter: null, timeBasis: "YTD", displayFormat: "number" } as const;
+    expect(mappingRag(120, unknown, "VALID", { value: 100, label: "2026 goal", quantity: "count" })).toBe("GREY");
+    expect(mappingRag(80, unknown, "VALID", { value: 100, label: "2026 goal", quantity: "count" })).toBe("GREY");
+    expect(mappingRag(100, unknown, "VALID", { value: 100, label: "2026 goal", quantity: "count" })).toBe("GREY");
   });
 
   it("claims no status when the mapping declares no reporting basis", () => {
-    // The goal is known and the value matches it, but nobody has said whether
-    // the figure is monthly, year to date or trailing, so it is not rated.
-    expect(mappingRag(25_000_000, { higherIsBetter: true, timeBasis: "" }, "VALID", GOAL_23M)).toBe("GREY");
-    expect(mappingRag(25_000_000, { higherIsBetter: true, timeBasis: "QUARTERLY" }, "VALID", GOAL_23M)).toBe("GREY");
+    expect(mappingRag(25_000_000, { higherIsBetter: true, timeBasis: "", displayFormat: "currency" }, "VALID", GOAL_23M)).toBe("GREY");
+    expect(mappingRag(25_000_000, { higherIsBetter: true, timeBasis: "QUARTERLY", displayFormat: "currency" }, "VALID", GOAL_23M)).toBe("GREY");
   });
 
   it("is grey with no value or an unusable one, and amber only when a status is otherwise claimable", () => {
@@ -168,16 +189,20 @@ describe("mappingRag — the October status, judged against the 2026 goal only",
     expect(mappingRag(Number.NaN, MA, "VALID", GOAL_23M)).toBe("GREY");
     expect(mappingRag(24_000_000, MA, "UNAVAILABLE", GOAL_23M)).toBe("GREY");
     expect(mappingRag(24_000_000, MA, "STALE", GOAL_23M)).toBe("AMBER");
-    // Stale data with no goal is still no status: the data quality does not
-    // create a comparison that does not exist.
     expect(mappingRag(24_000_000, MA, "STALE", null)).toBe("GREY");
   });
 
+  it("keeps the magnitude guard as a second check inside one quantity", () => {
+    // Both are currency, but $26 beside $26M is a parse error, not a result.
+    expect(mappingRag(26, MA, "VALID", GOAL_23M)).toBe("GREY");
+    expect(statusGap(26, MA, "VALID", GOAL_23M)).toBe("goal-not-comparable");
+  });
+
   it("names why no status was claimed, so the review can say what to configure", () => {
-    expect(statusGap(24_000_000, { higherIsBetter: null, timeBasis: "YTD" }, "VALID", GOAL_23M)).toBe("no-direction");
-    expect(statusGap(24_000_000, { higherIsBetter: true, timeBasis: "" }, "VALID", GOAL_23M)).toBe("no-basis");
+    expect(statusGap(24_000_000, { higherIsBetter: null, timeBasis: "YTD", displayFormat: "currency" }, "VALID", GOAL_23M)).toBe("no-direction");
+    expect(statusGap(24_000_000, { higherIsBetter: true, timeBasis: "", displayFormat: "currency" }, "VALID", GOAL_23M)).toBe("no-basis");
     expect(statusGap(24_000_000, MA, "VALID", null)).toBe("no-goal");
-    expect(statusGap(3340, MA, "VALID", { value: 23, label: "2026 goal" })).toBe("goal-not-comparable");
+    expect(statusGap(3340, { higherIsBetter: true, timeBasis: "YTD", displayFormat: "number" }, "VALID", { value: 23, label: "2026 goal", quantity: "percent" }, "count")).toBe("goal-not-comparable");
     expect(statusGap(null, MA, "VALID", GOAL_23M)).toBe("no-value");
     expect(statusGap(24_000_000, MA, "VALID", GOAL_23M)).toBeNull();
   });

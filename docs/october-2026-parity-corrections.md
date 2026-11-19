@@ -224,7 +224,7 @@ Why it is safe to hand to engineering:
 | FY27 figures untouched | `set-mapping` never writes `targetBudget` / `targetStretch` on update, and the M&A identity keeps its mapping (so no mapping write at all for M&A). The HTML's ~$33M is **not** written — that is D2, FP&A's decision (§12). |
 | No observation, rename or publication | The script writes only definition→area links, mapping rows and target *wording*; it never touches `KpiObservation`, never renames a KPI, never publishes. |
 | Idempotent | Running it on its own output yields "Already configured: nothing to write." A target already stating the same goal is left alone. |
-| Rollback | `--apply --snapshot` records the prior definition/mapping state; `--revert --snapshot` restores it. |
+| Rollback | `--apply --snapshot` records both the prior state and the state the plan leaves behind. `--revert --snapshot` restores the prior state **only** if production still matches that recorded end state: the whole restore is one `Serializable` transaction, drift in any managed field aborts before a single write, and `targetBudget` / `targetStretch` are outside both the check and the restore so a later FP&A change survives a rollback. A version-1 snapshot (no drift check) is refused. |
 
 Exact planned target wording, taken from the tests (the 2026 goal is **prefixed** to
 wording the business already has — no existing figure is rewritten):

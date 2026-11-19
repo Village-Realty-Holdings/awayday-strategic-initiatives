@@ -284,3 +284,193 @@ export function describeChange(change: MeasureChange): string {
       return `set ${change.metricKey} target wording to "${change.to}" (was "${change.from ?? "none"}")`;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Rollback: a snapshot, a drift check, and a restore plan
+// ---------------------------------------------------------------------------
+//
+// `--apply` writes a snapshot holding the state it found ("before") and the
+// state it is about to leave ("after"). `--revert` restores "before", but only
+// if production still looks exactly like "after". If anything the plan manages
+// has moved since — a mapping switched on by hand, a target re-worded — the
+// revert refuses and prints the difference, because silently overwriting a newer
+// decision is worse than leaving the rollback undone.
+//
+// `targetBudget` / `targetStretch` are deliberately outside both the drift check
+// and the restore: the plan never writes them, so a later FP&A change must
+// survive a rollback untouched.
+
+/** One definition as captured in a snapshot. */
+export type SnapshotDefinition = {
+  metricKey: string;
+  strategicAreaId: string | null;
+  target: string | null;
+  mapping: MappingState | null;
+};
+
+export type SnapshotPillar = { code: string; areaId: string; definitions: SnapshotDefinition[] };
+
+export type ConfigurationSnapshot = {
+  version: 2;
+  capturedAt: string;
+  /** The state before the plan was applied: what a revert restores. */
+  before: readonly SnapshotPillar[];
+  /** The state the plan left behind: what a revert expects to find. */
+  after: readonly SnapshotPillar[];
+};
+
+/** A definition's current stored state, as read from the database. */
+export type CurrentDefinition = SnapshotDefinition;
+
+export type ConfigurationDrift = { metricKey: string; field: string; expected: string; found: string };
+
+export type RevertRestore =
+  | { kind: "link-definition"; metricKey: string; toAreaId: string | null }
+  | { kind: "set-target-text"; metricKey: string; to: string | null }
+  | { kind: "delete-mapping"; metricKey: string }
+  | { kind: "restore-mapping"; metricKey: string; to: Omit<MappingState, "targetBudget" | "targetStretch"> };
+
+/** The mapping fields the plan manages. Budget and stretch are not among them. */
+const MANAGED_MAPPING_FIELDS = ["active", "calculation", "inputMetricKey", "denominatorMetricKey", "timeBasis", "displayFormat", "higherIsBetter"] as const;
+
+function show(value: unknown): string {
+  if (value === null || value === undefined) return "none";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+/** The state the plan leaves behind, computed in memory from the state it found. */
+export function expectedAfter(pillars: readonly PillarState[], changes: readonly MeasureChange[]): SnapshotPillar[] {
+  const state = new Map<string, SnapshotDefinition>();
+  for (const pillar of pillars) {
+    for (const definition of pillar.definitions) {
+      state.set(definition.metricKey, {
+        metricKey: definition.metricKey,
+        strategicAreaId: definition.strategicAreaId,
+        target: definition.target,
+        mapping: definition.mapping ? { ...definition.mapping } : null,
+      });
+    }
+  }
+  for (const change of changes) {
+    const definition = state.get(change.metricKey);
+    if (!definition) continue;
+    if (change.kind === "link-definition") definition.strategicAreaId = change.toAreaId;
+    else if (change.kind === "set-target-text") definition.target = change.to;
+    else if (change.kind === "deactivate-mapping") {
+      if (definition.mapping) definition.mapping = { ...definition.mapping, active: false };
+    } else {
+      // The apply's update path never writes budget or stretch, so the expected
+      // state keeps whatever the definition already had.
+      const existing = definition.mapping;
+      definition.mapping = {
+        ...change.to,
+        targetBudget: existing?.targetBudget ?? change.to.targetBudget,
+        targetStretch: existing?.targetStretch ?? change.to.targetStretch,
+      };
+    }
+  }
+  return pillars.map((pillar) => ({
+    code: pillar.code,
+    areaId: pillar.areaId,
+    definitions: pillar.definitions.map((definition) => state.get(definition.metricKey)!).filter(Boolean),
+  }));
+}
+
+/**
+ * Everything that has moved since the plan was applied, described field by
+ * field. An empty list means the revert is safe.
+ */
+export function configurationDrift(expected: readonly SnapshotPillar[], current: readonly CurrentDefinition[]): ConfigurationDrift[] {
+  const drift: ConfigurationDrift[] = [];
+  const byKey = new Map(current.map((definition) => [definition.metricKey, definition]));
+  for (const pillar of expected) {
+    for (const definition of pillar.definitions) {
+      const now = byKey.get(definition.metricKey);
+      if (!now) {
+        drift.push({ metricKey: definition.metricKey, field: "definition", expected: "present", found: "missing" });
+        continue;
+      }
+      if ((now.strategicAreaId ?? null) !== (definition.strategicAreaId ?? null)) {
+        drift.push({ metricKey: definition.metricKey, field: "strategicAreaId", expected: show(definition.strategicAreaId), found: show(now.strategicAreaId) });
+      }
+      if ((now.target ?? null) !== (definition.target ?? null)) {
+        drift.push({ metricKey: definition.metricKey, field: "target", expected: show(definition.target), found: show(now.target) });
+      }
+      if ((definition.mapping === null) !== (now.mapping === null)) {
+        drift.push({ metricKey: definition.metricKey, field: "mapping", expected: definition.mapping ? "present" : "absent", found: now.mapping ? "present" : "absent" });
+        continue;
+      }
+      if (definition.mapping && now.mapping) {
+        for (const field of MANAGED_MAPPING_FIELDS) {
+          const expectedValue = definition.mapping[field] ?? null;
+          const foundValue = now.mapping[field] ?? null;
+          if (expectedValue !== foundValue) {
+            drift.push({ metricKey: definition.metricKey, field: `mapping.${field}`, expected: show(expectedValue), found: show(foundValue) });
+          }
+        }
+      }
+    }
+  }
+  return drift;
+}
+
+/**
+ * What a revert would do: the restores needed to return to `before`, or the
+ * drift that makes it unsafe. Never both — a plan with drift has no restores.
+ */
+export function planRevert(
+  snapshot: ConfigurationSnapshot,
+  current: readonly CurrentDefinition[],
+): { drift: ConfigurationDrift[]; restores: RevertRestore[] } {
+  const drift = configurationDrift(snapshot.after, current);
+  if (drift.length > 0) return { drift, restores: [] };
+  const byKey = new Map(current.map((definition) => [definition.metricKey, definition]));
+  const restores: RevertRestore[] = [];
+  for (const pillar of snapshot.before) {
+    for (const definition of pillar.definitions) {
+      const now = byKey.get(definition.metricKey);
+      if (!now) continue;
+      if ((now.strategicAreaId ?? null) !== (definition.strategicAreaId ?? null)) {
+        restores.push({ kind: "link-definition", metricKey: definition.metricKey, toAreaId: definition.strategicAreaId });
+      }
+      if ((now.target ?? null) !== (definition.target ?? null)) {
+        restores.push({ kind: "set-target-text", metricKey: definition.metricKey, to: definition.target });
+      }
+      if (definition.mapping === null) {
+        // The plan created this mapping; removing it is the restore. Its budget
+        // and stretch were written as null at creation, so nothing is lost.
+        if (now.mapping) restores.push({ kind: "delete-mapping", metricKey: definition.metricKey });
+        continue;
+      }
+      // Budget and stretch are excluded from the restore, so a later FP&A change
+      // to them survives a rollback untouched.
+      const managed = {
+        active: definition.mapping.active,
+        calculation: definition.mapping.calculation,
+        inputMetricKey: definition.mapping.inputMetricKey,
+        denominatorMetricKey: definition.mapping.denominatorMetricKey,
+        timeBasis: definition.mapping.timeBasis,
+        displayFormat: definition.mapping.displayFormat,
+        higherIsBetter: definition.mapping.higherIsBetter,
+      };
+      const differs = MANAGED_MAPPING_FIELDS.some((field) => (now.mapping?.[field] ?? null) !== (managed[field] ?? null));
+      if (differs) restores.push({ kind: "restore-mapping", metricKey: definition.metricKey, to: managed });
+    }
+  }
+  return { drift: [], restores };
+}
+
+/** A one-line description of a restore, for the revert printout. */
+export function describeRestore(restore: RevertRestore): string {
+  switch (restore.kind) {
+    case "link-definition":
+      return `link ${restore.metricKey} back to ${restore.toAreaId ?? "unlinked"}`;
+    case "set-target-text":
+      return `restore ${restore.metricKey} target wording to "${restore.to ?? "none"}"`;
+    case "delete-mapping":
+      return `delete the mapping the plan created for ${restore.metricKey}`;
+    case "restore-mapping":
+      return `restore ${restore.metricKey} mapping to ${restore.to.timeBasis} · ${restore.to.displayFormat} · active=${restore.to.active}`;
+  }
+}

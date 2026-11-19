@@ -7,7 +7,7 @@
 // (reportingScope + entityScope + timeBasis + comparisonBasis), and each table
 // section names the population it belongs to.
 
-import { formatDelta, formatMetricValue, metricKind, parseNumber, parseTargetMarkers, primaryGoalMarker, sameQuantity, type MetricKind } from "@/lib/review-format";
+import { formatDelta, formatMetricValue, metricKind, parseNumber, parseTargetMarkers, goalQuantityFor, primaryGoalMarker, quantityCompatibility, quantityOfKind, sameQuantity, type MetricKind } from "@/lib/review-format";
 
 // Formatters live in review-format.ts so client components can use them without
 // importing the Prisma-backed KPI module. Re-exported here for existing callers.
@@ -668,7 +668,13 @@ export function statusAgainstTarget(
   const actual = parseNumber(value ?? null);
   if (actual === null) return "no_data";
   const goal = primaryGoalMarker(parseTargetMarkers(target), kind);
-  if (goal === null || !sameQuantity(actual, goal.value)) return "no_data";
+  if (goal === null) return "no_data";
+  // Explicit quantity compatibility: a percentage goal is never applied to a
+  // count, a currency goal never to a percentage, and an unstated quantity is
+  // never compared at all.
+  const measuredIn = kind ? quantityOfKind(kind) : "unknown";
+  if (quantityCompatibility(measuredIn, goalQuantityFor(goal.unit, measuredIn)) !== "compatible") return "no_data";
+  if (!sameQuantity(actual, goal.value)) return "no_data";
   if (Math.abs(actual - goal.value) <= Math.abs(goal.value) * 0.1) return "on_track";
   const better = goal.lowerIsBetter ? actual < goal.value : actual > goal.value;
   return better ? "ahead" : "behind";

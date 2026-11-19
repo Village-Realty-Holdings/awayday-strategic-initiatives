@@ -5,10 +5,16 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import {
   OCTOBER_PRIMARY_CONFIG,
   describeChange,
+  describeRestore,
+  expectedAfter,
   planOctoberConfiguration,
+  planRevert,
+  type ConfigurationSnapshot,
+  type CurrentDefinition,
   type DefinitionState,
   type MappingState,
   type PillarState,
+  type SnapshotPillar,
 } from "../src/lib/october-primary-measures";
 
 // Prints — or, with --apply and engineering approval, applies — the reviewed
@@ -73,14 +79,26 @@ async function loadPillars(): Promise<PillarState[]> {
   // linked to their area yet, so they are loaded by key as well.
   const reviewedKeys = OCTOBER_PRIMARY_CONFIG.filter((entry) => entry.primaryMetricKey !== `${plan.code}:${entry.pillar}`).map((entry) => entry.primaryMetricKey);
   const unlinked = await prisma.kpiDefinition.findMany({
-    where: { metricKey: { in: reviewedKeys }, NOT: { strategicAreaId: { in: areas.map((area) => area.id) } } },
+    // `strategicAreaId` is null for a reviewed definition no pillar owns yet, and
+    // SQL's `NOT IN` does not match null, so "not linked to one of these areas"
+    // must be written as "unlinked, or linked elsewhere". Without the explicit
+    // null branch the script could never find the definitions it exists to link.
+    where: {
+      metricKey: { in: reviewedKeys },
+      OR: [{ strategicAreaId: null }, { strategicAreaId: { notIn: areas.map((area) => area.id) } }],
+    },
     select: { id: true, metricKey: true, name: true, strategicAreaId: true, target: true, measureMapping: { select: MAPPING_SELECT } },
   });
 
   return codes.map((code) => {
     const area = areas.find((candidate) => candidate.code === code);
     if (!area) return { code, areaId: "", definitions: [] };
-    const definitions: DefinitionState[] = [...area.kpis, ...unlinked.filter((definition) => reviewedKeys.includes(definition.metricKey))].map((definition) => ({
+    // Only THIS pillar's reviewed primary is added; an unlinked definition is
+    // not a definition of every pillar, and listing it under each one would
+    // duplicate it in the snapshot and in the revert.
+    const primaryKey = OCTOBER_PRIMARY_CONFIG.find((entry) => entry.pillar === code)?.primaryMetricKey;
+    const ownUnlinked = unlinked.filter((definition) => definition.metricKey === primaryKey);
+    const definitions: DefinitionState[] = [...area.kpis, ...ownUnlinked].map((definition) => ({
       metricKey: definition.metricKey,
       id: definition.id,
       name: definition.name,
@@ -125,8 +143,8 @@ async function applyChanges(tx: Tx, pillars: readonly PillarState[], changes: Re
   }
 }
 
-async function snapshot(pillars: readonly PillarState[]) {
-  const state = pillars.map((pillar) => ({
+function toSnapshotPillars(pillars: readonly PillarState[]): SnapshotPillar[] {
+  return pillars.map((pillar) => ({
     code: pillar.code,
     areaId: pillar.areaId,
     definitions: pillar.definitions.map((definition) => ({
@@ -136,34 +154,88 @@ async function snapshot(pillars: readonly PillarState[]) {
       mapping: definition.mapping,
     })),
   }));
-  await writeFile(SNAPSHOT, `${JSON.stringify({ capturedAt: new Date().toISOString(), pillars: state }, null, 2)}\n`, "utf8");
+}
+
+async function snapshot(pillars: readonly PillarState[], after: readonly SnapshotPillar[]) {
+  const body = {
+    version: 2 as const,
+    capturedAt: new Date().toISOString(),
+    before: toSnapshotPillars(pillars),
+    after,
+  } satisfies ConfigurationSnapshot;
+  await writeFile(SNAPSHOT, `${JSON.stringify(body, null, 2)}\n`, "utf8");
   return SNAPSHOT;
 }
 
+/** The snapshot's definitions, flattened, for the drift check. */
+function snapshotDefinitions(pillars: readonly SnapshotPillar[]) {
+  return pillars.flatMap((pillar) => pillar.definitions);
+}
+
+/**
+ * Restore the pre-apply state, if and only if production still matches what the
+ * apply left behind.
+ *
+ * Safety, by construction:
+ *   * the whole restore is one serializable transaction, so it either lands
+ *     completely or not at all;
+ *   * the current state is re-read inside that transaction and compared with the
+ *     snapshot's `after` state; any difference aborts before a single write;
+ *   * only the fields the plan manages are compared or restored, so a later FP&A
+ *     change to `targetBudget` / `targetStretch` survives untouched;
+ *   * a mapping the plan did not create is never deleted, and a mapping the plan
+ *     did create is deleted only when it still looks exactly as the plan left it.
+ */
 async function revert() {
-  const raw = JSON.parse(await readFile(SNAPSHOT, "utf8")) as {
-    pillars: { code: string; areaId: string; definitions: { metricKey: string; strategicAreaId: string | null; target: string | null; mapping: MappingState | null }[] }[];
-  };
-  let restored = 0;
-  for (const pillar of raw.pillars) {
-    for (const definition of pillar.definitions) {
-      const row = await prisma.kpiDefinition.findUnique({ where: { metricKey: definition.metricKey }, select: { id: true } });
-      if (!row) continue;
-      await prisma.kpiDefinition.update({ where: { id: row.id }, data: { strategicAreaId: definition.strategicAreaId, target: definition.target } });
-      if (definition.mapping === null) {
-        await prisma.kpiMeasureMapping.deleteMany({ where: { measureKpiId: row.id } });
-      } else {
-        const { active, calculation, inputMetricKey, denominatorMetricKey, timeBasis, displayFormat, higherIsBetter, targetBudget, targetStretch } = definition.mapping;
-        await prisma.kpiMeasureMapping.upsert({
-          where: { measureKpiId: row.id },
-          update: { active, calculation, inputMetricKey, denominatorMetricKey, timeBasis, displayFormat, higherIsBetter, targetBudget, targetStretch },
-          create: { measureKpiId: row.id, active, calculation, inputMetricKey, denominatorMetricKey, timeBasis, displayFormat, higherIsBetter, targetBudget, targetStretch },
-        });
-      }
-      restored++;
-    }
+  const raw = JSON.parse(await readFile(SNAPSHOT, "utf8")) as Partial<ConfigurationSnapshot>;
+  if (raw.version !== 2 || !raw.before || !raw.after) {
+    throw new Error(
+      `Refusing to revert: ${SNAPSHOT} is not a version 2 snapshot (it predates drift detection). Re-run --apply to capture one; nothing was written.`,
+    );
   }
-  console.log(JSON.stringify({ revertedFrom: SNAPSHOT, definitionsRestored: restored }, null, 2));
+  const snapshotBody = raw as ConfigurationSnapshot;
+  const keys = snapshotDefinitions(snapshotBody.after).map((definition) => definition.metricKey);
+
+  const result = await prisma.$transaction(
+    async (tx) => {
+      const rows = await tx.kpiDefinition.findMany({
+        where: { metricKey: { in: keys } },
+        select: { metricKey: true, strategicAreaId: true, target: true, measureMapping: { select: MAPPING_SELECT } },
+      });
+      const current: CurrentDefinition[] = rows.map((row) => ({
+        metricKey: row.metricKey,
+        strategicAreaId: row.strategicAreaId ?? null,
+        target: row.target ?? null,
+        mapping: (row.measureMapping as MappingState | null) ?? null,
+      }));
+      const plan = planRevert(snapshotBody, current);
+      if (plan.drift.length > 0) return { applied: 0, drift: plan.drift, restores: [] as string[] };
+      // `planRevert` only plans a restore for a definition it found in the state
+      // it was given, so every key below is present and reads back by metricKey.
+      for (const restore of plan.restores) {
+        const definition = await tx.kpiDefinition.findUniqueOrThrow({ where: { metricKey: restore.metricKey }, select: { id: true } });
+        if (restore.kind === "link-definition") {
+          await tx.kpiDefinition.update({ where: { id: definition.id }, data: { strategicAreaId: restore.toAreaId } });
+        } else if (restore.kind === "set-target-text") {
+          await tx.kpiDefinition.update({ where: { id: definition.id }, data: { target: restore.to } });
+        } else if (restore.kind === "delete-mapping") {
+          await tx.kpiMeasureMapping.deleteMany({ where: { measureKpiId: definition.id } });
+        } else {
+          await tx.kpiMeasureMapping.update({ where: { measureKpiId: definition.id }, data: { ...restore.to } });
+        }
+      }
+      return { applied: plan.restores.length, drift: [], restores: plan.restores.map(describeRestore) };
+    },
+    { isolationLevel: "Serializable" },
+  );
+
+  if (result.drift.length > 0) {
+    console.log(JSON.stringify({ reverted: false, snapshot: SNAPSHOT, drift: result.drift }, null, 2));
+    console.error("Refusing to revert: production configuration changed after this snapshot was taken. Nothing was written. Review the drift above and revert by hand if that is intended.");
+    process.exitCode = 3;
+    return;
+  }
+  console.log(JSON.stringify({ revertedFrom: SNAPSHOT, restoresApplied: result.applied, restores: result.restores }, null, 2));
 }
 
 async function main() {
@@ -192,7 +264,9 @@ async function main() {
     return;
   }
   // Snapshot first, so the run is reversible even if a later statement fails.
-  const path = await snapshot(pillars);
+  // It records both what was found and what the plan will leave behind, which is
+  // what lets --revert refuse to overwrite a newer configuration.
+  const path = await snapshot(pillars, expectedAfter(pillars, plan.changes));
   await prisma.$transaction(async (tx) => {
     // Guard against a concurrent change: re-read the active mappings inside the
     // transaction. A pillar that already has more than one active mapping is

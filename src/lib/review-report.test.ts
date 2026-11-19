@@ -130,14 +130,24 @@ describe("target parsing and status", () => {
 
   it("rates a value in the target's unit and direction", () => {
     // $26.0M against a $26M target is at target, not a $26-vs-$26,000,000 comparison.
-    expect(statusAgainstTarget("26000000", "$26M")).toBe("on_track");
-    expect(statusAgainstTarget("30000000", "$26M")).toBe("ahead");
-    expect(statusAgainstTarget("20000000", "$26M")).toBe("behind");
-    expect(statusAgainstTarget("12.7", "<11%")).toBe("behind");
-    expect(statusAgainstTarget("10.5", "<11%")).toBe("on_track");
-    expect(statusAgainstTarget("4", "5")).toBe("behind");
-    expect(statusAgainstTarget(null, "5")).toBe("no_data");
-    expect(statusAgainstTarget("4", "TBD")).toBe("no_data");
+    expect(statusAgainstTarget("26000000", "$26M", "currency")).toBe("on_track");
+    expect(statusAgainstTarget("30000000", "$26M", "currency")).toBe("ahead");
+    expect(statusAgainstTarget("20000000", "$26M", "currency")).toBe("behind");
+    expect(statusAgainstTarget("12.7", "<11%", "percent")).toBe("behind");
+    expect(statusAgainstTarget("10.5", "<11%", "percent")).toBe("on_track");
+    expect(statusAgainstTarget("4", "5", "count")).toBe("behind");
+    expect(statusAgainstTarget(null, "5", "count")).toBe("no_data");
+    expect(statusAgainstTarget("4", "TBD", "count")).toBe("no_data");
+  });
+
+  it("never rates across quantities, and stays neutral when the quantity is unstated", () => {
+    // A count and a percentage are different quantities even when the numbers
+    // are alike; nor is a currency figure rated against a count target.
+    expect(statusAgainstTarget("12", "12% goal", "count")).toBe("no_data");
+    expect(statusAgainstTarget("4", "5%", "currency")).toBe("no_data");
+    expect(statusAgainstTarget("0.8", "0.7%", "points")).toBe("ahead");
+    // With no stated kind nothing can be shown to be comparable.
+    expect(statusAgainstTarget("26000000", "$26M")).toBe("no_data");
   });
 
   it("judges a status by the definition's goal, never by an FY27 figure or another quantity", () => {

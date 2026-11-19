@@ -144,12 +144,26 @@ describe("status badges", () => {
     expect(renderToStaticMarkup(<KpiStatusBadge status="floor_breached" />)).toContain("Floor breached");
   });
 
-  it("keeps every part of a mixed pillar visible", () => {
+  it("keeps every part of a mixed pillar visible, in the business's own words", () => {
+    // "Ahead · CAC off track": the second chip carries the approved wording, so
+    // it is not replaced by the generic verdict — and the verdict's meaning is
+    // still exposed through the title for assistive technology.
     const html = renderToStaticMarkup(
       <KpiStatusChips statuses={[{ status: "ahead" }, { status: "behind", label: "CAC off track" }]} />,
     );
     expect(html).toContain("Ahead");
-    expect(html).toContain("Behind");
+    expect(html).toContain("CAC off track");
+    expect(html).not.toContain(">Behind<");
+    expect(html).toContain("CAC off track — Behind.");
+    // Colour still comes from the status, never from the wording.
+    expect(html).toContain('data-status="behind"');
+    expect(html).toContain('data-tone="crit"');
+  });
+
+  it("falls back to the status word when an entry states no label", () => {
+    const html = renderToStaticMarkup(<KpiStatusChips statuses={[{ status: "under_budget" }]} />);
+    expect(html).toContain("Under budget");
+    expect(html).toContain('data-status="under_budget"');
   });
 
   it("summarises a mixed scorecard with counts, not one verdict", () => {

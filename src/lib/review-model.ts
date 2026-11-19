@@ -25,7 +25,7 @@ export type Rag = "GREEN" | "AMBER" | "RED" | "GREY";
  * whose goal, direction or reporting basis is not configured shows "Not
  * configured" rather than a status borrowed from an FY27 figure.
  */
-export const MEASURE_STATUS_GAPS = ["no-direction", "no-basis", "no-goal", "goal-not-comparable", "no-value"] as const;
+export const MEASURE_STATUS_GAPS = ["no-direction", "no-basis", "no-goal", "goal-quantity-unknown", "goal-not-comparable", "no-value"] as const;
 export type MeasureStatusGap = (typeof MEASURE_STATUS_GAPS)[number];
 
 /** The neutral label the review uses when no status can be claimed. */
@@ -36,6 +36,8 @@ export const STATUS_GAP_TEXT: Record<MeasureStatusGap, string> = {
   "no-direction": "The measure mapping does not state which direction is better, so no status is claimed.",
   "no-basis": "The measure mapping does not declare a reporting basis, so the figures cannot be judged against a goal.",
   "no-goal": "No 2026 goal is stated for this measure, so no status is claimed. FY27 budget and stretch are shown for context only.",
+  "goal-quantity-unknown":
+    "The measure or its 2026 goal does not state a quantity (currency, count, percent or points), so the two are not compared and no status is claimed.",
   "goal-not-comparable":
     "The 2026 goal is written in a different quantity from the measure, so the two are not compared and no status is claimed.",
   "no-value": "There is no value for this month, so no status is claimed.",

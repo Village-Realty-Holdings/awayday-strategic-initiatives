@@ -176,6 +176,65 @@ export type TargetReference = "2026" | "FY27" | null;
 /** The unit a target's own figure is written in, so a goal is never compared across quantities. */
 export type TargetUnit = "percent" | "points" | "currency" | "count";
 
+/**
+ * The quantity a figure is a quantity *of*. This is the explicit compatibility
+ * test: a percentage, a percentage-point delta, a currency amount and a unit
+ * count are different things even when their numbers are similar (12% and 12
+ * units are not a comparison). `unknown` means the definition does not say, and
+ * an unknown quantity is never compared — the measure stays neutral instead.
+ */
+export type Quantity = "percent" | "points" | "currency" | "count" | "unknown";
+
+/** The quantity a metric kind is measured in; a bare "number" states none. */
+export function quantityOfKind(kind: MetricKind): Quantity {
+  return kind === "number" ? "unknown" : kind;
+}
+
+/** The quantity a target figure is written in. */
+export function quantityOfUnit(unit: TargetUnit): Quantity {
+  return unit;
+}
+
+/** The quantity a mapping's declared display format states, if it states one. */
+export function quantityOfFormat(format: string | null | undefined): Quantity {
+  const declared = (format ?? "").toLowerCase();
+  if (/percentage.?point|percentage_points|\bpp\b|points/.test(declared)) return "points";
+  if (/percent|\bpct\b|%/.test(declared)) return "percent";
+  if (/usd|currency|dollar|\$/.test(declared)) return "currency";
+  if (/count|integer|units?/.test(declared)) return "count";
+  return "unknown";
+}
+
+export type QuantityCompatibility = "compatible" | "incompatible" | "unknown";
+
+/**
+ * Whether two quantities may be compared. Only two stated, identical quantities
+ * are compatible; a stated mismatch is incompatible; anything involving an
+ * unknown quantity is `unknown`, which callers must treat as "claim no status".
+ */
+export function quantityCompatibility(a: Quantity, b: Quantity): QuantityCompatibility {
+  if (a === "unknown" || b === "unknown") return "unknown";
+  return a === b ? "compatible" : "incompatible";
+}
+
+/** The quantity a measure is stated in: its declaration first, its name as fallback. */
+export function measureQuantity(metric: MetricFormat): Quantity {
+  return quantityOfKind(metricKind(metric));
+}
+
+/**
+ * The quantity to read a goal figure in, given what the measure is stated in.
+ *
+ * A margin-against-prior-year goal is a percentage-point delta, but the report
+ * sometimes writes it with a percent sign ("+0.7%"). For a points measure that
+ * spelling still means points, so it is read as points. The reverse never
+ * happens: a percent measure is never given a points figure.
+ */
+export function goalQuantityFor(unit: TargetUnit, measuredIn: Quantity): Quantity {
+  if (measuredIn === "points" && unit === "percent") return "points";
+  return quantityOfUnit(unit);
+}
+
 /** One target marker read out of a definition's target prose. */
 export type TargetMarker = {
   /** Stable id for React and for tests. */
@@ -294,12 +353,17 @@ export function markerMatchesKind(marker: TargetMarker, kind: MetricKind): boole
     case "percent":
       return marker.unit === "percent";
     case "points":
-      // A margin goal is written either "+0.7 pt" or "+0.7%" and means the same.
+      // A margin goal written "+0.7 pt" or "+0.7%" still states percentage
+      // points, so a points measure accepts either spelling. The reverse is not
+      // true: a percent measure never accepts a points figure.
       return marker.unit === "points" || marker.unit === "percent";
     case "count":
       return marker.unit === "count";
     default:
-      return marker.unit === "count" || marker.unit === "percent";
+      // A bare "number" states no quantity, so no figure can be shown to be
+      // comparable with it. Accepting counts or percentages here is what let a
+      // percentage goal be applied to a count and vice versa.
+      return false;
   }
 }
 

@@ -8,7 +8,7 @@ import { deriveMeasure, formatDerivedMeasure, mappingInputKeys, mappingRag, meas
 import { ambiguousMeasureNames, selectPrimaryMeasure } from "@/lib/primary-measure";
 import { buildFinanceTable, currentKpiValue, MANUAL_SOURCE_CATEGORY, type FinanceTable, type KpiRow } from "@/lib/review-kpi";
 import { REVIEWED_METRIC_PREFIX } from "@/lib/review-report";
-import { isPlanningFigure, metricKind, parseTargetMarkers, primaryGoalMarker, sameQuantity } from "@/lib/review-format";
+import { goalQuantityFor, isPlanningFigure, metricKind, parseTargetMarkers, primaryGoalMarker, quantityOfKind, sameQuantity } from "@/lib/review-format";
 import {
   FINANCIALS_SCOPE,
   PILLAR_STATUS_RAG,
@@ -269,6 +269,10 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
         // claimed. A goal labelled FY27, or one in a different quantity, is never
         // substituted — not even as a fallback.
         const measureKind = metricKind({ name: kpi?.name ?? a.kpiName ?? a.name, displayFormat: mapping?.displayFormat ?? null, unit: null });
+        // The measure's quantity is stated explicitly (display format first, the
+        // name only as a fallback). A bare "number" states none, and then the
+        // quantity is unknown: no goal can be shown to be comparable with it.
+        const measuredIn = quantityOfKind(measureKind);
         const targetMarkers = parseTargetMarkers(target);
         const rawGoal = primaryGoalMarker(targetMarkers);
         const kindGoal = primaryGoalMarker(targetMarkers, measureKind);
@@ -283,7 +287,9 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
         const goal = kindGoal !== null && !fy27Echo ? kindGoal : null;
         const numericValue = derived?.value ?? parseMeasureNumber(obs?.value) ?? null;
         const comparable = goal !== null && (numericValue === null || sameQuantity(numericValue, goal.value));
-        const goalRef = goal ? { value: goal.value, label: goal.reference === "2026" ? "2026 goal" : "goal" } : null;
+        const goalRef = goal
+          ? { value: goal.value, label: goal.reference === "2026" ? "2026 goal" : "goal", quantity: goalQuantityFor(goal.unit, measuredIn) }
+          : null;
         const reference = comparable ? goalRef : null;
         // A goal that exists but was refused for its quantity is a different
         // situation from one that was never stated; the review says which, so
@@ -295,11 +301,13 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
           mapping === null
             ? null
             : goal !== null
-              ? statusGap(numericValue, mapping, quality, goalRef)
+              ? statusGap(numericValue, mapping, quality, goalRef, measuredIn)
               : rawGoal === null || fy27Echo
-                ? statusGap(numericValue, mapping, quality, null)
-                : "goal-not-comparable";
-        const calculatedRag = mapping ? mappingRag(numericValue, mapping, quality, reference) : "GREY";
+                ? statusGap(numericValue, mapping, quality, null, measuredIn)
+                : measuredIn === "unknown"
+                  ? "goal-quantity-unknown"
+                  : "goal-not-comparable";
+        const calculatedRag = mapping ? mappingRag(numericValue, mapping, quality, reference, measuredIn) : "GREY";
         // Only pillars can have a status set by hand.
         const stored = a.kind === "ENABLER" ? null : a.pillarStatuses?.[0]?.status;
         const statusOverride = (PILLAR_STATUSES as readonly string[]).includes(stored ?? "") ? (stored as PillarStatus) : null;

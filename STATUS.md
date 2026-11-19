@@ -1,9 +1,55 @@
 # Status
 
 _Last updated 2026-11-18 (latest), on branch `feat/review-visual-parity`
-(stacked on PR #25; neither branch is merged or deployed)._
+(stacked on PR #25; as of this commit neither branch is merged or deployed)._
 
-## Latest: no status colour without a 2026 goal; So-What tone stored; October configuration ready to run (PR #26, not merged)
+## Latest: rollback is drift-safe and atomic; quantities are compared explicitly; status labels are preserved (PR #26)
+
+Three further review findings are closed. No production write, import, migration or
+deployment; PR #26 is still stacked on PR #25.
+
+- **A — Configuration rollback cannot overwrite a newer decision.**
+  `prisma/configure-october-2026-primary-measures.ts` now snapshots **both** the
+  state it found and the state the plan will leave (`before` / `after`, snapshot
+  v2). `--revert` re-reads the definitions inside one `Serializable` transaction,
+  compares them with `after` field by field, and **aborts before any write** if
+  anything the plan manages has moved (a mapping switched on by hand, target
+  wording edited, a definition removed, a direction changed). Restores are then
+  applied in the same transaction, so a partial rollback cannot be left behind.
+  `targetBudget` / `targetStretch` are deliberately outside both the drift check
+  and the restore, so a later FP&A change survives. A pre-v2 snapshot is refused
+  rather than restored blind. New planner tests cover restore-from-clean,
+  hand-toggled mapping, edited target wording, deleted definition, changed
+  direction, and preserved FY27 budget/stretch.
+- **B — Quantity compatibility is explicit, not numeric.** A new `Quantity`
+  vocabulary (`currency`, `count`, `percent`, `points`, `unknown`) and
+  `quantityCompatibility()` decide whether a goal may be compared with a measure
+  at all: both sides must be stated and identical. 12% and 12 units are no longer
+  a comparison just because the magnitudes match; a currency goal is never applied
+  to a count; percentage points never compare with percentages. An unstated
+  quantity is neutral and reports the new `goal-quantity-unknown` gap instead of a
+  status. The old magnitude ratio survives only as a second guard inside one
+  quantity (a `$26` parse error beside `$26M`). `mappingRag`, `statusGap`,
+  `statusAgainstTarget` and `getReviewPlan` all use it, and explicit
+  `higherIsBetter` plus approved `ReviewPillarStatus` still win.
+- **C — A status entry's own wording is rendered.** `KpiStatusChips` passes
+  `entry.label` through to the badge, so a combined reading such as
+  "Ahead · CAC off track" keeps the approved business wording instead of
+  collapsing to the generic verdict. Colour still comes from the status
+  (`data-status` / `data-tone`), and the tooltip keeps the verdict and its meaning
+  for assistive technology. An entry with no label still shows the status word.
+
+**Verified locally:** `npm run typecheck`, `npm run lint`, `npm test` (65 files,
+816 tests), `npm run build` and `npx prisma validate` pass; `npx prisma migrate
+status` reports the local database up to date with 19 migrations. `next dev` on
+`127.0.0.1:3000` renders the review (executive cards, five pillars, scorecards,
+So-What, tables, brand churn, sources) against the local synthetic database, with
+missing-data states intact.
+
+**Not verified:** production Neon (no approved credential on this machine), any
+staging/production migration, any deployment.
+
+## Previous: no status colour without a 2026 goal; So-What tone stored; October configuration ready to run (PR #26)
 
 Three findings from the previous review are closed, and the production configuration
 is now a reviewed script rather than a prose plan. Nothing was merged, deployed or

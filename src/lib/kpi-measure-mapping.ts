@@ -1,7 +1,7 @@
 import { CONSOLIDATED_REPORTING_SCOPE, selectCurrentObservations } from "@/lib/kpi";
 import { BASIS_LABEL, formatKpiValue, TIME_LABEL, type KpiRow } from "@/lib/review-kpi";
 import { fmtLong, isoDay, ragAgainst, ragLabel, STATUS_GAP_TEXT, type MeasureOrigin, type MeasureStatusGap, type Rag } from "@/lib/review-model";
-import { sameQuantity } from "@/lib/review-format";
+import { quantityCompatibility, quantityOfFormat, sameQuantity, type Quantity } from "@/lib/review-format";
 
 // How a pillar's measure gets its value from the metrics the import publishes.
 // One KpiMeasureMapping row per measure says which metrics to read and which
@@ -130,7 +130,13 @@ export function formatDerivedMeasure(value: number, mapping: Pick<MeasureMapping
  * planning data. Keeping the reference explicit is what stops an October status
  * from being decided by an FY27 number.
  */
-export type StatusReference = { value: number; label: string; lowerIsBetter?: boolean };
+export type StatusReference = {
+  value: number;
+  label: string;
+  lowerIsBetter?: boolean;
+  /** The quantity the reference figure is stated in. Unknown refuses the comparison. */
+  quantity?: Quantity;
+};
 
 /**
  * Why a review status could not be established. The reviewed report states its
@@ -171,34 +177,60 @@ export function ragAgainstTarget(value: number, target: number, higherIsBetter: 
  */
 export function mappingRag(
   value: number | null,
-  mapping: Pick<MeasureMapping, "higherIsBetter" | "timeBasis">,
+  mapping: Pick<MeasureMapping, "higherIsBetter" | "timeBasis"> & { displayFormat?: string },
   quality = "VALID",
   goal: StatusReference | null = null,
+  quantity?: Quantity,
 ): Rag {
   if (mapping.higherIsBetter === null) return "GREY";
   if (!(MAPPING_TIME_BASES as readonly string[]).includes(mapping.timeBasis)) return "GREY";
   if (goal === null || !Number.isFinite(goal.value)) return "GREY";
+  // Quantities must be stated and identical before any comparison happens. A
+  // percentage and a unit count are different quantities even when the numbers
+  // look alike, and a stated mismatch or an unstated one is never a status.
+  if (!quantitiesComparable(goal, mapping, quantity)) return "GREY";
   if (value === null || !Number.isFinite(value)) return "GREY";
   if (quality === "UNAVAILABLE" || quality === "INVALID") return "GREY";
-  // A target and a value in different quantities are not a comparison. The goal
-  // may be a percentage while the measure is a unit count (Grow: 3,340 units
-  // against a 23% growth goal); claiming green from that ratio would be worse
-  // than claiming nothing.
+  // Magnitude is a second guard, not the compatibility test: it catches a parse
+  // error such as $26 read beside $26M even when both are currency.
   if (!sameQuantity(value, goal.value)) return "GREY";
   if (quality === "STALE") return "AMBER";
   return ragAgainstTarget(value, goal.value, mapping.higherIsBetter);
 }
 
+/**
+ * Whether the goal may be compared with the measure. The measure's quantity is
+ * the caller's explicit statement when it makes one, otherwise what the
+ * mapping's display format declares. Both sides must be stated and equal.
+ */
+function quantitiesComparable(
+  goal: StatusReference,
+  mapping: { displayFormat?: string },
+  quantity?: Quantity,
+): boolean {
+  const goalQuantity = goal.quantity ?? "unknown";
+  const measureQuantity = quantity && quantity !== "unknown" ? quantity : quantityOfFormat(mapping.displayFormat);
+  return quantityCompatibility(goalQuantity, measureQuantity) === "compatible";
+}
+
 /** Why a review status could not be established, or null when one was. */
 export function statusGap(
   value: number | null,
-  mapping: Pick<MeasureMapping, "higherIsBetter" | "timeBasis">,
+  mapping: Pick<MeasureMapping, "higherIsBetter" | "timeBasis"> & { displayFormat?: string },
   quality = "VALID",
   goal: StatusReference | null = null,
+  quantity?: Quantity,
 ): StatusGap | null {
   if (mapping.higherIsBetter === null) return "no-direction";
   if (!(MAPPING_TIME_BASES as readonly string[]).includes(mapping.timeBasis)) return "no-basis";
   if (goal === null || !Number.isFinite(goal.value)) return "no-goal";
+  // Distinguish "the two units cannot be compared" from "nobody stated a unit":
+  // the first needs a corrected goal, the second needs a declared display format.
+  const goalQuantity = goal.quantity ?? "unknown";
+  const measureQuantity = quantity && quantity !== "unknown" ? quantity : quantityOfFormat(mapping.displayFormat);
+  const compatibility = quantityCompatibility(goalQuantity, measureQuantity);
+  if (compatibility === "unknown") return "goal-quantity-unknown";
+  if (compatibility === "incompatible") return "goal-not-comparable";
   if (value === null || !Number.isFinite(value)) return "no-value";
   if (quality === "UNAVAILABLE" || quality === "INVALID") return "no-value";
   if (!sameQuantity(value, goal.value)) return "goal-not-comparable";

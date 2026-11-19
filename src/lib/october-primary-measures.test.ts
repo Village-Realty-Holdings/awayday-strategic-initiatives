@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   OCTOBER_PRIMARY_CONFIG,
   describeChange,
+  expectedAfter,
   planOctoberConfiguration,
+  planRevert,
+  type CurrentDefinition,
   type DefinitionState,
   type MappingState,
   type PillarState,
@@ -222,5 +225,116 @@ describe("planOctoberConfiguration", () => {
     const plan = planOctoberConfiguration(productionState());
     expect(describeChange({ kind: "deactivate-mapping", metricKey: "FY27:GROW", from: mapping({ timeBasis: "YTD" }) })).toBe("deactivate FY27:GROW mapping (YTD, percent)");
     expect(plan.changes.map(describeChange).every((line) => line.length > 10)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rollback: snapshot, drift, restore
+// ---------------------------------------------------------------------------
+
+describe("revert — never overwrites a newer configuration", () => {
+  /** A snapshot taken the way the script takes one: before + expected after. */
+  const snapshotOf = (pillars: PillarState[]) => {
+    const plan = planOctoberConfiguration(pillars);
+    return {
+      version: 2 as const,
+      capturedAt: "2026-11-19T00:00:00.000Z",
+      before: pillars.map((pillar) => ({
+        code: pillar.code,
+        areaId: pillar.areaId,
+        definitions: pillar.definitions.map((definition) => ({
+          metricKey: definition.metricKey,
+          strategicAreaId: definition.strategicAreaId,
+          target: definition.target,
+          mapping: definition.mapping,
+        })),
+      })),
+      after: expectedAfter(pillars, plan.changes),
+      plan,
+    };
+  };
+
+  const currentFrom = (after: readonly { definitions: readonly CurrentDefinition[] }[]): CurrentDefinition[] =>
+    after.flatMap((pillar) => pillar.definitions.map((definition) => ({ ...definition, mapping: definition.mapping ? { ...definition.mapping } : null })));
+
+  it("computes the state the plan leaves behind, matching what apply writes", () => {
+    const { after } = snapshotOf(productionState());
+    const byKey = new Map(currentFrom(after).map((definition) => [definition.metricKey, definition]));
+    // The reviewed definitions are linked and mapped; the FY27 ones are switched off.
+    expect(byKey.get("user_review:bd_unit_adds")?.strategicAreaId).toBe("area-GROW");
+    expect(byKey.get("user_review:bd_unit_adds")?.mapping).toMatchObject({ active: true, displayFormat: "number", timeBasis: "YTD" });
+    expect(byKey.get("FY27:GROW")?.mapping).toMatchObject({ active: false });
+    // FY27 planning figures are not touched by the plan's expected state.
+    expect(byKey.get("FY27:M&A")?.mapping).toMatchObject({ targetBudget: 26_000_000, targetStretch: 47_000_000 });
+    expect(byKey.get("FY27:M&A")?.target).toBe("2026 goal $23M · $26M total");
+  });
+
+  it("restores the pre-apply state when nothing has moved", () => {
+    const { before, after } = snapshotOf(productionState());
+    const plan = planRevert({ version: 2, capturedAt: "x", before, after }, currentFrom(after));
+    expect(plan.drift).toEqual([]);
+    const kinds = plan.restores.map((restore) => `${restore.kind}:${restore.metricKey}`).sort();
+    // The created mappings are deleted, the deactivated ones restored, the
+    // re-worded target and the new link put back.
+    expect(kinds).toContain("delete-mapping:user_review:bd_unit_adds");
+    expect(kinds).toContain("restore-mapping:FY27:GROW");
+    expect(kinds).toContain("set-target-text:FY27:M&A");
+    expect(kinds).toContain("link-definition:user_review:bd_unit_adds");
+    // Nothing is created for a definition that had no mapping before the plan.
+    expect(plan.restores.some((restore) => restore.kind === "restore-mapping" && restore.metricKey === "user_review:bd_unit_adds")).toBe(false);
+  });
+
+  it("refuses to restore when a mapping was switched back on by hand", () => {
+    const { before, after } = snapshotOf(productionState());
+    const current = currentFrom(after);
+    const grow = current.find((definition) => definition.metricKey === "FY27:GROW")!;
+    grow.mapping = { ...grow.mapping!, active: true };
+    const plan = planRevert({ version: 2, capturedAt: "x", before, after }, current);
+    expect(plan.restores).toEqual([]);
+    expect(plan.drift).toContainEqual({ metricKey: "FY27:GROW", field: "mapping.active", expected: "false", found: "true" });
+  });
+
+  it("refuses to restore when target wording was edited after the plan ran", () => {
+    const { before, after } = snapshotOf(productionState());
+    const current = currentFrom(after);
+    const ma = current.find((definition) => definition.metricKey === "FY27:M&A")!;
+    ma.target = "$23M goal (confirmed by FP&A) · $26M total";
+    const plan = planRevert({ version: 2, capturedAt: "x", before, after }, current);
+    expect(plan.restores).toEqual([]);
+    expect(plan.drift.map((entry) => entry.field)).toContain("target");
+  });
+
+  it("refuses to restore when a definition was deleted, renamed away or re-pointed", () => {
+    const { before, after } = snapshotOf(productionState());
+    const current = currentFrom(after).filter((definition) => definition.metricKey !== "user_review:bd_unit_adds");
+    const plan = planRevert({ version: 2, capturedAt: "x", before, after }, current);
+    expect(plan.restores).toEqual([]);
+    expect(plan.drift).toContainEqual({ metricKey: "user_review:bd_unit_adds", field: "definition", expected: "present", found: "missing" });
+  });
+
+  it("preserves an FY27 budget or stretch changed after the plan ran", () => {
+    // The plan never writes these, so a later FP&A change is not drift and is
+    // never restored — a rollback must not undo someone else's decision.
+    const { before, after } = snapshotOf(productionState());
+    const current = currentFrom(after);
+    const ma = current.find((definition) => definition.metricKey === "FY27:M&A")!;
+    ma.mapping = { ...ma.mapping!, targetBudget: 33_000_000, targetStretch: 47_000_000 };
+    const plan = planRevert({ version: 2, capturedAt: "x", before, after }, current);
+    expect(plan.drift).toEqual([]);
+    const maRestore = plan.restores.find((restore) => restore.metricKey === "FY27:M&A" && restore.kind === "restore-mapping");
+    expect(maRestore).toBeUndefined();
+    // Even when a mapping is restored, the restore carries no budget or stretch.
+    const other = plan.restores.find((restore) => restore.kind === "restore-mapping");
+    expect(other && "to" in other ? Object.keys(other.to) : []).not.toContain("targetBudget");
+  });
+
+  it("notices a mapping whose basis or direction was changed by hand", () => {
+    const { before, after } = snapshotOf(productionState());
+    const current = currentFrom(after);
+    const churn = current.find((definition) => definition.metricKey === "user_review:annualized_unit_churn")!;
+    churn.mapping = { ...churn.mapping!, higherIsBetter: true };
+    const plan = planRevert({ version: 2, capturedAt: "x", before, after }, current);
+    expect(plan.restores).toEqual([]);
+    expect(plan.drift.map((entry) => entry.field)).toContain("mapping.higherIsBetter");
   });
 });
