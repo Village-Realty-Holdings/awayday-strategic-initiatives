@@ -1,19 +1,26 @@
 import type { PillarScorecard, ScorecardRow } from "@/lib/review-report";
-import { scorecardStatusLabel } from "@/lib/review-report";
+import { scorecardStatusReasonLabel } from "@/lib/review-report";
 import type { KpiStatus } from "@/lib/kpi-status";
 import { KpiStatusBadge } from "./kpi-status-badge";
 
-const STATUS: Record<ScorecardRow["status"], KpiStatus | null> = {
+const STATUS: Record<Exclude<ScorecardRow["status"], "no_data">, KpiStatus> = {
   ahead: "ahead",
   on_track: "on_track",
   behind: "behind",
-  no_data: null,
 };
 
+/**
+ * A row with no coloured status says exactly which condition applies instead.
+ * These are different facts and are worded differently: an observation with no
+ * target is not missing data, and a month's figure is not a missing figure.
+ */
 function Status({ row }: { row: ScorecardRow }) {
-  const status = STATUS[row.status];
-  if (!status) return <span className="text-note text-ink-faint">{row.expectedOnly ? "Not loaded" : scorecardStatusLabel(row.status)}</span>;
-  return <KpiStatusBadge status={status} />;
+  if (row.status !== "no_data") return <KpiStatusBadge status={STATUS[row.status]} label={row.approvedLabel ?? undefined} />;
+  return (
+    <span className="text-note text-ink-muted" data-status-reason={row.statusReason}>
+      {scorecardStatusReasonLabel(row.statusReason)}
+    </span>
+  );
 }
 
 function DeltaCell({ row }: { row: ScorecardRow }) {
@@ -33,9 +40,9 @@ function DeltaCell({ row }: { row: ScorecardRow }) {
  */
 export function PillarScorecardDetails({ scorecard, monthName }: { scorecard: PillarScorecard | undefined; monthName: string }) {
   if (!scorecard || scorecard.rows.length === 0) return null;
-  const loaded = scorecard.rows.filter((row) => !row.expectedOnly).length;
-  const summaryParts = [`${loaded} of ${scorecard.totalMetrics} metric${scorecard.totalMetrics === 1 ? "" : "s"} loaded`];
-  if (scorecard.expectedMissing > 0) summaryParts.push(`${scorecard.expectedMissing} expected line${scorecard.expectedMissing === 1 ? "" : "s"} not loaded`);
+  const summaryParts = [`${scorecard.loaded} of ${scorecard.totalMetrics} measure${scorecard.totalMetrics === 1 ? "" : "s"} with a value`];
+  if (scorecard.missingValue > 0) summaryParts.push(`${scorecard.missingValue} with no observation this month`);
+  if (scorecard.expectedMissing > 0) summaryParts.push(`${scorecard.expectedMissing} expected line${scorecard.expectedMissing === 1 ? "" : "s"} with no definition`);
 
   return (
     <details className="mt-4 rounded-lg border border-border bg-surface">
@@ -45,11 +52,11 @@ export function PillarScorecardDetails({ scorecard, monthName }: { scorecard: Pi
       <div className="border-t border-border/70 p-3">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[34rem] border-collapse text-xs">
-            <caption className="sr-only">Detailed scorecard</caption>
+            <caption className="sr-only">Detailed scorecard, {monthName} review</caption>
             <thead>
               <tr className="border-b border-border text-ink-faint">
                 <th scope="col" className="px-2 py-1.5 text-left font-medium">Measure</th>
-                <th scope="col" className="px-2 py-1.5 text-right font-medium">{monthName}</th>
+                <th scope="col" className="px-2 py-1.5 text-right font-medium">Value</th>
                 <th scope="col" className="px-2 py-1.5 text-right font-medium">Comparison</th>
                 <th scope="col" className="px-2 py-1.5 text-left font-medium">Target</th>
                 <th scope="col" className="px-2 py-1.5 text-left font-medium">Status</th>
@@ -65,7 +72,9 @@ export function PillarScorecardDetails({ scorecard, monthName }: { scorecard: Pi
                   <td className="px-2 py-1.5 text-right">
                     {row.value ? (
                       <>
-                        <span className="tabular">{row.value}</span>
+                        <span className="tabular" data-basis={row.basisLabel || undefined}>
+                          {row.value}
+                        </span>
                         {row.basisLabel && <span className="ml-1 text-note text-ink-faint">{row.basisLabel}</span>}
                         {scorecard.scopeLabels.length > 1 && row.scopeLabel && (
                           <span className="ml-1 block text-note text-ink-faint">{row.scopeLabel}</span>
@@ -89,7 +98,9 @@ export function PillarScorecardDetails({ scorecard, monthName }: { scorecard: Pi
         </div>
         <p className="mt-2 text-note text-ink-faint">
           {scorecard.scopeLabels.length > 0 ? `Populations in this scorecard: ${scorecard.scopeLabels.join(", ")}. ` : ""}
-          Status compares the value with the definition&apos;s target; “Not loaded” means no observation exists for this month and population.
+          Values are read on the basis each goal is stated, so a year-to-date figure is judged against the 2026 goal and never the month&apos;s
+          figure against an annual one. “No target configured” means the observation exists but no target is set; “No observation this month”
+          means nothing was recorded for this population.
         </p>
       </div>
     </details>

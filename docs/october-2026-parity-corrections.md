@@ -1,13 +1,18 @@
 # October 2026 parity corrections — implementation and import plan
 
-**Status:** implementation complete on `feat/review-visual-parity` (PR #26, stacked
-on PR #25). Not merged, not deployed. **No production write, import, migration or
-deployment was performed.** Every production figure quoted here comes from the
-read-only handoff bundle (`october-2026-production-kpi-identities.json`, extracted
-2026-11-19 from `frosty-resonance-20920085` / `br-silent-wildflower-b438bp7m` /
-`neondb`) or from the reference page
-`Awayday October 2026 Strategy Review(2).html`. Nothing in the reference bundle is
-committed to git — it lives in `.reference/`, which is gitignored.
+**Status:** the plan below was implemented across PR #25, #26 and #28 and is now
+superseded where noted by the **October parity presentation corrections (PR #30,
+branch `fix/october-parity-presentation`)** — see §13. The remaining open items are
+the business decisions in §12, not code.
+
+**Verdict (PR #30): PASS on presentation, reporting basis, status methodology and
+comparison labelling.** The five pillar cards print the reviewed values, units and
+`YTD` basis with the month and the other-basis figure as context; the scorecard,
+the gauge and the approved pillar status can no longer disagree; the M&A gauge
+carries one 2026 goal and its two FY27 markers; and every missing state names what
+is actually missing. **Not achieved, and not achievable without new data or new
+approvals:** the executive cards' budget/prior-year comparisons (D4), the 33-item
+So-What structure (D7) and the FY27 target refresh (D2).
 
 > **Reference bundle — verified this session.** `Awayday October 2026 Strategy
 > Review(2).html` and `october-2026-production-kpi-identities.json` are now present
@@ -19,13 +24,8 @@ committed to git — it lives in `.reference/`, which is gitignored.
 > production *observations* — which the identity export does not contain — it is
 > marked **NOT VERIFIED** in §6.0.
 
-**Verdict: CONDITIONAL PASS** — the application now selects, labels and judges the
-October measures correctly, refuses to invent a status where the 2026 goal is
-missing, stores per-item commentary tone with a backward-compatible migration, and
-carries a runnable, idempotent, dry-run-by-default configuration script for the five
-primaries. What remains is business approval plus reviewed production data changes:
-FY27 target refresh, Base Business basis, the imports, and the four bridge texts.
-§12 lists them.
+(The original PR #26 verdict of CONDITIONAL PASS is superseded by the
+verdict above.)
 
 ---
 
@@ -755,3 +755,57 @@ plus `ALTER TABLE "ReviewSoWhat" ADD COLUMN "tone" "SoWhatTone"` (see §8.1).
 6. D3/D4/D5 approved imports, published as revision 1 (restatements as revision 2).
 7. D6 load the four bridge items and the 33 tones through the editor/MCP (content only, no code change), previewing section by section against `docs/october-2026-so-what-content-preview.md`.
 8. Re-check the strategy house and the October page against the reference; then deploy.
+
+---
+
+## 13. PR #30 — what the parity presentation corrections changed
+
+Branch `fix/october-parity-presentation`, based on `master` `5d465ab`.
+**No schema change, no migration, no observation written.** Two controlled
+configuration writes were made through the audited scripts in `prisma/` (both
+dry-run-by-default, serializable transaction, drift-guarded, one audit row per
+record, `--revert --snapshot`).
+
+### 13.1 Code
+
+| Defect | Fix | File |
+| --- | --- | --- |
+| Headline cards printed the stored observation string (`3340`, `12.4`, `4.1`, `0.8`) | `measureValueText()` formats through `formatMetricValue()`; `metricKind()` gained a currency keyword rule so a money measure with no `displayFormat` still prints as money; `formatCurrency()` no longer abbreviates below 10,000 (`$7,306`) | `src/lib/review-format.ts`, `src/components/review/review-view.tsx` |
+| Every card captioned "October" although the value is year to date | `reviewBasisLabel(timeBasis, monthName)` and a `basis`/`basisLabel` on `ReviewMeasure`; the month is rendered as context beside the headline | `src/lib/review-model.ts`, `src/lib/review-data.ts`, `review-view.tsx` |
+| No secondary figure on the TRevPAR and Margin cards | `pairedCounterpartNames()` / `pairedBasisName()` resolve the other-basis definition **by the basis its own name states**, then `review-data.ts` finds its own observation on the same `timeBasis`, `comparisonBasis` and scope. Never blended, never hardcoded | `src/lib/review-format.ts`, `src/lib/review-data.ts`, `review-view.tsx` |
+| Scorecards judged the October **monthly** figure against the **annual** goal, contradicting the approved status three ways | `judgeAgainstTarget()` refuses a period goal for a monthly observation (`no-period-figure`); `periodGoalRow()` prefers YTD then point-in-time; the approved `ReviewPillarStatus` wording wins for the primary row; every row carries a typed `ScorecardStatusReason` | `src/lib/review-report.ts`, `src/components/review/pillar-scorecard.tsx` |
+| `$26M total` plotted as a second 2026 goal in the M&A gauge | marker filtering keeps exactly one `goal` marker; FY27 markers keep their own `FY27` label; `parseTargetMarkers` understands `FY27` and parenthesised segments; a gauge whose axis would mix a level with growth percentages is refused | `src/lib/review-format.ts`, `review-view.tsx` |
+| Executive cards said "no comparison loaded" | `comparisonState` + `missingIdentities`: the card names the exact basis, measure and population required (`NO_COMPARISON_LABEL`) | `src/lib/review-report.ts`, `src/components/review/report-sections.tsx` |
+| One label for every missing state | six states: no observation / no target / goal not comparable / month only / no definition / no pillar; an observation without a target renders normally with a neutral status | `src/lib/review-report.ts`, `pillar-scorecard.tsx` |
+| A grey "not loaded" chip on scorecards with nothing to judge | `areaStatusSummary()` returns the mixed chip only when at least two rows were actually judged and they disagree | `review-view.tsx` |
+
+### 13.2 Configuration writes
+
+| Record | Field | Before | After |
+| --- | --- | --- | --- |
+| `user-review-def-bd_unit_adds` (Grow) | `KpiDefinition.target` | `null` | `YTD budget 2,608 (+28%) · full-year budget 3,152 already passed · FY27 22% gross adds (30% stretch)` |
+| `cmvlea2930003repwgwy7lq1q` (M&A) | `KpiDefinition.target` | `2026 goal $23M · $26M total; $11M via tuck-ins; $47M stretch` | `2026 goal $23M · FY27 ~$33M (1/3 tuck-ins) · $47M stretch` |
+| 7 October `ReviewSoWhat` rows | `tone` | `NULL` | SUMMARY WARNING · M&A POSITIVE · GROW WARNING · RETENTION NEGATIVE · TREVPAR WARNING · MARGIN WARNING · GUEST WARNING |
+
+Scripts: `prisma/configure-october-2026-goal-lines.ts`,
+`prisma/configure-october-2026-so-what-tones.ts`. Detail:
+`docs/october-2026-so-what-parity.md`.
+
+**Deliberately not written:** the M&A `KpiMeasureMapping` (`targetBudget`
+26,000,000), `StrategicArea.kpiTarget` and `src/lib/fy27-plan.ts:88` still state
+the older `$26M total; $11M via tuck-ins; $47M stretch`. Those are the canonical
+FY27 planning record outside the October HTML, so this pass changed only the
+October report's own display text and leaves the planning workflow alone (D2).
+
+### 13.3 Decisions
+
+| # | Decision | Owner | Blocks |
+| --- | --- | --- | --- |
+| D4 (restated) | Publish the Base Business / lender BUDGET and PRIOR_YEAR observations. Verified missing on 2026-11-19: no `2026-10` `BUDGET` or `PRIOR_YEAR` observation exists for `user_review:base_adjusted_ebitda`, `user_review:base_shop_noi` or `user_review:ltm_pf_lender_ebitda` (only ACTUAL, and `adjusted_ebitda` budget/PY exists for 2026-09 only). Until they exist the exec cards name the required identity rather than a comparison | FP&A | Executive card comparisons |
+| D7 (new) | Replace the 7 So-What summaries with the report's 33 bullets (8 sections, 26 new records, Alex's text and per-bullet tone) | Strategy | Exact commentary parity |
+| D8 (new) | Give `GUEST` an active mapping to `user_review:guest_review_score` and an October `ReviewPillarStatus` ("Floor breached") — a new pillar, not a correction | Justin + Strategy | The Guest pillar row |
+| D2 | FY27 target refresh (M&A ~$33M vs $26M stored; Grow 22/30 vs 23/28; Retention 12/11 vs 11/9; TRevPAR 1/3 vs 1/5) | FP&A + owners | FY27 markers |
+
+`docs/october-2026-supporting-metric-classification.md` records the classification
+of the 60 unlinked definitions (A 0 / B 11 / C 26 / D 17 / E 3 / F 3) and applies
+no relationship.

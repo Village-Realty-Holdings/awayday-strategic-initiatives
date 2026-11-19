@@ -95,8 +95,8 @@ describe("metric kind and formatting", () => {
   it("never turns a percentage difference into a percentage", () => {
     expect(formatMetricValue({ unit: "percent", displayFormat: "percent", name: "Occupancy" }, "62.44")).toBe("62.4%");
     // A change between two percentages is percentage points.
-    expect(formatDelta("percent", 2.4)).toBe("+2.4 pp");
-    expect(formatDelta("points", -0.25)).toBe("\u22120.25 pp");
+    expect(formatDelta("percent", 2.4)).toBe("+2.4 pt");
+    expect(formatDelta("points", -0.25)).toBe("\u22120.25 pt");
     expect(formatDelta("currency", -1200000)).toBe("\u2212$1.2M");
     expect(formatDelta("count", 12)).toBe("+12");
   });
@@ -433,12 +433,17 @@ describe("pillar scorecards", () => {
   ].map((definition) => ({ ...definition, strategicAreaId: "area-ma" }));
 
   it("lists loaded metrics and marks the expected lines that are missing", () => {
-    const rows = [observation({ kpiId: "acq", value: "26000000" }), observation({ kpiId: "loi", value: "4" })];
+    const rows = [
+      observation({ kpiId: "acq", value: "300000", timeBasis: "MONTHLY" }),
+      observation({ kpiId: "acq", value: "26000000", timeBasis: "YTD" }),
+      observation({ kpiId: "loi", value: "4", timeBasis: "YTD" }),
+    ];
     const scorecard = buildPillarScorecard(area, expectations, rows, PERIOD);
     expect(scorecard.loaded).toBe(2);
     // The M&A expectation list has ten lines; two are loaded.
     expect(scorecard.expectedMissing).toBe(8);
     expect(scorecard.rows.filter((row) => row.expectedOnly).map((row) => row.label)).toContain("Tuck-in EBITDA");
+    // The goal is a year's goal, so the year-to-date figure is the one judged.
     expect(scorecard.rows.find((row) => row.label === "Acquired EBITDA closed")!.value).toBe("$26.0M");
     // 4 against a target of 5 is 20% short, outside the 10% "near target" band.
     expect(scorecard.rows.find((row) => row.label === "Active LOI pipeline")!.status).toBe("behind");

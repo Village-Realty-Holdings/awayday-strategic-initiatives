@@ -8,7 +8,7 @@ import { deriveMeasure, formatDerivedMeasure, mappingInputKeys, mappingRag, meas
 import { ambiguousMeasureNames, selectPrimaryMeasure } from "@/lib/primary-measure";
 import { buildFinanceTable, MANUAL_SOURCE_CATEGORY, measureValue, type FinanceTable, type KpiRow } from "@/lib/review-kpi";
 import { REVIEWED_METRIC_PREFIX } from "@/lib/review-report";
-import { goalQuantityFor, isPlanningFigure, metricKind, parseTargetMarkers, primaryGoalMarker, quantityOfKind, sameQuantity } from "@/lib/review-format";
+import { goalQuantityFor, isPlanningFigure, metricKind, pairedBasisName, pairedCounterpartNames, parseTargetMarkers, primaryGoalMarker, quantityOfKind, sameQuantity } from "@/lib/review-format";
 import {
   FINANCIALS_SCOPE,
   PILLAR_STATUS_RAG,
@@ -18,6 +18,7 @@ import {
   openUpdatePeriod,
   periodLabel,
   periodMonthName,
+  reviewBasisLabel,
   reviewPeriods,
   shortCode,
   splitNames,
@@ -25,6 +26,7 @@ import {
   SUMMARY_SCOPE,
   updatePeriods,
   type ReviewArea,
+  type ReviewSecondaryFigure,
   type ReviewSiValue,
   type ReviewPeriodStatus,
   type ReviewSi,
@@ -198,7 +200,12 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
           // Every KPI the area owns, in whatever order the database returns them.
           // The primary measure is chosen by its active mapping below, never by
           // this list's order or by the KPI's name.
-          include: { pillarStatuses: { where: { periodId: period }, select: { status: true } }, kpis: { select: { id: true, name: true, target: true, measureMapping: true, observations: { where: currentObservationWhere, select: OBSERVATION_SELECT } } } },
+          include: {
+            pillarStatuses: { where: { periodId: period }, select: { status: true } },
+            // `displayFormat` and `unit` describe how the figure is stated, so the
+            // headline can format it with the one shared formatter.
+            kpis: { select: { id: true, name: true, target: true, displayFormat: true, unit: true, measureMapping: true, observations: { where: currentObservationWhere, select: OBSERVATION_SELECT } } },
+          },
         })
       : [],
     prisma.initiative.findMany({
@@ -230,6 +237,37 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
   }))];
   const { rows: inputRows, names: inputNames } = await loadMappingInputs(inputKeys, period);
 
+  // Every KPI the plan's areas own, by name. The October review states two of its
+  // primary measures on both bases ("… vs PY (Reported)" and "… vs PY (Ex-OTA)");
+  // pairing them by the basis their own names state lets the card show the second
+  // reviewed figure without any figure or definition being written into code.
+  const kpisByName = new Map<string, (typeof areaRows)[number]["kpis"][number]>();
+  for (const area of areaRows) for (const k of area.kpis) kpisByName.set(k.name.trim().toLowerCase(), k);
+  // A primary's second basis is usually a reviewed definition the pillar does not
+  // own yet, so it is loaded by the name the primary's own wording states:
+  // "… vs PY (Ex-OTA)" beside "… vs PY (Reported)". The names come from the
+  // primaries already selected — five in the October plan — so the lookup is one
+  // bounded query, never a scan, and it runs at all only when a name pairs.
+  const primaryNames = areaRows.flatMap((a) => {
+    const selection = selectPrimaryMeasure(a.kpis);
+    return selection.status === "selected" ? [selection.kpi.name] : [];
+  });
+  const counterpartNames = pairedCounterpartNames(primaryNames);
+  const pairedKpis =
+    counterpartNames.length === 0
+      ? []
+      : await prisma.kpiDefinition.findMany({
+          where: { OR: counterpartNames.map((name) => ({ name: { equals: name, mode: "insensitive" as const } })) },
+          select: { id: true, name: true, target: true, displayFormat: true, unit: true, measureMapping: true, observations: { where: currentObservationWhere, select: OBSERVATION_SELECT } },
+        });
+  // The area's own copy wins: it carries the same columns and is already the
+  // definition the pillar is judged on.
+  for (const k of pairedKpis) {
+    const key = k.name.trim().toLowerCase();
+    if (!kpisByName.has(key)) kpisByName.set(key, k);
+  }
+
+  const monthName = periodMonthName(period);
   const synthesised = areaRows.length === 0;
   type AreaSeed = Omit<ReviewArea, "sis" | "number"> & { match: (i: (typeof initiatives)[number]) => boolean };
   const seeds: AreaSeed[] = synthesised
@@ -255,6 +293,53 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
         // mapping must never show the month's figure beside a year-to-date
         // status. A metric with no mapping keeps the plain newest value.
         const obs = kpi ? measureValue(kpi.observations as KpiRow[], period, mapping?.timeBasis ?? null) : null;
+        // The basis the headline actually reports on. The card states this basis,
+        // so a YTD figure is never captioned with the month's name.
+        const observedBasis = (obs?.timeBasis as string | null | undefined) ?? (mapping?.timeBasis ?? null);
+        // The month's own figure for the same definition, population and basis —
+        // shown beside a YTD or LTM headline as supporting context, never instead
+        // of it. Nothing is derived: when the month's row is not stored, this is
+        // null and the card says nothing about the month.
+        const sameScopeAsObs = (row: KpiRow) =>
+          (row.reportingScope ?? "") === (obs?.reportingScope ?? "") && (row.entityScope ?? "") === (obs?.entityScope ?? "");
+        const monthlyObs =
+          kpi && obs && observedBasis !== "MONTHLY"
+            ? ((kpi.observations as KpiRow[]).find(
+                (row) => (row.timeBasis ?? "YTD") === "MONTHLY" && (row.comparisonBasis ?? "ACTUAL") === "ACTUAL" && sameScopeAsObs(row),
+              ) ?? null)
+            : null;
+        // The same measure on its other stated basis (ex-OTA beside reported, and
+        // the reverse), from its own reviewed definition and observation. The
+        // population, comparison basis and time basis must all match the figure
+        // shown, so the two bases are never blended.
+        const pair = kpi ? pairedBasisName(kpi.name) : null;
+        const pairedKpi = pair ? kpisByName.get(pair.counterpart.trim().toLowerCase()) : undefined;
+        const pairedObs =
+          pairedKpi && obs
+            ? (pairedKpi.observations as KpiRow[]).find(
+                (row) =>
+                  (row.timeBasis ?? "YTD") === observedBasis &&
+                  (row.comparisonBasis ?? "ACTUAL") === (obs.comparisonBasis ?? "ACTUAL") &&
+                  sameScopeAsObs(row),
+              )
+            : undefined;
+        const secondary: ReviewSecondaryFigure[] =
+          pairedKpi && pairedObs && pair
+            ? [
+                {
+                  kpiId: pairedKpi.id,
+                  name: pairedKpi.name,
+                  // The label names the *secondary* basis, not the primary's: a
+                  // reported headline's counter-figure is labelled ex-OTA.
+                  label: pair.counterpartLabel,
+                  value: pairedObs.value,
+                  basis: (pairedObs.timeBasis as string | null) ?? null,
+                  basisLabel: reviewBasisLabel(pairedObs.timeBasis, monthName),
+                  displayFormat: pairedKpi.displayFormat ?? null,
+                  unit: pairedKpi.unit ?? null,
+                },
+              ]
+            : [];
         // A value on the measure itself, typed in or published, wins over a calculated one.
         const calculated = mapping ? deriveMeasure(mapping, inputRows, period) : null;
         const derived = obs ? null : calculated;
@@ -270,7 +355,7 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
         // is written in the measure's own quantity; otherwise NO status is
         // claimed. A goal labelled FY27, or one in a different quantity, is never
         // substituted — not even as a fallback.
-        const measureKind = metricKind({ name: kpi?.name ?? a.kpiName ?? a.name, displayFormat: mapping?.displayFormat ?? null, unit: null });
+        const measureKind = metricKind({ name: kpi?.name ?? a.kpiName ?? a.name, displayFormat: mapping?.displayFormat || kpi?.displayFormat || null, unit: kpi?.unit || null });
         // The measure's quantity is stated explicitly (display format first, the
         // name only as a fallback). A bare "number" states none, and then the
         // quantity is unknown: no goal can be shown to be comparable with it.
@@ -365,6 +450,18 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
                 // No mapping, or a mapping that states no direction: `undefined`
                 // lets the measure's name speak; `null` means "declared unknown".
                 higherIsBetter: mapping ? mapping.higherIsBetter : undefined,
+                // The basis the headline reports on, the month's figure beside a
+                // YTD/LTM headline, the declared format every renderer shares, and
+                // the same measure on its other reviewed basis.
+                basis: observedBasis,
+                basisLabel: reviewBasisLabel(observedBasis, monthName),
+                monthValue: monthlyObs?.value ?? null,
+                monthLabel: monthName,
+                // An empty string states nothing, so the definition's own
+                // declaration is used rather than a blank mapping field.
+                displayFormat: mapping?.displayFormat || kpi?.displayFormat || null,
+                unit: kpi?.unit || null,
+                ...(secondary.length > 0 ? { secondary } : {}),
                 ...(origin ? { origin } : {}),
                 ...(derived && mapping ? { inputs: mappingInputKeys(mapping).map((key) => inputNames.get(key) ?? key) } : {}),
               }

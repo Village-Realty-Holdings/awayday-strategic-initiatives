@@ -33,6 +33,11 @@ export function metricKind(metric: MetricFormat): MetricKind {
   // different quantity.
   if (/\bchurn(ed)?\s+units?\b|\bunits?\s+churned\b/.test(name)) return "count";
   if (/margin|occupancy|churn|% of|percentage|growth|take rate|retention/.test(name)) return "percent";
+  // A money measure that names its own subject. The FY27:M&A definition declares
+  // no format at all, and "Acquired EBITDA closed" must still print "$34.8M"
+  // rather than "34,800,000". The rate words above win, so "EBITDA margin" stays
+  // a percentage.
+  if (/\bebitda\b|\bnoi\b|\bcac\b|\btrevpar\b|\brevpar\b|\badr\b|\bgbv\b|\brevenue\b|\bcosts?\b|\bspend\b|\bprice\b|\bcapex\b|\bpayroll\b/.test(name)) return "currency";
   if (/\bunits?\b|\bdeals?\b|\boffers?\b|reviews received|properties/.test(name)) return "count";
   return "number";
 }
@@ -48,19 +53,42 @@ function trimZeros(text: string): string {
   return text.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
 }
 
-/** 136000000 → "$136.0M"; -1200000 → "−$1.2M"; 3849474 → "$3.8M". */
+/**
+ * Drops trailing zeros but keeps one decimal: the reviewed report prints a
+ * percentage-point figure as "−1.0 pt" and "+0.8 pt", so a whole point is never
+ * shown as "−1 pt" (which reads like a count) and a quarter point keeps both of
+ * its decimals ("+0.25 pt").
+ */
+function trimZerosOneDecimal(text: string): string {
+  const trimmed = trimZeros(text);
+  return trimmed.includes(".") ? trimmed : `${trimmed}.0`;
+}
+
+/** A percentage with one decimal, so "12" reads "12.0%" and never "12%". */
+function formatPercentBody(n: number): string {
+  return `${Math.abs(n).toFixed(1)}%`;
+}
+
+/**
+ * 136000000 → "$136.0M"; −1200000 → "−$1.2M"; 3849474 → "$3.8M"; 7306 → "$7,306".
+ *
+ * Abbreviation starts in the tens of thousands. Below that the reviewed report
+ * prints the whole figure ("Cash CAC $7,306"), and abbreviating it would round a
+ * number a reader is meant to compare exactly ("$7.3K" also reads like a
+ * different figure from the one in the pack).
+ */
 export function formatCurrency(n: number): string {
   const abs = Math.abs(n);
   if (abs >= 1_000_000_000) return signed(n, `$${(abs / 1_000_000_000).toFixed(1)}B`);
   if (abs >= 1_000_000) return signed(n, `$${(abs / 1_000_000).toFixed(1)}M`);
   if (abs >= 10_000) return signed(n, `$${Math.round(abs / 1_000)}K`);
-  if (abs >= 1_000) return signed(n, `$${trimZeros((abs / 1_000).toFixed(1))}K`);
   return signed(n, `$${abs.toLocaleString("en-US", { maximumFractionDigits: 2 })}`);
 }
 
 /** Percentage differences are percentage points, never percentages. */
 export function formatPoints(n: number): string {
-  return signed(n, `${trimZeros(Math.abs(n).toFixed(2))} pp`);
+  const body = `${trimZerosOneDecimal(Math.abs(n).toFixed(2))} pt`;
+  return n > 0 ? `+${body}` : signed(n, body);
 }
 
 export function formatCount(n: number): string {
@@ -72,12 +100,17 @@ export function formatValueForKind(kind: MetricKind, n: number): string {
   switch (kind) {
     case "currency":
       return formatCurrency(n);
-    case "percent":
-      return signed(n, `${trimZeros(Math.abs(n).toFixed(1))}%`);
+    case "percent": {
+      // A value that rounds away is zero, not "−0.0%".
+      const body = formatPercentBody(n);
+      return n < 0 && Number(Math.abs(n).toFixed(1)) !== 0 ? `${MINUS}${body}` : body;
+    }
     case "points": {
-      // A value that is itself a point difference reads like the report: "+0.5 pt".
-      const body = `${trimZeros(Math.abs(n).toFixed(2))} pt`;
-      return n > 0 ? `+${body}` : n < 0 ? `${MINUS}${body}` : body;
+      // A value that is itself a point difference reads like the report: "+0.5 pt",
+      // "−1.0 pt". One decimal always shows, so a point is never read as a count.
+      const body = `${trimZerosOneDecimal(Math.abs(n).toFixed(2))} pt`;
+      const shown = Number(Math.abs(n).toFixed(2));
+      return shown !== 0 && n > 0 ? `+${body}` : n < 0 && shown !== 0 ? `${MINUS}${body}` : body;
     }
     case "count":
       return formatCount(n);
@@ -118,7 +151,8 @@ export function formatDelta(kind: MetricKind, delta: number): string {
       return `${sign}${formatCurrency(abs)}`;
     case "percent":
     case "points":
-      return `${sign}${trimZeros(abs.toFixed(2))} pp`;
+      // The reviewed report prints a point difference as "+0.8 pt", "−1.0 pt".
+      return `${sign}${trimZerosOneDecimal(abs.toFixed(2))} pt`;
     case "count":
       return `${sign}${abs.toLocaleString("en-US", { maximumFractionDigits: 1 })}`;
     default:
@@ -289,9 +323,9 @@ const TARGET_STYLES: { style: TargetMarker["style"]; label: string; pattern: Reg
  */
 export function parseTargetMarkers(target: string | null | undefined): TargetMarker[] {
   if (!target) return [];
-  const text = target.trim();
-  if (!text) return [];
-  const first = parseTargetNumber(text);
+  const source = target.trim();
+  if (!source) return [];
+  const first = parseTargetNumber(source);
   if (first) {
     return [
       {
@@ -300,11 +334,20 @@ export function parseTargetMarkers(target: string | null | undefined): TargetMar
         value: first.value,
         style: "goal",
         lowerIsBetter: first.lowerIsBetter,
-        reference: targetReference(text),
-        unit: targetUnit(text, text),
+        reference: targetReference(source),
+        unit: targetUnit(source, source),
       },
     ];
   }
+  // A parenthetical aside carries its own figure ("FY27 +0.25 pt (1 pt stretch)",
+  // "YTD budget 2,608 (+28%)"). An aside that names a target style becomes its own
+  // segment, so its figure is read as that target; one that only qualifies a
+  // figure ("(+28%)", "(ex-OTA)", "(1/3 tuck-ins)") is dropped first. Without
+  // this, a segment with two figures was thrown away whole and the reviewed
+  // report's FY27 budget and YTD budget lines were never plotted.
+  const text = source
+    .replace(/\(([^()]*\b(?:stretch|budget|goal|target|plan)\b[^()]*)\)/gi, " · $1 · ")
+    .replace(/\(([^()]*)\)/g, " ");
   const segments = text.split(/\s*[;·]\s*|\s+and\s+/i).filter((s) => s.trim() !== "");
   const markers: TargetMarker[] = [];
   const seen = new Set<string>();
@@ -320,7 +363,14 @@ export function parseTargetMarkers(target: string | null | undefined): TargetMar
     // "… budget" target was plotted a billion times too large.
     const figures = scrubbed.match(/[<>\u2264\u2265~]?\s*\$?\s*[-+]?\d+(?:[.,]\d+)*(?:[kmb](?![a-z0-9])|\s+[kmb](?![a-z0-9]))?\s*%?/gi) ?? [];
     if (figures.length !== 1) continue; // ambiguous: not attributable to one target
-    const kind = TARGET_STYLES.find((k) => k.pattern.test(segment)) ?? (targetReference(segment) ? { style: "goal" as const, label: "Goal" } : undefined);
+    const reference = targetReference(segment);
+    // A figure the text sets in FY27 without naming a style is that year's
+    // budget — the reviewed report writes "FY27 +0.25 pt (1 pt stretch)" and
+    // "FY27 ~$33M". The 2026 figure stays a goal, and an unlabelled figure with
+    // no year is a component of the prose, not a target.
+    const kind =
+      TARGET_STYLES.find((k) => k.pattern.test(segment)) ??
+      (reference === "FY27" ? { style: "budget" as const, label: "Budget" } : reference === "2026" ? { style: "goal" as const, label: "Goal" } : undefined);
     if (!kind) continue; // an unlabelled figure in prose is a component, not a target
     const parsed = parseTargetNumber(figures[0].replace(/\s+/g, ""));
     if (!parsed) continue;
@@ -333,7 +383,7 @@ export function parseTargetMarkers(target: string | null | undefined): TargetMar
       value: parsed.value,
       style: kind.style,
       lowerIsBetter: parsed.lowerIsBetter,
-      reference: targetReference(segment),
+      reference,
       unit: targetUnit(figures[0], segment),
     });
   }
@@ -422,4 +472,43 @@ export function targetMarkerLabel(marker: TargetMarker): string {
   if (marker.reference === "2026") return marker.style === "goal" ? "2026 goal" : `2026 ${marker.style}`;
   if (marker.reference === "FY27") return marker.style === "goal" ? "FY27 goal" : `FY27 ${marker.style}`;
   return marker.label;
+}
+
+/**
+ * The stated basis in a measure's name ("Reported" / "Ex-OTA"), when it names
+ * one, and the name of the same measure stated on the other basis.
+ *
+ * The reviewed October report states several measures twice — TRevPAR growth and
+ * shop NOI margin against prior year, once reported and once ex-OTA — and its
+ * pillar cards show both, with the reviewed primary first. Both figures already
+ * exist as reviewed definitions and observations; this pairs them by the basis
+ * their own names state rather than by any figure written into code. It returns
+ * null when the name states no basis, so nothing is paired by guesswork.
+ */
+/**
+ * The other-basis definition names stated by a list of measure names, for a
+ * bounded lookup: five primaries in the October plan yield two names.
+ */
+export function pairedCounterpartNames(names: readonly string[]): string[] {
+  return [
+    ...new Set(
+      names
+        .map((name) => pairedBasisName(name)?.counterpart.trim())
+        .filter((name): name is string => Boolean(name)),
+    ),
+  ];
+}
+
+export function pairedBasisName(name: string): { label: string; counterpart: string; counterpartLabel: string } | null {
+  const token = /\b(ex-ota|reported)\b/i.exec(name);
+  if (!token) return null;
+  const stated = token[1].toLowerCase();
+  const other = stated === "reported" ? "Ex-OTA" : "Reported";
+  const label = stated === "ex-ota" ? "ex-OTA" : "reported";
+  const counterpartLabel = stated === "reported" ? "ex-OTA" : "reported";
+  return {
+    label,
+    counterpart: `${name.slice(0, token.index)}${other}${name.slice(token.index + token[1].length)}`,
+    counterpartLabel,
+  };
 }

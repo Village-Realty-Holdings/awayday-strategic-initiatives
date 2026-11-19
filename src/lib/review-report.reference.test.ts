@@ -192,11 +192,12 @@ describe("October 2026 reference pillar lines", () => {
     ...baseBusinessRows("review", "4.64", "4.65"),
   ];
 
-  it("shows the reviewed monthly value on the scorecard, labelled with its basis", () => {
+  it("reads the scorecard on the basis the 2026 goal is stated, never the month", () => {
     const scorecard = buildPillarScorecard({ id: null, code: "M&A", name: "M&A" }, metrics, rows, PERIOD);
     const row = scorecard.rows.find((candidate) => candidate.label === "Acquired EBITDA closed");
-    expect(row?.value).toBe("$300K");
-    expect(row?.basisLabel).toBe("Month");
+    // The YTD figure is the one the annual goal answers; the month is context.
+    expect(row?.value).toBe("$34.8M");
+    expect(row?.basisLabel).toBe("YTD");
     expect(row?.expectedOnly).toBe(false);
   });
 
@@ -208,11 +209,30 @@ describe("October 2026 reference pillar lines", () => {
         .flatMap((code) => buildPillarScorecard({ id: null, code, name: code }, metrics, rows, PERIOD).rows)
         .map((row) => [row.label, row] as const),
     );
-    expect(byLabel.get("BD unit adds")?.value).toBe("330");
-    expect(byLabel.get("Annualized unit churn")?.value).toBe("12.2%");
-    expect(byLabel.get("TRevPAR growth vs PY")?.value).toBe("\u22120.9%");
-    expect(byLabel.get("Shop NOI margin vs PY (ex-OTA)")?.value).toBe("+0.5 pt");
-    expect(byLabel.get("Average review score")?.value).toBe("4.64");
+    expect(byLabel.get("BD unit adds")?.value).toBe("3,340");
+    expect(byLabel.get("Annualized unit churn")?.value).toBe("12.4%");
+    expect(byLabel.get("TRevPAR growth vs PY")?.value).toBe("+4.1%");
+    expect(byLabel.get("Shop NOI margin vs PY (ex-OTA)")?.value).toBe("+0.8 pt");
+    expect(byLabel.get("Average review score")?.value).toBe("4.65");
+    for (const label of ["BD unit adds", "Annualized unit churn", "TRevPAR growth vs PY", "Shop NOI margin vs PY (ex-OTA)", "Average review score"]) {
+      expect(byLabel.get(label)?.basisLabel).toBe("YTD");
+    }
+  });
+
+  it("never rates the month's figure against the annual goal", () => {
+    // October's month is −0.9% TRevPAR and the annual goal is +3.3%: judging the
+    // month would print "Behind" beside the approved "On track reported".
+    const scorecard = buildPillarScorecard({ id: null, code: "TREVPAR", name: "TRevPAR" }, [{ ...trevparGrowth, target: "2026 goal +3.3% reported" }], rows, PERIOD);
+    const row = scorecard.rows.find((candidate) => candidate.label === "TRevPAR growth vs PY");
+    expect(row?.value).toBe("+4.1%");
+    expect(row?.status).toBe("ahead");
+    // And a definition that publishes only the month is shown, never judged.
+    const monthlyOnly = buildPillarScorecard({ id: null, code: "TREVPAR", name: "TRevPAR" }, [{ ...trevparGrowth, target: "2026 goal +3.3% reported" }], [observation({ kpiId: "trevpar-growth", value: "-0.9", timeBasis: "MONTHLY" })], PERIOD);
+    const monthRow = monthlyOnly.rows.find((candidate) => candidate.label === "TRevPAR growth vs PY");
+    expect(monthRow?.value).toBe("\u22120.9%");
+    expect(monthRow?.basisLabel).toBe("Month");
+    expect(monthRow?.status).toBe("no_data");
+    expect(monthRow?.statusReason).toBe("no-period-figure");
   });
 
   it("does not read a monthly value as YTD", () => {

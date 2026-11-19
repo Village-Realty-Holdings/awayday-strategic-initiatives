@@ -100,7 +100,7 @@ export type ReviewedReport = {
  * observations, and the chart families' history.
  */
 export const getReviewedReport = cache(async (period: string): Promise<ReviewedReport> => {
-  const [defs, history] = await Promise.all([
+  const [defs, history, pillarStatuses, activeMappings] = await Promise.all([
     prisma.kpiDefinition.findMany({
       where: { metricKey: { startsWith: REVIEWED_METRIC_PREFIX } },
       orderBy: { name: "asc" },
@@ -137,6 +137,37 @@ export const getReviewedReport = cache(async (period: string): Promise<ReviewedR
       orderBy: { reportingPeriod: "asc" },
       take: 2000,
       select: OBSERVATION_SELECT,
+    }),
+    // The reviewer's approved status for each pillar, and the definition each
+    // area's active primary mapping names. Both are read so a scorecard's primary
+    // line cannot contradict the headline card or the gauge above it.
+    prisma.reviewPillarStatus.findMany({ where: { periodId: period }, select: { strategicAreaId: true, status: true } }),
+    // Every active measure mapping, with the definition it names and that
+    // definition's month. The scorecard needs the pillar's own primary measure:
+    // M&A's is a planning definition (FY27:M&A) that the reviewed-metric prefix
+    // does not include, so without this its scorecard said "expected, no
+    // definition linked" about a definition that exists and is linked.
+    prisma.kpiMeasureMapping.findMany({
+      where: { active: true },
+      select: {
+        measureKpi: {
+          select: {
+            id: true,
+            metricKey: true,
+            name: true,
+            unit: true,
+            displayFormat: true,
+            target: true,
+            strategicAreaId: true,
+            strategicArea: { select: { code: true, name: true } },
+            measureMapping: { select: { higherIsBetter: true } },
+            observations: {
+              where: { ...CURRENT_WHERE, reportingPeriod: period, sourceCategory: REVIEWED_SOURCE_CATEGORY },
+              select: OBSERVATION_SELECT,
+            },
+          },
+        },
+      },
     }),
   ]);
 
@@ -177,9 +208,47 @@ export const getReviewedReport = cache(async (period: string): Promise<ReviewedR
       areaSeeds.set(def.strategicArea.code, { id: def.strategicAreaId, code: def.strategicArea.code, name: def.strategicArea.name });
     }
   }
+
+  // The scorecards also carry each pillar's own primary measure, even when it is
+  // not one of the reviewed-prefix definitions (M&A's is FY27:M&A). Both lists
+  // are deduplicated by definition id, so a primary that is already reviewed is
+  // never counted twice, and the reviewed counts and charts keep their meaning.
+  const scorecardMetrics: ReportMetric[] = [...metrics];
+  const scorecardRows: ReportObservation[] = [...periodRows];
+  const scorecardMetricIds = new Set(metrics.map((metric) => metric.id));
+  for (const mapping of activeMappings) {
+    const def = mapping.measureKpi;
+    if (def.strategicAreaId && def.strategicArea) {
+      areaSeeds.set(def.strategicArea.code, { id: def.strategicAreaId, code: def.strategicArea.code, name: def.strategicArea.name });
+    }
+    if (scorecardMetricIds.has(def.id)) continue;
+    scorecardMetricIds.add(def.id);
+    scorecardMetrics.push({
+      id: def.id,
+      metricKey: def.metricKey,
+      name: def.name,
+      unit: def.unit,
+      displayFormat: def.displayFormat,
+      target: def.target,
+      strategicAreaId: def.strategicAreaId,
+      areaCode: def.strategicArea?.code ?? null,
+      higherIsBetter: def.measureMapping?.higherIsBetter,
+    });
+    for (const observation of def.observations) scorecardRows.push({ ...observation, kpiId: def.id });
+  }
+
   const scorecards: Record<string, PillarScorecard> = {};
+  const approvedByArea = new Map(pillarStatuses.map((row) => [row.strategicAreaId, row.status]));
+  const primaryNameByArea = new Map<string, string>();
+  for (const mapping of activeMappings) {
+    const areaId = mapping.measureKpi.strategicAreaId;
+    if (areaId && !primaryNameByArea.has(areaId)) primaryNameByArea.set(areaId, mapping.measureKpi.name);
+  }
   for (const area of areaSeeds.values()) {
-    scorecards[area.code] = buildPillarScorecard(area, metrics, periodRows, period);
+    scorecards[area.code] = buildPillarScorecard(area, scorecardMetrics, scorecardRows, period, {
+      primaryName: primaryNameByArea.get(area.id) ?? null,
+      approvedStatus: approvedByArea.get(area.id) ?? null,
+    });
   }
   // Reviewed metrics that are not linked to a pillar yet still fill the scorecard
   // their documented identity belongs to, so the depth is there before curation.

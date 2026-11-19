@@ -69,7 +69,7 @@ describe("report component rendering", () => {
     expect(html).toContain("$3.8M");
     expect(html).toContain("\u2212$1.2M");
     // The YTD card has no observation; it names the identity instead of a number.
-    expect(html).toContain("Not loaded. Expected identity: YTD actual");
+    expect(html).toContain("No observation for this identity. Expected: YTD actual");
   });
 
   it("renders the six comparison columns and an empty cell for missing data", () => {

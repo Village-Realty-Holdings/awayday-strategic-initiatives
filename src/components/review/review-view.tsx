@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import type { ReviewPeriod, ReviewPlan } from "@/lib/review-data";
 import type { FinanceTable } from "@/lib/review-kpi";
 import type { ReviewedReport } from "@/lib/review-report-data";
-import { addDaysIso, FINANCIALS_SCOPE, fmtLong, NOT_CONFIGURED_LABEL, ragLabel, ragTone, STATUS_GAP_TEXT, SUMMARY_SCOPE, type Rag, type ReviewArea, type ReviewMilestone, type SoWhat } from "@/lib/review-model";
+import { addDaysIso, FINANCIALS_SCOPE, fmtLong, NOT_CONFIGURED_LABEL, ragLabel, ragTone, STATUS_GAP_TEXT, SUMMARY_SCOPE, type Rag, type ReviewArea, type ReviewMeasure, type ReviewMilestone, type ReviewSecondaryFigure, type SoWhat } from "@/lib/review-model";
 import { AsksByLeaderToggle } from "./asks-by-leader";
 import { DataTable } from "./data-table";
 import { AreaEditor, MeasureValueEditor, PlanHeaderEditor, ReviewDetailsEditor, SiUpdateEditor, SoWhatsEditor } from "./edit-dialogs";
@@ -23,8 +23,8 @@ import { PeriodStatusBadge } from "./status";
 import { KpiGauge } from "./kpi-gauge";
 import { KpiStatusBadge, MixedPerformanceChip } from "./kpi-status-badge";
 import { inferGaugeFormat, looksLikeDifferentQuantity, suggestDomain, type GaugeSpec } from "@/lib/kpi-gauge";
-import { resolveDirection, ragToStatus, summarizeStatuses, KPI_STATUS_META, type KpiStatus, type StatusTone } from "@/lib/kpi-status";
-import { parseNumber, parseTargetMarkers, targetMarkerLabel } from "@/lib/review-format";
+import { isMixed, resolveDirection, ragToStatus, summarizeStatuses, KPI_STATUS_META, type KpiStatus, type StatusTone } from "@/lib/kpi-status";
+import { formatMetricValue, markerMatchesKind, metricKind, parseNumber, parseTargetMarkers, primaryGoalMarker, targetMarkerLabel } from "@/lib/review-format";
 import { SummaryGantt } from "./summary-gantt";
 
 function anchor(area: ReviewArea): string {
@@ -33,6 +33,27 @@ function anchor(area: ReviewArea): string {
 
 /** The review's pillar RAG as badge tones: green ahead, amber on track, red behind. */
 const PILLAR_TONE: Record<Rag, StatusTone> = { GREEN: "good", AMBER: "warn", RED: "crit", GREY: "neutral" };
+
+/**
+ * A measure's value through the one shared formatter (review-format.ts), so the
+ * headline reads "$34.8M", "3,340", "12.4%", "+4.1%" or "+0.8 pt" rather than the
+ * stored observation string ("34800000", "3340", "12.4", "4.1", "0.8").
+ *
+ * The declared format — the measure mapping's, else the definition's — decides
+ * how the figure is stated; the measure's name only settles the quantity when
+ * neither declares one. No formatting logic lives here.
+ */
+export function measureValueText(measure: ReviewMeasure | null | undefined): string | null {
+  if (!measure) return null;
+  const value = measure.value;
+  if (value === null || value === undefined || `${value}`.trim() === "") return null;
+  return formatMetricValue({ name: measure.name, displayFormat: measure.displayFormat ?? null, unit: measure.unit ?? null }, value);
+}
+
+/** A second basis figure (ex-OTA / reported) formatted the same way. */
+export function secondaryValueText(figure: ReviewSecondaryFigure): string {
+  return formatMetricValue({ name: figure.name, displayFormat: figure.displayFormat, unit: figure.unit }, figure.value);
+}
 
 export function MeasureStatus({ area, className }: { area: ReviewArea; className?: string }) {
   // The measure's own status (a hand-set owner status wins over the calculated
@@ -72,12 +93,26 @@ function measureStatus(area: ReviewArea): KpiStatus {
  * plot. The domain is derived from the value and its target; the status is the
  * area's approved status, never a fresh judgement.
  */
-function measureGauge(area: ReviewArea): GaugeSpec | null {
+export function measureGauge(area: ReviewArea): GaugeSpec | null {
   const value = parseNumber(area.measure?.value ?? null);
   // The definitions state their own targets, sometimes several ("23% budget;
   // 28% stretch"). Every labelled figure the definition supplies becomes a
   // marker; nothing is added that the definition does not say.
-  const markers = parseTargetMarkers(area.measure?.target);
+  const stated = parseTargetMarkers(area.measure?.target);
+  // One yardstick only. A definition's prose can name several figures — the 2026
+  // goal, an FY27 budget and an FY27 stretch — and older wording also carried a
+  // "$26M total" planning figure that is not a second goal. The gauge plots the
+  // one goal the review judges against (the 2026 goal, when the text names it) and
+  // keeps every budget and stretch marker; a second goal marker is never drawn.
+  const goal = primaryGoalMarker(stated);
+  // The measure's own declared quantity decides what the gauge can plot. A count
+  // measure's goal line can mention a percentage ("YTD budget 2,608 (+28%)"), and
+  // reading that prose as the measure's unit would print 3,340 as a percentage.
+  // A marker in another quantity is not a comparison, so it is left off.
+  const kind = metricKind({ name: area.measure?.name ?? area.name, displayFormat: area.measure?.displayFormat ?? null, unit: area.measure?.unit ?? null });
+  const comparable = stated.filter((marker) => kind === "number" || markerMatchesKind(marker, kind));
+  const primary = primaryGoalMarker(comparable) ?? goal;
+  const markers = comparable.filter((marker) => marker.style !== "goal" || marker.id === primary?.id);
   if (value == null || markers.length === 0) return null;
   // A level plotted against growth percentages is not a comparison: no gauge is
   // better than one whose axis mixes two quantities.
@@ -104,18 +139,31 @@ function measureGauge(area: ReviewArea): GaugeSpec | null {
     // decides; when nothing states one, the gauge says so and stays neutral
     // instead of implying that higher is good.
     direction: markers.some((m) => m.lowerIsBetter) ? "lower" : reading.known ? reading.direction : "unknown",
-    format: inferGaugeFormat(area.measure?.value, area.measure?.target),
+    // The declared quantity wins over the target prose; the prose is only a
+    // fallback for a measure that declares no format at all.
+    format: kind === "number" ? inferGaugeFormat(area.measure?.value, area.measure?.target) : { kind },
   };
 }
 
-/** Count-based mixed-performance chip for an area, from its detailed scorecard. */
-function areaStatusSummary(scorecard: ReviewedReport["scorecards"][string] | undefined) {
+/**
+ * Count-based mixed-performance chip for an area, from its detailed scorecard.
+ *
+ * Only rows a verdict was actually reached for are counted. A measure with no
+ * 2026 goal, or whose only stored figure is a monthly number the annual goal
+ * cannot judge, has no verdict — it is neither "behind" nor "missing data", so
+ * counting it produced labels like "All 1 measure behind · 7 not loaded" beside
+ * a pillar the review had approved as ahead. The chip is shown only when the
+ * judged measures genuinely disagree; the pillar's own status badge carries the
+ * verdict otherwise.
+ */
+export function areaStatusSummary(scorecard: ReviewedReport["scorecards"][string] | undefined) {
   if (!scorecard) return null;
-  const statuses = scorecard.rows
-    .filter((row) => !row.expectedOnly)
-    .map((row): KpiStatus => ragToStatus(row.status === "ahead" ? "GREEN" : row.status === "on_track" ? "AMBER" : row.status === "behind" ? "RED" : "GREY"));
-  if (statuses.length === 0) return null;
-  return summarizeStatuses(statuses);
+  const judged = scorecard.rows.filter((row) => !row.expectedOnly && row.status !== "no_data");
+  if (judged.length < 2) return null;
+  const summary = summarizeStatuses(
+    judged.map((row): KpiStatus => ragToStatus(row.status === "ahead" ? "GREEN" : row.status === "on_track" ? "AMBER" : "RED")),
+  );
+  return isMixed(summary) ? summary : null;
 }
 
 function eyebrow(area: ReviewArea): string {
@@ -191,7 +239,29 @@ function AreaSection({
         <div className="mt-4 grid gap-4 border-y border-border/70 py-4 md:grid-cols-[minmax(0,16rem)_1fr]">
           <EditableMeasure area={area} periodId={periodId} periodLabel={periodLabel}>
             <p className="text-note text-ink-faint">Measure · {area.measure?.name || "not set"}</p>
-            <p className="tabular text-3xl font-semibold tracking-tight text-ink">{area.measure?.value ?? "—"}</p>
+            <p
+              className="tabular text-3xl font-semibold tracking-tight text-ink"
+              data-pillar-value={area.measure?.value ?? ""}
+              data-pillar-basis={area.measure?.basis ?? undefined}
+            >
+              {measureValueText(area.measure) ?? "—"}
+            </p>
+            {area.measure?.value && (
+              <p className="mt-0.5 text-xs text-ink-faint" data-pillar-basis-label={area.measure.basisLabel ?? undefined}>
+                {area.measure.basisLabel ?? monthName}
+              </p>
+            )}
+            {area.measure?.secondary?.map((figure) => (
+              <p key={figure.kpiId} className="mt-0.5 text-xs text-ink-muted" data-pillar-secondary={figure.label}>
+                {secondaryValueText(figure)} {figure.label} · {figure.basisLabel}
+              </p>
+            ))}
+            {area.measure?.monthValue && area.measure.basis !== "MONTHLY" && (
+              <p className="mt-0.5 text-xs text-ink-muted" data-pillar-month>
+                {area.measure.monthLabel ?? monthName}{" "}
+                {formatMetricValue({ name: area.measure.name, displayFormat: area.measure.displayFormat ?? null, unit: area.measure.unit ?? null }, area.measure.monthValue)}
+              </p>
+            )}
             {area.measure?.value && area.measure.source === "manual" && <p className="mt-1 text-xs text-ink-faint">Entered by hand.</p>}
             {area.measure?.value && area.measure.source === "derived" && <p className="mt-1 text-xs text-ink-faint">Calculated from {area.measure.inputs?.join(" and ")}.</p>}
             {!area.measure?.value && <p className="mt-1 text-xs text-ink-faint">No value loaded for this month.</p>}
@@ -218,6 +288,17 @@ function AreaSection({
                 <div>
                   <dt className="font-semibold text-ink">Objective</dt>
                   <dd className="mt-0.5 text-ink-muted">{area.goal}</dd>
+                </div>
+              )}
+              {/*
+                FY27 planning sits beside the 2026 goal and is labelled as FY27.
+                The mapping carries it; without this line an unlabelled planning
+                total in the target text ("$26M total") read like a second goal.
+              */}
+              {area.measure?.origin?.status.context && !/\bfy\s*-?27\b/i.test(area.measure.target ?? "") && (
+                <div data-pillar-fy27>
+                  <dt className="font-semibold text-ink">FY27 planning</dt>
+                  <dd className="mt-0.5 text-ink-muted">{area.measure.origin.status.context}</dd>
                 </div>
               )}
             </dl>
@@ -337,6 +418,18 @@ export function ReviewView({
     .filter((m) => !m.done && m.date && m.date >= windowStart && m.date <= windowEnd)
     .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
   const withMeasure = plan.areas.filter((a) => a.measure);
+  // The summary table's value column is headed with the basis its figures are
+  // read on (YTD for the October pillars), never with the month's name when the
+  // figures are year to date. A mixed set says "Latest" and each cell states its
+  // own basis instead.
+  const summaryBases = [...new Set(withMeasure.map((a) => a.measure?.basisLabel ?? period.monthName))];
+  const valueColumnLabel = summaryBases.length === 1 ? (summaryBases[0] ?? period.monthName) : "Latest";
+  // The month's own figure for a headline read on another basis, formatted the
+  // same way; a dash when the month's row is not stored or is the headline.
+  const monthCellText = (measure: ReviewMeasure | null | undefined): string => {
+    if (!measure || measure.basis === "MONTHLY" || !measure.monthValue) return "—";
+    return formatMetricValue({ name: measure.name, displayFormat: measure.displayFormat ?? null, unit: measure.unit ?? null }, measure.monthValue);
+  };
   const statusTbd = sis.every((s) => !s.status);
   const hasTrend = report.charts.some((chart) => chart.series.some((series) => series.points.length > 0));
   const jump: [string, string][] = [
@@ -462,11 +555,28 @@ export function ReviewView({
                       className="tabular text-2xl font-semibold leading-tight text-ink"
                       title={a.measure?.origin?.status.basis}
                       data-pillar-value={a.measure?.value ?? ""}
+                      data-pillar-basis={a.measure?.basis ?? undefined}
+                      data-pillar-display={measureValueText(a.measure) ?? undefined}
                     >
-                      {a.measure?.value ?? "—"}
+                      {measureValueText(a.measure) ?? "—"}
                     </span>
-                    <span className="text-nano text-ink-faint">{period.monthName}</span>
+                    {/* The basis the figure is read on: YTD, LTM or the month's
+                        own name. A YTD observation is never captioned "October". */}
+                    <span className="text-nano text-ink-faint" data-pillar-basis-label={a.measure?.basisLabel ?? undefined}>
+                      {a.measure?.basisLabel ?? period.monthName}
+                    </span>
                   </span>
+                  {a.measure?.secondary?.map((figure) => (
+                    <span key={figure.kpiId} className="text-note leading-4 text-ink-muted" data-pillar-secondary={figure.label}>
+                      {secondaryValueText(figure)} {figure.label} · {figure.basisLabel}
+                    </span>
+                  ))}
+                  {a.measure?.monthValue && a.measure.basis !== "MONTHLY" && (
+                    <span className="text-note leading-4 text-ink-muted" data-pillar-month>
+                      {a.measure.monthLabel ?? period.monthName}{" "}
+                      {formatMetricValue({ name: a.measure.name, displayFormat: a.measure.displayFormat ?? null, unit: a.measure.unit ?? null }, a.measure.monthValue)}
+                    </span>
+                  )}
                   {a.measure?.target && <span className="text-note leading-4 text-ink-muted">Target {a.measure.target}</span>}
                   <span className="mt-1 flex flex-wrap items-center gap-1">
                     <MeasureStatus area={a} />
@@ -517,7 +627,8 @@ export function ReviewView({
               columns={[
                 { key: "area", label: "Pillar / enabler" },
                 { key: "measure", label: "Measure", align: "left" },
-                { key: "value", label: period.monthName, numeric: true },
+                { key: "month", label: period.monthName, numeric: true },
+                { key: "value", label: valueColumnLabel, numeric: true },
                 { key: "target", label: "Target", align: "left" },
                 { key: "status", label: "Status", align: "left" },
               ]}
@@ -526,13 +637,17 @@ export function ReviewView({
                 cells: {
                   area: a.name,
                   measure: `${a.measure!.name || "Not set"}${a.measure!.primary && a.measure!.primary !== "selected" ? " · no primary selected" : ""}`,
-                  value: a.measure!.value ?? "—",
+                  month: monthCellText(a.measure),
+                  value: `${measureValueText(a.measure) ?? "—"}${a.measure!.basisLabel && a.measure!.basisLabel !== valueColumnLabel ? ` · ${a.measure!.basisLabel}` : ""}`,
                   target: a.measure!.target || "Not set",
                   status: <MeasureStatus area={a} />,
                 },
               }))}
             />
-            <p className="mt-2 text-note text-ink-faint">Status compares this month&apos;s value with the target. SI status comes from owner updates; TBD means nothing entered.</p>
+            <p className="mt-2 text-note text-ink-faint">
+              Status compares the measure with its own 2026 goal, on the basis the goal is stated — a year-to-date figure is never rated
+              against an annual goal using the month&apos;s number. SI status comes from owner updates; TBD means nothing entered.
+            </p>
           </Card>
         ) : (
           <NoDataNote>This plan has no leading measures per area yet.</NoDataNote>

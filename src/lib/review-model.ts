@@ -172,6 +172,47 @@ export type ReviewSiValue = {
   rag: Rag;
 };
 
+/**
+ * A second figure for the same measure on its other stated basis, e.g. TRevPAR
+ * growth ex-OTA beside the reported figure, or shop NOI margin reported beside
+ * the ex-OTA figure the goal is set on. Both figures are reviewed observations:
+ * nothing here is derived, blended or written into code.
+ */
+export type ReviewSecondaryFigure = {
+  /** The reviewed definition the figure came from. */
+  kpiId: string;
+  name: string;
+  /** The basis word the definition's own name states: "ex-OTA" or "reported". */
+  label: string;
+  value: string;
+  /** The time basis of the observation, e.g. "YTD". */
+  basis: string | null;
+  basisLabel: string;
+  displayFormat: string | null;
+  unit: string | null;
+};
+
+/**
+ * The review's own word for a reporting basis. A monthly figure is named by its
+ * month ("October"); a year-to-date figure is "YTD", never the month's name.
+ * Labelling a YTD observation as monthly is the defect this exists to prevent.
+ */
+export function reviewBasisLabel(timeBasis: string | null | undefined, monthName: string): string {
+  switch ((timeBasis ?? "YTD").toUpperCase()) {
+    case "MONTHLY":
+      return monthName;
+    case "YTD":
+      return "YTD";
+    case "LTM":
+    case "TTM":
+      return "LTM";
+    case "POINT_IN_TIME":
+      return "Point in time";
+    default:
+      return timeBasis ?? "YTD";
+  }
+}
+
 export type ReviewMeasure = {
   /** The area's KPI definition; null when the plan names a measure but none is defined. */
   kpiId: string | null;
@@ -201,7 +242,8 @@ export type ReviewMeasure = {
    */
   primary?: "selected" | "missing" | "ambiguous";
   /** When `primary` is ambiguous, the measures that each claim to be primary. */
-  ambiguousKpis?: string[];  /**
+  ambiguousKpis?: string[];
+  /**
    * The direction the approved measure mapping declares, when one is configured.
    * `true`/`false` is an explicit declaration; `null` means a mapping exists but
    * states no direction (neutral); `undefined` means there is no mapping, so the
@@ -213,8 +255,28 @@ export type ReviewMeasure = {
    * direction, or a goal in another quantity). Null when a status was reached.
    */
   statusGap?: MeasureStatusGap | null;
-  /** Where the value came from and how its status was reached, for the pillar editor. */
+  /** How the primary measure was selected and how its status was reached. */
   origin?: MeasureOrigin;
+  /**
+   * The time basis of the observation `value` was read from ("YTD", "MONTHLY",
+   * "LTM"). The headline states the basis it actually reports on.
+   */
+  basis?: string | null;
+  /** That basis in the review's words: "YTD", "October", "LTM". */
+  basisLabel?: string;
+  /**
+   * The month's own figure, when the headline value is a YTD or LTM figure. Shown
+   * as supporting context ("October 330" beside "YTD 3,340"), never as the
+   * headline. Null when the month's figure is the headline or is not stored.
+   */
+  monthValue?: string | null;
+  /** The month that figure belongs to ("October"). */
+  monthLabel?: string;
+  /** The measure's declared format, so every renderer formats the same way. */
+  displayFormat?: string | null;
+  unit?: string | null;
+  /** The same measure on its other stated basis, when both are reviewed. */
+  secondary?: ReviewSecondaryFigure[];
 };
 
 export type MeasureOrigin = {
