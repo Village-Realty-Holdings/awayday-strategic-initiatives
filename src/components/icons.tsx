@@ -83,6 +83,9 @@ import {
   PercentCircleIcon,
   RealEstate01Icon,
   UserLove01Icon,
+  Sun03Icon,
+  Moon02Icon,
+  ComputerIcon,
 } from "@hugeicons/core-free-icons";
 
 // The app's icon set: Hugeicons (shadcn iconLibrary "hugeicons"), exposed under
@@ -173,6 +176,11 @@ export const ScatterChart = make(ChartScatterIcon, "ScatterChart");
 export const FlaskConical = make(TestTube01Icon, "FlaskConical");
 export const HandCoins = make(MoneyReceive01Icon, "HandCoins");
 export const Settings = make(Settings01Icon, "Settings");
+
+// Theme
+export const Sun = make(Sun03Icon, "Sun");
+export const Moon = make(Moon02Icon, "Moon");
+export const Monitor = make(ComputerIcon, "Monitor");
 
 // People & security
 export const Users = make(UserGroupIcon, "Users");

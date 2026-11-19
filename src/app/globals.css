@@ -2,6 +2,22 @@
 @import "tw-animate-css";
 
 /*
+ * THEME MODEL — light, dark, or follow the operating system.
+ * ---------------------------------------------------------------------------
+ * The light palette below lives in `@theme` (emitted into `@layer theme`). The
+ * dark palette is declared further down as plain, unlayered CSS, so it always
+ * wins over the layered defaults without `!important`.
+ *
+ * `data-theme` is stamped on <html> by the server from a preference cookie
+ * (src/lib/theme.ts), so the first paint is already correct: no flash and no
+ * inline script, which leaves the CSP untouched. "System" writes no attribute,
+ * so the media query follows the OS even when it changes while the page is open.
+ *
+ * Rule of thumb: components use tokens, never literals. Status is always paired
+ * with a glyph and a word, so nothing depends on colour alone.
+ */
+
+/*
  * Awayday Strategic Initiatives — design tokens (see /DESIGN.md)
  * Palette tuned to Awayday's real brand (awayday.com): teal-slate #2D4447,
  * gold #F2CE3D, light teal #84BEC6, on true-neutral light surfaces.
@@ -396,4 +412,377 @@ body {
   .bn-doc h2, .bn-doc h3 { break-after: avoid; }
   .bn-doc p, .bn-doc li { break-inside: avoid; }
   @page { margin: 0.85in 0.8in; }
+}
+
+/* ---------------------------------------------------------------------------
+ * Dark theme. Unlayered on purpose: it overrides the `@theme` defaults in
+ * `@layer theme` without fighting Tailwind's generated utilities. Values follow
+ * the October 2026 strategy-review reference, lifted where needed so small text
+ * keeps WCAG AA contrast (ink-faint is deliberately lighter than the reference).
+ * ------------------------------------------------------------------------- */
+html[data-theme="dark"] {
+  --color-bg: #121a21;
+  --color-surface: #1a242e;
+  --color-surface-2: #222e3a;
+  --color-border: #34424f;
+  --color-border-strong: #48596a;
+
+  --color-ink: #eef2f5;
+  --color-ink-muted: #b9c4ce;
+  --color-ink-faint: #93a2af;
+
+  --color-navy: #3aa3bb;
+  --color-navy-deep: #8fd3e3;
+  --color-teal: #9fd3da;
+  --color-gold: #f2ce3d;
+  --color-gold-deep: #f0c65a;
+
+  --color-ok: #5fd25f;
+  --color-warn: #f2c45a;
+  --color-risk: #f08a8a;
+  --color-done: #c4a9f5;
+
+  --color-ok-soft: #163a16;
+  --color-warn-soft: #3e2f0c;
+  --color-risk-soft: #431b1b;
+  --color-done-soft: #2b2040;
+
+  --background: var(--color-bg);
+  --foreground: var(--color-ink);
+  --primary-foreground: #08131a;
+  --ring: var(--color-navy);
+
+  color-scheme: dark;
+}
+
+/*
+ * "System" (no data-theme attribute) or an OS that switches to dark while the
+ * page is open. :not([data-theme="light"]) keeps an explicit light choice
+ * authoritative, and :not([data-theme="dark"]) avoids restating the block above.
+ */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]):not([data-theme="dark"]) {
+    --color-bg: #121a21;
+    --color-surface: #1a242e;
+    --color-surface-2: #222e3a;
+    --color-border: #34424f;
+    --color-border-strong: #48596a;
+
+    --color-ink: #eef2f5;
+    --color-ink-muted: #b9c4ce;
+    --color-ink-faint: #93a2af;
+
+    --color-navy: #3aa3bb;
+    --color-navy-deep: #8fd3e3;
+    --color-teal: #9fd3da;
+    --color-gold: #f2ce3d;
+    --color-gold-deep: #f0c65a;
+
+    --color-ok: #5fd25f;
+    --color-warn: #f2c45a;
+    --color-risk: #f08a8a;
+    --color-done: #c4a9f5;
+
+    --color-ok-soft: #163a16;
+    --color-warn-soft: #3e2f0c;
+    --color-risk-soft: #431b1b;
+    --color-done-soft: #2b2040;
+
+    --background: var(--color-bg);
+    --foreground: var(--color-ink);
+    --primary-foreground: #08131a;
+    --ring: var(--color-navy);
+
+    color-scheme: dark;
+  }
+}
+
+/* The roof and the values band are near-black in light mode. In dark mode an
+   inverse block would be black on black, so they become a tinted panel with
+   normal ink, exactly as the reference does. */
+html[data-theme="dark"] .strategy-house__roof {
+  background-color: var(--color-navy) !important;
+  color: #08131a;
+}
+html[data-theme="dark"] .strategy-house__roof > p:first-child,
+html[data-theme="dark"] .strategy-house__roof > p:last-child {
+  color: #08131a;
+}
+html[data-theme="dark"] .strategy-house__values {
+  background-color: var(--color-surface-2) !important;
+  color: var(--color-ink) !important;
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]):not([data-theme="dark"]) .strategy-house__roof {
+    background-color: var(--color-navy) !important;
+    color: #08131a;
+  }
+  html:not([data-theme="light"]):not([data-theme="dark"]) .strategy-house__roof > p:first-child,
+  html:not([data-theme="light"]):not([data-theme="dark"]) .strategy-house__roof > p:last-child {
+    color: #08131a;
+  }
+  html:not([data-theme="light"]):not([data-theme="dark"]) .strategy-house__values {
+    background-color: var(--color-surface-2) !important;
+    color: var(--color-ink) !important;
+  }
+}
+
+/* A dark theme must never print: the print sheet is the light report. */
+@media print {
+  html,
+  html[data-theme="dark"],
+  html[data-theme="light"] {
+    --color-bg: #fff;
+    --color-surface: #fff;
+    --color-surface-2: #f2f4f6;
+    --color-border: #d3dae2;
+    --color-border-strong: #b6c0ca;
+    --color-ink: #16222e;
+    --color-ink-muted: #4a5866;
+    --color-ink-faint: #5d6b78;
+    --color-navy: #0d6f86;
+    --color-navy-deep: #0a5a6d;
+    --color-gold-deep: #8a6a00;
+    --color-ok: #0a7a0a;
+    --color-warn: #8a5b00;
+    --color-risk: #a52d2d;
+    color-scheme: light;
+  }
+  html[data-theme="dark"] .strategy-house__roof {
+    background-color: #16222e !important;
+    color: #fff !important;
+  }
+  html[data-theme="dark"] .strategy-house__roof > p {
+    color: #fff !important;
+  }
+  html[data-theme="dark"] .strategy-house__values {
+    background-color: #2d4447 !important;
+    color: #fff !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Theme toggle (components/theme/theme-toggle.tsx). A three-way choice, so it
+ * reads as a segmented control rather than a mystery icon.
+ * ------------------------------------------------------------------------- */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-2);
+  padding: 0.125rem;
+}
+.theme-toggle__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+  color: var(--color-ink-muted);
+  font-size: 0.6875rem;
+  line-height: 1.1;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+.theme-toggle__option:hover {
+  color: var(--color-ink);
+}
+.theme-toggle__option[data-state="checked"] {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-weight: 600;
+}
+.theme-toggle__option[data-state="checked"] svg {
+  color: var(--color-navy-deep);
+}
+
+/* ---------------------------------------------------------------------------
+ * KPI gauge (components/review/kpi-gauge.tsx).
+ *
+ * Geometry is fixed here so the layout maths in src/lib/kpi-gauge.ts can be
+ * tested against real pixel offsets. Labels sit in four lanes around the track:
+ * two above and two below, so the 2026 goal, FY27 budget and FY27 stretch do not
+ * collide when they cluster near one end (the defect in the first reference
+ * screenshot). Labels at the very edge align inward instead of being clipped.
+ * ------------------------------------------------------------------------- */
+.kpi-gauge {
+  --kpi-gauge-lane-above-2: 0px;
+  --kpi-gauge-lane-above-1: 15px;
+  --kpi-gauge-lane-below-1: 44px;
+  --kpi-gauge-lane-below-2: 59px;
+  position: relative;
+  height: 74px;
+  margin-top: 0.5rem;
+}
+.kpi-gauge__plot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 32px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--color-surface-2);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+.kpi-gauge__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: var(--color-navy);
+  opacity: 0.55;
+}
+.kpi-gauge__marker {
+  position: absolute;
+  top: -5px;
+  width: 2px;
+  height: 20px;
+  transform: translateX(-1px);
+  border-radius: 1px;
+  background: var(--color-ink);
+}
+.kpi-gauge__marker--reference {
+  background: var(--color-ink-faint);
+}
+.kpi-gauge__actual {
+  position: absolute;
+  top: 50%;
+  width: 15px;
+  height: 15px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  border: 2px solid var(--color-surface);
+  background: var(--kpi-tone, var(--color-navy));
+  box-shadow: 0 0 0 1.5px var(--kpi-tone, var(--color-navy));
+}
+.kpi-gauge__overflow {
+  position: absolute;
+  top: 31px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--color-warn);
+}
+.kpi-gauge__label {
+  position: absolute;
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--color-ink-muted);
+}
+.kpi-gauge__label b {
+  color: var(--color-ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.kpi-gauge__ends {
+  position: absolute;
+  top: 46px;
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 0.625rem;
+  color: var(--color-ink-faint);
+}
+.kpi-gauge--good {
+  --kpi-tone: var(--color-ok);
+}
+.kpi-gauge--warn {
+  --kpi-tone: var(--color-warn);
+}
+.kpi-gauge--crit {
+  --kpi-tone: var(--color-risk);
+}
+.kpi-gauge--neutral {
+  --kpi-tone: var(--color-ink-faint);
+}
+.kpi-gauge__empty {
+  position: absolute;
+  top: 26px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.6875rem;
+  color: var(--color-ink-faint);
+}
+@media (max-width: 640px) {
+  .kpi-gauge__label {
+    font-size: 0.625rem;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Report tables: the first column stays put while a wide financial table
+ * scrolls, so a reader never loses the line they are on.
+ * ------------------------------------------------------------------------- */
+.report-table th[scope="row"] {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--color-surface);
+}
+.report-table tr.bg-surface-2 th[scope="row"] {
+  background: var(--color-surface-2);
+}
+.report-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--color-surface);
+}
+@media (max-width: 640px) {
+  .report-table th[scope="row"],
+  .report-table thead th {
+    position: static;
+  }
+}
+
+/* Gauge labels need horizontal room: below ~40rem of track they are replaced by
+   the compact legend, so a narrow card never clips a value or stacks two labels.
+   The legend is screen-reader-only on wide screens and visible on narrow ones. */
+.kpi-gauge__labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.kpi-gauge__legend {
+  display: none;
+  margin: 0.25rem 0 0;
+  gap: 0.1rem 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  font-size: 0.6875rem;
+  color: var(--color-ink-faint);
+}
+.kpi-gauge__legend div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-bottom: 1px dotted var(--color-border);
+  padding-bottom: 0.1rem;
+}
+.kpi-gauge__legend dt {
+  color: var(--color-ink-faint);
+}
+.kpi-gauge__legend dd {
+  margin: 0;
+  color: var(--color-ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 40rem) {
+  .kpi-gauge__labels {
+    display: none;
+  }
+  .kpi-gauge__legend {
+    display: grid;
+  }
+  .kpi-gauge {
+    height: 58px;
+  }
+  .kpi-gauge__ends {
+    top: 44px;
+  }
 }

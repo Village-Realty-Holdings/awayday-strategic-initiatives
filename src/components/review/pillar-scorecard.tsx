@@ -1,8 +1,9 @@
 import type { PillarScorecard, ScorecardRow } from "@/lib/review-report";
 import { scorecardStatusLabel } from "@/lib/review-report";
-import { PillarLabelBadge } from "./status";
+import type { KpiStatus } from "@/lib/kpi-status";
+import { KpiStatusBadge } from "./kpi-status-badge";
 
-const TONE: Record<ScorecardRow["status"], "ahead" | "on_track" | "behind" | null> = {
+const STATUS: Record<ScorecardRow["status"], KpiStatus | null> = {
   ahead: "ahead",
   on_track: "on_track",
   behind: "behind",
@@ -10,9 +11,9 @@ const TONE: Record<ScorecardRow["status"], "ahead" | "on_track" | "behind" | nul
 };
 
 function Status({ row }: { row: ScorecardRow }) {
-  const tone = TONE[row.status];
-  if (!tone) return <span className="text-note text-ink-faint">{row.expectedOnly ? "Not loaded" : scorecardStatusLabel(row.status)}</span>;
-  return <PillarLabelBadge label={scorecardStatusLabel(row.status)} tone={tone} />;
+  const status = STATUS[row.status];
+  if (!status) return <span className="text-note text-ink-faint">{row.expectedOnly ? "Not loaded" : scorecardStatusLabel(row.status)}</span>;
+  return <KpiStatusBadge status={status} />;
 }
 
 function DeltaCell({ row }: { row: ScorecardRow }) {

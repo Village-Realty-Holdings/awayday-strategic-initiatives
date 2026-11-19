@@ -150,11 +150,74 @@ export function parseTargetNumber(target: string | null | undefined): { value: n
   if (!target) return null;
   const text = target.trim();
   if (text === "") return null;
-  const match = text.match(/^([<>\u2264\u2265~]?)\s*\$?\s*(-?\d+(?:[.,]\d+)*)\s*([kmb])?\s*%?$/i);
+  const match = text.match(/^([<>\u2264\u2265~]?)\s*\$?\s*([-+]?\d+(?:[.,]\d+)*)\s*([kmb])?\s*%?$/i);
   if (!match) return null;
   const [, sign, raw, suffix] = match;
   const value = Number(raw.replace(/,/g, ""));
   if (!Number.isFinite(value)) return null;
   const scale = suffix?.toLowerCase() === "b" ? 1_000_000_000 : suffix?.toLowerCase() === "m" ? 1_000_000 : suffix?.toLowerCase() === "k" ? 1_000 : 1;
   return { value: value * scale, lowerIsBetter: sign === "<" || sign === "\u2264" };
+}
+
+/** One target marker read out of a definition's target prose. */
+export type TargetMarker = {
+  /** Stable id for React and for tests. */
+  id: string;
+  /** Short label for the gauge ("Goal", "Budget", "Stretch"). */
+  label: string;
+  /** Base units, the same scale as parseNumber/parseTargetNumber. */
+  value: number;
+  style: "goal" | "budget" | "stretch";
+  /** An explicit "<" on the figure means lower is better for that target. */
+  lowerIsBetter: boolean;
+};
+
+const TARGET_STYLES: { style: TargetMarker["style"]; label: string; pattern: RegExp }[] = [
+  { style: "stretch", label: "Stretch", pattern: /\bstretch\b|\bupside\b|\baspiration/i },
+  { style: "budget", label: "Budget", pattern: /\bbudget\b|\bplan\b|\bnext year\b/i },
+  { style: "goal", label: "Goal", pattern: /\bgoal\b|\btarget\b|\btotal\b|\bexco\b|\bboard\b|\bcommit/i },
+];
+
+/**
+ * Reads the labelled figures out of a definition's target prose, so a gauge can
+ * show the goal and the stretch (and a budget, where the definition states one)
+ * without any figure being written into code.
+ *
+ * One plain figure keeps the parseTargetNumber behaviour: "23%" and "<11%" are
+ * goals. Prose is split on its own separators and a figure is used only when its
+ * segment names what it is, so "$26M total; $11M via tuck-ins; $47M stretch"
+ * yields a goal and a stretch and ignores the tuck-in component rather than
+ * plotting it as a second goal. Anything ambiguous yields no marker: a missing
+ * marker is better than one drawn against the wrong number.
+ */
+export function parseTargetMarkers(target: string | null | undefined): TargetMarker[] {
+  if (!target) return [];
+  const text = target.trim();
+  if (!text) return [];
+  const first = parseTargetNumber(text);
+  if (first) {
+    return [{ id: "goal-0", label: "Goal", value: first.value, style: "goal", lowerIsBetter: first.lowerIsBetter }];
+  }
+  const segments = text.split(/\s*[;·]\s*|\s+and\s+/i).filter((s) => s.trim() !== "");
+  const markers: TargetMarker[] = [];
+  const seen = new Set<string>();
+  for (const segment of segments) {
+    const figures = segment.match(/[<>\u2264\u2265~]?\s*\$?\s*[-+]?\d+(?:[.,]\d+)*\s*[kmb]?\s*%?/gi) ?? [];
+    if (figures.length !== 1) continue; // ambiguous: not attributable to one target
+    const kind = TARGET_STYLES.find((k) => k.pattern.test(segment));
+    if (!kind) continue; // an unlabelled figure in prose is a component, not a target
+    const parsed = parseTargetNumber(figures[0].replace(/\s+/g, ""));
+    if (!parsed) continue;
+    const key = `${kind.style}:${parsed.value}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    markers.push({
+      id: `${kind.style}-${markers.length}`,
+      label: kind.label,
+      value: parsed.value,
+      style: kind.style,
+      lowerIsBetter: parsed.lowerIsBetter,
+    });
+  }
+  return markers;
 }

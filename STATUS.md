@@ -1,8 +1,60 @@
 # Status
 
-_Last updated 2026-11-18, on branch `feat/strategy-review-parity` (PR #25 open, review corrections pushed, not merged or deployed)._
+_Last updated 2026-11-18, on branch `feat/review-visual-parity` (stacked on PR #25; neither branch is merged or deployed)._
 
-## Current milestone: Strategy Review parity with the October 2026 reviewed report
+## Current milestone: visual parity, theme, status vocabulary and AI commentary design
+
+**What changed (branch `feat/review-visual-parity`, not merged).** The Strategy
+Review now reads like the reviewed report rather than merely containing its
+sections. Presentation only: every figure still comes from `KpiDefinition` /
+`KpiObservation`, and there is no schema, auth, dependency or deployment change.
+
+- **Light, dark and system themes.** The preference is a cookie read by the
+  server, which stamps `data-theme` on `<html>` before first paint, so there is no
+  flash and no hydration mismatch. `system` writes no attribute and the existing
+  `prefers-color-scheme` block applies; an explicit choice wins over a dark OS;
+  print is always light. A three-option `ThemeToggle` sits in the top bar (icons
+  only below `sm`, where the shell has no room for it). Dark tokens are declared
+  once, as unlayered CSS, and every component follows them.
+- **One status vocabulary** (`src/lib/kpi-status.ts`): ahead, on goal, on track,
+  under budget, needs attention, behind, floor breached, no data, each with a
+  tone, a glyph and a word. Direction is declared per metric, never inferred from
+  the sign of a number, and a metric whose direction is unknown gets no colour.
+  Mixed pillars keep both sides through a factual count chip rather than a single
+  verdict.
+- **Gauges** (`src/lib/kpi-gauge.ts`, `KpiGauge`): several target markers read
+  from the definition's own target prose, four label lanes so labels cannot
+  overlap (the defect in the reference), edge-inward alignment, overflow arrows,
+  currency/percent/points/count formatting, lower-is-better handling and a
+  sentence `aria-label`. Below 40rem the labels are replaced by a definition list
+  so nothing is clipped.
+- **Executive summary and tables:** `text-3xl` values, a smaller comparison line,
+  population and basis labels, sticky header and first column on wide tables,
+  static on phones, and deltas coloured only when the metric's direction is known.
+- **So-What sections:** one card per item, bold claim then evidence, tone from the
+  section's status with a glyph and a spoken word, readable in both themes.
+- **`docs/claude-so-what-generation-design.md`** specifies (and does not enable)
+  the review-and-approve workflow for Claude-generated commentary, including the
+  finding that `ReviewSoWhat` cannot hold a draft: it has no state, provenance or
+  tone columns, so a draft store needs an approved migration.
+- See [docs/strategy-review-visual-parity.md](docs/strategy-review-visual-parity.md)
+  for the component-by-component comparison against the supplied HTML.
+
+**Defect found and fixed by the visual audit:** `favorableDelta` applied the
+"expenses are stored negative" sign flip to every metric, so Adjusted EBITDA of
+−$1.2M against a −$1.0M budget (a wider loss) was coloured green. The flip now
+applies only to lower-is-better metrics, with regression tests.
+
+**Verified locally:** `npm run typecheck`, `npm run lint`, `npm test` (62 files,
+691 tests) and `npm run build` pass. The page was rendered from local synthetic
+Postgres in light/dark at 1440 px and 390 px: no page-level horizontal scroll, no
+overlapping or clipped gauge labels, sticky table headers, dark background
+`rgb(18,26,33)`, sampled contrast ≥ 6.01:1.
+
+**Not verified:** the real October 2026 observations in Neon, and any deployment.
+The local database and `.env` are gitignored.
+
+## Earlier milestone (PR #25): Strategy Review structure matching the October 2026 reviewed report
 
 **What changed (branch, not merged).** The Strategy Review now presents the
 reviewed monthly report's structure on top of the existing strategy house,
@@ -96,10 +148,17 @@ a value. Importing them is a separate, authorised ingestion action.
 
 ## Before release (engineering)
 
-1. Review PR #25. No protected code (auth, schema, migrations, CI,
-   infrastructure) is touched.
-2. Confirm the rendered review against the real October observations.
-3. Deploy through the existing Workers Builds path from `master` after merge.
+1. Review PR #25, then the stacked visual-parity PR (base
+   `feat/strategy-review-parity`, so PR #25's diff is not duplicated). Neither
+   branch touches protected code: no auth, schema, migration, CI or
+   infrastructure change in either.
+2. Confirm the rendered review against the real October observations after the
+   data gap in the section below is closed.
+3. Decide the `docs/claude-so-what-generation-design.md` questions before any AI
+   commentary work starts. The first is whether a draft store may be added; it is
+   the only item in that document that needs a migration, and nothing in it is
+   enabled today.
+4. Deploy through the existing Workers Builds path from `master` after merge.
    Do not activate the experimental GitHub Actions workflow on
    `feat/github-actions-cloudflare-release` as part of this work.
 
