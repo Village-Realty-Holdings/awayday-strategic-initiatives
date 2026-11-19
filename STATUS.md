@@ -27,9 +27,10 @@ written to production, and no import was executed.
   `tone` (`POSITIVE`/`WARNING`/`NEGATIVE`/`NEUTRAL`, never CSS classes) through a
   backward-compatible additive migration, applied to the **local dev database
   only**; the bridge commentary got a dedicated `FINANCIALS` scope. Absent or
-  unknown tone renders neutrally and inherits the section. The four bridge texts
-  themselves are **not** imported — the reference HTML is absent, so that is a
-  documented blocker, not an invention.
+  unknown tone renders neutrally and inherits the section. The four bridge items and
+  the 33 per-item tones are now transcribed exactly from the reference page into
+  `docs/october-2026-so-what-content-preview.md` — **preview only, not imported**, so
+  nothing was invented and nothing was written.
 - **Configuration script for the five primaries** — dry run by default, identity by
   `metricKey`, exactly one active mapping per driver, FY27 figures never written,
   idempotent, with `--snapshot` / `--revert`. Grow is deliberately left goal-less
@@ -41,13 +42,23 @@ written to production, and no import was executed.
   `127.0.0.1:3000` against `awayday_si_dev`. Details and the import register:
   [docs/october-2026-parity-corrections.md](docs/october-2026-parity-corrections.md).
 
-### Blocker to record
+### Reference bundle: located and verified
 
-The reference HTML (`Awayday October 2026 Strategy Review(2).html`) and the handoff
-JSON (`october-2026-production-kpi-identities.json`) are **not present** in this
-working copy. Corrections were made from the extractions already recorded in the
-repo; the two files are requested before the bridge content import and the
-production-mapping evidence can be confirmed.
+The reference HTML (`Awayday October 2026 Strategy Review(2).html`) and the read-only
+production identity export (`october-2026-production-kpi-identities.json`, 61
+definitions) are held in **`.reference/`, now gitignored** so they can never be
+committed. Earlier passes worked from recorded extractions; this pass re-read the
+source and confirmed the chart arrays (11 + 11 + 15 = 37 observations), the 49-brand
+totals (15,324 / 169 / 1,868), the FY27 figures (M&A $26M/$47M, Grow 23/28,
+Retention 11/9 on LTM, TRevPAR 1/5, Margin 0.25/1), the five 2026 goals, and all
+**33 So-What items**. Corrections: the page has **8** commentary sections (7 + the
+bridge), not 7, and **33** items whose tones are POSITIVE 10 / NEGATIVE 17 /
+WARNING 6; the stored 29 match the page's wording exactly apart from a trailing full
+stop in the page's bold headline. The exact transcription is
+[docs/october-2026-so-what-content-preview.md](docs/october-2026-so-what-content-preview.md)
+— **preview only, not imported**. The identity export also confirms directly what
+was previously inferred: every `user_review:*` definition has **no area and no
+mapping** in production.
 
 ## Previous: October 2026 parity — the 2026 goal is the yardstick, not the FY27 target (PR #26, not merged)
 

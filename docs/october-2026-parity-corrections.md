@@ -7,17 +7,17 @@ read-only handoff bundle (`october-2026-production-kpi-identities.json`, extract
 2026-11-19 from `frosty-resonance-20920085` / `br-silent-wildflower-b438bp7m` /
 `neondb`) or from the reference page
 `Awayday October 2026 Strategy Review(2).html`. Nothing in the reference bundle is
-committed to git.
+committed to git — it lives in `.reference/`, which is gitignored.
 
-> **Reference-bundle availability, this session.** Neither
-> `Awayday October 2026 Strategy Review(2).html` nor the handoff JSON is present in
-> this working copy (searched `~/Downloads`, `~/Desktop`, `~/Documents`,
-> `~/repos`, `/tmp`, `/var/tmp`). Every reference fact below is therefore the
-> extraction recorded in the previous session's version of this document and in
-> `docs/october-2026-primary-kpi-mapping-audit.md`; nothing was reconstructed from
-> memory, and any claim not supported by those records is marked **NOT VERIFIED**.
-> The two files are **requested** so the bridge commentary (§8.2) and the
-> production-mapping evidence can be confirmed before any import runs.
+> **Reference bundle — verified this session.** `Awayday October 2026 Strategy
+> Review(2).html` and `october-2026-production-kpi-identities.json` are now present
+> in `.reference/` (gitignored; they contain business financial content and are
+> never committed). The values in §1, §6.0, §7 and §8 were re-checked **against the
+> HTML itself** this session, not against earlier notes: the chart arrays
+> (`lender=[11]`, `base=[11]`, `v=[15]`), the 49-brand table with its 15,324 / 169 /
+> 1,868 totals, the FY27 figures, and all 33 So-What items. Where a claim depends on
+> production *observations* — which the identity export does not contain — it is
+> marked **NOT VERIFIED** in §6.0.
 
 **Verdict: CONDITIONAL PASS** — the application now selects, labels and judges the
 October measures correctly, refuses to invent a status where the 2026 goal is
@@ -87,6 +87,17 @@ carries the pillar's single active mapping.** Making the October measure the
 primary means linking that reviewed definition to the pillar and activating its
 mapping; it does **not** mean renaming the FY27 definition, rewriting its targets,
 or moving observations. Nothing was renamed, repointed or written in this phase.
+
+**Re-verified against the identity export (61 rows, 2026-11-19).** Every one of the
+53 `user_review:*` definitions in production has `area = null` and `mapping_id =
+null` — they are published definitions that no pillar reads and no mapping selects,
+which is precisely why the pillars fall back to the FY27 definitions. The five FY27
+pillar definitions and their single active mappings are exactly as tabulated above
+(`FY27:M&A` currency 26,000,000 / 47,000,000; `FY27:GROW` percent 23 / 28;
+`FY27:RETENTION` percent 11 / 9 on **LTM**, lower-is-better; `FY27:TREVPAR` percent
+1 / 5; `FY27:MARGIN` percent 0.25 / 1). `FY27:GUEST`, `FY27:MARKETING` and
+`FY27:TECH` carry no mapping, so Guest Experience's status comes from elsewhere —
+not from a mapping this change touches.
 
 ---
 
@@ -328,10 +339,22 @@ Two reconciliations that must not be collapsed:
    history is preserved rather than overwritten. The chart marks a revised point.
 
 Production existence caveat: the "present in production" column records the two
-October rows the handoff bundle shows. Any claim about other production rows is
-**NOT VERIFIED** — production was not reachable from this session (no Neon MCP, no
-`neonctl`, no production credentials), so the handoff extraction remains the only
-evidence and no additional presence is assumed.
+October rows an earlier read-only query reported. The identity export in
+`.reference/` holds `KpiDefinition` rows only — no observations — so presence is
+**NOT VERIFIED from this bundle** and no additional presence is assumed. The count
+that matters for review is the right-hand column: 26 importable rows, 11 blocked.
+
+The three arrays were re-read from the page's own script this session:
+
+```js
+var lender=[86.4,86.9,104.0,104.1,109.1,111.4,118.8,120.8,123.3,135.4,136.0];   // 11
+var base  =[69.4,69.5,68.9,68.0,67.7,69.0,71.6,75.8,77.3,78.5,77.3];           // 11
+var v     =[193.7,106.5,90.4,60.3,100.6,98.5,133.9,168.5,119.5,148.6,282.7,
+            333.4,194.5,129.4,90.7];                                            // 15
+```
+
+11 + 11 + 15 = **37**, and the page's own caption confirms the restatement:
+*"September is restated to $135.4M."*
 
 ### 6.1 LTM Pro Forma Lender EBITDA and Base Business Adjusted EBITDA
 
@@ -483,15 +506,24 @@ Reference totals for reconciliation: 15,324 bookable · 169 October churned ·
 
 ## 8. Task F — Alex's So-What's
 
-Production holds **7 October so-what records** in `ReviewSoWhat` for the DRAFT
-October period. That matches the reference page's seven sections exactly: the
-summary, the five pillars, and Guest Experience. They are Strategy's content, read
-by the review page from the database and edited only through the existing
-`ReviewSoWhat` editor; nothing in this branch generates, rewrites or re-orders
-them, and no Anthropic credential, endpoint, prompt or job was added.
+The reference page carries **8 commentary sections and 33 items**: the executive
+summary (4), the financial bridge (4), the five pillars (4 each) and Guest
+Experience (5). Verified against the HTML this session.
 
-Both limits recorded in the previous pass are now closed, with the smallest
-additive change that keeps existing rows valid:
+**What is stored today:** 29 rows in `ReviewSoWhat` for the DRAFT October period —
+the executive summary, five pillars and Guest Experience. Their headlines and bodies
+match the page **exactly**, with one typographic difference: the page's bold headline
+ends in a full stop that the stored `headline` omits (the renderer prints headline and
+body separately, so this is the only visual difference). The gap is therefore precise
+and small: **4 missing bridge rows and 33 missing tones**, not 33 missing items.
+
+The commentary is Strategy's content, read by the review page from the database and
+edited only through the existing `ReviewSoWhat` editor; nothing in this branch
+generates, rewrites or re-orders it, and no Anthropic credential, endpoint, prompt or
+job was added.
+
+Both limits recorded in the previous pass are now closed, with the smallest additive
+change that keeps existing rows valid:
 
 **A. Per-item tone is stored (optional).** `ReviewSoWhat` gained a nullable
 `tone` column typed by a new `SoWhatTone` enum — `POSITIVE`, `WARNING`, `NEGATIVE`,
@@ -512,13 +544,27 @@ plan already uses the code `FINANCIALS`, so a stored row can never be attributed
 the wrong section. The local plan's finance area is coded `FINANCE`, so the scope is
 available here.
 
-**What is not done — deliberately.** The four bridge texts themselves are **not
-imported**: the reference HTML is not present in this working copy, so the exact
-wording cannot be transcribed, and inventing it would breach the "preserve Alex's
-exact commentary" rule. That is a content import, previewed in §8.2 and marked
-BLOCKED. Equally: no Claude/Anthropic integration, no generated commentary, no
-background job, no auto-publishing, no model credentials — that remains the separate
-future feature described in `docs/claude-so-what-generation-design.md`.
+**The tone is the page's own colour, not an inference.** The page marks each item
+with a CSS class — `up` (good news), `down` (bad news), `flag` (watch item) — and
+those classes are presentation, so they are mapped to semantic values rather than
+stored:
+
+| Page class | Stored `SoWhatTone` | Items on the page |
+| --- | --- | ---: |
+| `up` | `POSITIVE` | 10 |
+| `down` | `NEGATIVE` | 17 |
+| `flag` | `WARNING` | 6 |
+| — | `NEUTRAL` | 0 |
+
+The complete, exact transcription of all 33 items — scope, order, headline, body and
+tone — is `docs/october-2026-so-what-content-preview.md`. It is a **preview**: no row
+was inserted, updated or deleted in any database.
+
+**What is not done — deliberately.** The four bridge items and the 33 tones are not
+written anywhere: writing them is a content import, and this phase is preview-only.
+Equally: no Claude/Anthropic integration, no generated commentary, no background job,
+no auto-publishing, no model credentials — that remains the separate future feature
+described in `docs/claude-so-what-generation-design.md`.
 
 Everything else — the wording, the numbers quoted inside the sentences, the order,
 and the red/green/yellow intent — is preserved because it lives in the database and
@@ -548,15 +594,15 @@ date.
 | Reporting period | `2026-10` (DRAFT). |
 | Reporting scope | `FINANCIALS`. |
 | Comparison basis | n/a (commentary). |
-| Time basis | n/a (commentary). |
+| Time basis | n/a (commentary) — the block is headed "October vs budget". |
 | Entity scope / ID | Tenant's own review; `entityId = null`. |
-| Source document | `Awayday October 2026 Strategy Review(2).html`, "So what in the bridge" block. |
-| Source location | Financials section, immediately below the bridge table. |
-| Value | **NOT SUPPLIED** — 4 items expected; exact headline/body/tone cannot be transcribed because the reference HTML is absent from this working copy. |
+| Source document | `Awayday October 2026 Strategy Review(2).html` (held in `.reference/`, gitignored). |
+| Source location | Financials section, `<h4>So what in the bridge (October vs budget)</h4>`, immediately below the bridge table. |
+| Value | **4 items, transcribed exactly** in `docs/october-2026-so-what-content-preview.md` rows 5–8: "Rent was under budget, fees held revenue up." · "OTA and maintenance margins missed." · "Support and BD spend took EBITDA below zero." · "Regions vs budget, YTD Adj. EBITDA (Ares pack):" — all four `NEGATIVE` on the page. |
 | Publication state | Would be authored in DRAFT and approved with the period; not published here. |
 | Revision policy | Replace-within-period (the existing `set_so_whats` semantics), audited. |
 | Validation / rollback | Preview, then user-confirmed write through the authenticated editor or MCP tool; rollback = re-save prior rows (captured in the audit trail). |
-| Status | **BLOCKED — reference content unavailable. Do not invent.** |
+| Status | **Ready for approval — content now verified. Not executed (preview only).** |
 
 ---
 
@@ -577,16 +623,17 @@ read-only handoff extraction; anything it does not show is **NOT VERIFIED**.
 | Entity scope / ID | `BASE_BUSINESS` / `null` | `BASE_BUSINESS` / `null` | `AWAYDNA_PMS` / `null` | `BRAND` / brand name in `entityId` | tenant review / `null` |
 | Source document | *Awayday 2026-10 Results (Internal), Flash EBITDA Final 11 Nov* | same pack + *Reporting Pack vFinal (Ares & LightBay)* | *AwayDNA dbt Semantic Layer* (queried 16 Nov) | AwayDNA dbt | `Awayday October 2026 Strategy Review(2).html` |
 | Source location | P&L tab, budget & PY columns | EBITDA bridge / chart tab | TRevPAR tab | brand churn table | "So what in the bridge" block |
-| Value | 32 values from the pack (**not** back-solved from printed variances) | 22 chart values (§6.1) | 15 chart values (§6.2) | 245 values (§7.1) | **NOT SUPPLIED** |
+| Value | 32 values from the pack (**not** back-solved from printed variances) | 22 chart values (§6.1, verified from the HTML) | 15 chart values (§6.2, verified) | 245 values (§7.1, verified) | **exact** — 4 bridge items + 33 tones (`docs/october-2026-so-what-content-preview.md`) |
 | Publication state | `APPROVED` on import, revision 1 | `APPROVED`, revision 1; Sep-26 as **revision 2** | `APPROVED`, revision 1; Sep-26 **revision 2** | `APPROVED`, revision 1 | DRAFT, approved with the period |
 | Revision / restatement policy | New period observations; no edits to history | Restatements supersede by revision; never overwrite | Same | One row per brand per column per population; never merged | Replace-within-period, audited |
 | Validation / rollback | Reconcile totals to the pack; rollback = delete the period's rows by id | Reconcile totals to $136.0M / $77.3M; rollback by id | Reconcile Oct $90.7; rollback by id | Totals 15,324 / 169 / 1,868 must tie; rollback by id | Re-save prior rows (audit trail) |
-| Rows proposed now | 32 | **11** (lender); 0 Base Business (**blocked**) | 15 | 245 | 4 items + tones (**blocked**) |
+| Rows proposed now | 32 | **11** (lender); 0 Base Business (**blocked**) | 15 | 245 | 4 new items + 33 tones (**ready, preview only**) |
 
 Reading the register: only sets (2) and (3) are importable without a business
 decision, and only after the §12 decisions below are answered; (1) needs the pack
 and D4; (4) needs D5 and the Beach Retreats / Rent Branson exceptions; (5) needs the
-reference HTML. **No set is authorised to run from this branch.**
+reference HTML is now present, so set (5) is ready but still unexecuted. **No set is
+authorised to run from this branch.**
 
 ---
 
@@ -648,6 +695,9 @@ plus `ALTER TABLE "ReviewSoWhat" ADD COLUMN "tone" "SoWhatTone"` (see §8.1).
 | Status colouring | The FY27-fallback path still produced a confident colour when a 2026 goal was absent — the exact defect Finding #1 names. | Removed by construction: `mappingRag` requires a goal, so no path runs from FY27 to a colour. Pillar shows "Not configured". Tests added. |
 | Status colouring (2) | Production target text `$26M total` is the FY27 budget without a label; it parsed as a goal and would still have coloured the pillar. | `isPlanningFigure()` refuses an unlabelled goal that equals the mapping's FY27 budget/stretch. Tests: `$26M total` → `no-goal`; `$47M stretch` → `no-goal`; `$20M goal` still rates; `2026 goal $23M · $26M total` judges against $23M. |
 | Status display | The "Not configured" state was only proven at the helper level, not shown to render. | `MeasureStatus` exported and covered by 7 render tests: each gap prints "Not configured" plus its explanation, an approved status still wins, and no verdict word leaks. |
+| Reference fidelity | Earlier passes summarised the reference from notes, because the HTML was not in the working copy. | The bundle was located and copied to gitignored `.reference/`; the chart arrays (11/11/15), brand totals (15,324/169/1,868), FY27 figures, the 2026 goals and all 33 So-What items were re-read **from the HTML**, and the docs corrected: 8 sections not 7, 33 items not 29, tones POSITIVE 10 / NEGATIVE 17 / WARNING 6. |
+| Production evidence | §2 inferred that the reviewed definitions are unlinked, from the mapping table. | Confirmed directly from the 61-row identity export (8 FY27 + 53 reviewed): all 53 `user_review:*` definitions have `area = null` and `mapping_id = null`. |
+| Provenance of "present in production" | The reconciliation's presence column could look bundle-derived. | Stated explicitly: the bundle holds definitions only (no observations), so presence is **NOT VERIFIED** from it and rests on the earlier read-only query. |
 | 2026 / FY27 selection | `statusGap()` was receiving the *accepted* reference instead of the *parsed* goal, so a count-vs-percentage case named `no-goal` rather than `goal-not-comparable`. | Fixed: pass the parsed goal to `statusGap`, the accepted reference only to `mappingRag`. Test asserts `goal-not-comparable`. |
 | Metric identity | "Owner unit churn" was classified as a **count** because of the word "unit", so the measure refused its own percentage goal and went grey. | Fixed in `metricKind`: "churned units"/"units churned" match *before* the percent list. Test added (primary chosen by mapping, not list position). |
 | Scorecard vs pillar agreement | `statusAgainstTarget` silently used the *first number in the target text* when no comparable goal existed — it rated 3,340 units against 23%. | Fixed: returns `no_data` unless a comparable 2026 goal exists. LOI fixture given an explicit `displayFormat`. Test kept. |
@@ -693,7 +743,7 @@ plus `ALTER TABLE "ReviewSoWhat" ADD COLUMN "tone" "SoWhatTone"` (see §8.1).
 | D3 | Base Business line basis for the chart series ($77.3M October) — name it before publishing the series. | Finance | Historical chart (11 blocked points) |
 | D4 | Publish the 32 Base Business comparison observations from the Finance pack. | FP&A | P&L "vs Bud / vs PY" columns |
 | D5 | Approve the 26 importable historical rows (11 lender + 15 AwayDNA) and 245 brand-churn rows. Base Business history waits on D3. | Finance + Strategy | Charts and the brand table |
-| D6 | **Implemented in this branch (local dev only).** Per-item So-What tone + `FINANCIALS` scope; migration `20261119044941_review_so_what_tone`. Remaining action: author the four bridge texts from the reference HTML (content, not schema). | Strategy (content) + engineering (migration to release) | Exact page parity for commentary |
+| D6 | **Schema implemented; content ready.** Per-item So-What tone + `FINANCIALS` scope (migration `20261119044941_review_so_what_tone`), and the exact 4 bridge items + 33 tones are transcribed in `docs/october-2026-so-what-content-preview.md`. Remaining action: approve loading them through the editor/MCP. | Strategy (content) + engineering (migration to release) | Exact page parity for commentary |
 
 ### Execution order
 
@@ -703,5 +753,5 @@ plus `ALTER TABLE "ReviewSoWhat" ADD COLUMN "tone" "SoWhatTone"` (see §8.1).
 4. D1a Grow goal decision, then re-run the script (idempotent).
 5. D2 FY27 target refresh, if approved.
 6. D3/D4/D5 approved imports, published as revision 1 (restatements as revision 2).
-7. D6 author the four bridge texts and their tones through the editor/MCP (no code change).
+7. D6 load the four bridge items and the 33 tones through the editor/MCP (content only, no code change), previewing section by section against `docs/october-2026-so-what-content-preview.md`.
 8. Re-check the strategy house and the October page against the reference; then deploy.

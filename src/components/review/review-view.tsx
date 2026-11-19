@@ -283,7 +283,7 @@ function FinancialSoWhats({ items, periodId }: { items: SoWhat[]; periodId: stri
   }
   return (
     <Editable label="financial bridge so-whats" periodLocked wide className="mt-4" editor={editor}>
-      <p className="mb-2 text-xs font-semibold text-ink">So what in the bridge</p>
+      <p className="mb-2 text-xs font-semibold text-ink">So what in the bridge (October vs budget)</p>
       <SoWhatList items={soWhatItems(items)} />
     </Editable>
   );
