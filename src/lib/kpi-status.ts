@@ -274,14 +274,23 @@ export function measureDirection(higherIsBetter: boolean | null | undefined): Di
  * The direction to colour a measure with, preferring declared metadata.
  *
  * An approved measure mapping's `higherIsBetter` is the business's own statement
- * about the measure, so it wins. The name is only consulted when no mapping has
- * declared a direction, and a name that reads both ways still yields `known:
- * false` — which keeps the comparison neutral rather than guessing.
+ * about the measure, so it wins. The three states are deliberately distinct:
+ *
+ * - `true` / `false`: the business stated a direction. It is authoritative even
+ *   when the measure's name suggests the opposite.
+ * - `null`: a mapping exists but **states no direction**. That is an explicit
+ *   "unknown", so the reading stays `known: false` and nothing is coloured. It
+ *   must not fall back to the name, because the mapping's silence is the more
+ *   recent, authored statement.
+ * - `undefined`: there is no mapping at all. The name is then the best
+ *   available label, and a name that reads both ways still yields `known:
+ *   false` — which keeps the comparison neutral rather than guessing.
  */
 export function resolveDirection(
   higherIsBetter: boolean | null | undefined,
   name: string | null | undefined,
 ): DirectionReading {
+  if (higherIsBetter === null) return { direction: "higher", known: false };
   return measureDirection(higherIsBetter) ?? metricDirection(name);
 }
 

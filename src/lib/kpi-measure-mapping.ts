@@ -17,7 +17,8 @@ export type MeasureMapping = {
   denominatorMetricKey: string | null;
   timeBasis: string;
   displayFormat: string;
-  higherIsBetter: boolean;
+  /** true = higher is better, false = lower is better, null = not stated (neutral). */
+  higherIsBetter: boolean | null;
   targetBudget: number | null;
 };
 
@@ -119,12 +120,27 @@ export function formatDerivedMeasure(value: number, mapping: Pick<MeasureMapping
   return `${value > 0 ? "+" : ""}${value.toFixed(digits)}%`;
 }
 
-/** Rates a value against the mapping's budget target, in its stated direction. */
+/**
+ * Rates a value against the mapping's budget target, in its stated direction.
+ *
+ * A mapping that states no direction gets `GREY`. Even a value that happens to
+ * sit above its target is not "good" until someone says which way is better:
+ * an unknown direction must never become green.
+ */
 export function mappingRag(value: number | null, mapping: Pick<MeasureMapping, "higherIsBetter" | "targetBudget">, quality = "VALID"): Rag {
   if (value === null || mapping.targetBudget === null) return "GREY";
+  if (mapping.higherIsBetter === null) return "GREY";
   if (quality === "UNAVAILABLE" || quality === "INVALID") return "GREY";
   if (quality === "STALE") return "AMBER";
-  return ragAgainst(value, mapping.targetBudget, !mapping.higherIsBetter);
+  const lowerIsBetter = mapping.higherIsBetter === false;
+  // Expenses are reported as negative numbers. For a lower-is-better metric
+  // whose target is negative, "less negative" is better, so the comparison is
+  // on magnitude (-14 against -15 is 1 less spend, which is an improvement).
+  // Without this, a negative-budget expense mapping would rate every reduction
+  // as worse. Positive targets, and higher-is-better metrics (including a
+  // negative EBITDA budget), keep the plain comparison.
+  if (lowerIsBetter && mapping.targetBudget < 0) return ragAgainst(Math.abs(value), Math.abs(mapping.targetBudget), true);
+  return ragAgainst(value, mapping.targetBudget, lowerIsBetter);
 }
 
 const CALCULATION_TEXT: Record<string, string> = {
@@ -206,7 +222,21 @@ export function measureOrigin(input: MeasureOriginInput): MeasureOrigin {
     const basis = target ? `Compared with the first number in the target text, "${target}". ${STATUS_RULE}` : "No target to compare with.";
     return { value, calculated, status: { label, budget: null, difference: null, verdict: null, direction: null, basis } };
   }
-  const direction = mapping.higherIsBetter ? "Higher is better" : "Lower is better";
+  const direction = mapping.higherIsBetter === null ? null : mapping.higherIsBetter ? "Higher is better" : "Lower is better";
+  if (mapping.higherIsBetter === null) {
+    return {
+      value,
+      calculated,
+      status: {
+        label,
+        budget: mapping.targetBudget === null ? null : formatInUnits(mapping.targetBudget, mapping.displayFormat),
+        difference: null,
+        verdict: null,
+        direction,
+        basis: "The mapping does not state which direction is better, so no status is claimed.",
+      },
+    };
+  }
   if (mapping.targetBudget === null) return { value, calculated, status: { label, budget: null, difference: null, verdict: null, direction, basis: "No budget target is set on the mapping, so there's no rating." } };
   const budget = formatInUnits(mapping.targetBudget, mapping.displayFormat);
   if (number === null) return { value, calculated, status: { label, budget, difference: null, verdict: null, direction, basis: `No value to compare with the budget target. ${STATUS_RULE}` } };

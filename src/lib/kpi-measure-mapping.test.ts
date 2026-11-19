@@ -92,6 +92,53 @@ describe("mappingRag", () => {
   });
 });
 
+describe("mappingRag with explicit and unknown directions", () => {
+  it("never colours a measure when the mapping states no direction", () => {
+    const unknown = { higherIsBetter: null, targetBudget: 100 };
+    // Above, below and exactly on target all stay neutral: an unknown direction
+    // must not become green, even when the number looks favourable.
+    expect(mappingRag(120, unknown)).toBe("GREY");
+    expect(mappingRag(80, unknown)).toBe("GREY");
+    expect(mappingRag(100, unknown)).toBe("GREY");
+  });
+
+  it("evaluates negative EBITDA in the declared higher-is-better direction", () => {
+    const ebitda = { higherIsBetter: true, targetBudget: -1_000_000 };
+    // A wider loss is worse; a smaller loss is better. The sign of the values
+    // must not flip the verdict.
+    expect(mappingRag(-1_200_000, ebitda)).toBe("RED");
+    expect(mappingRag(-800_000, ebitda)).toBe("GREEN");
+  });
+
+  it("evaluates negative expenses as less spend being better", () => {
+    const opex = { higherIsBetter: false, targetBudget: -15 };
+    expect(mappingRag(-13, opex)).toBe("GREEN");
+    expect(mappingRag(-15, opex)).toBe("AMBER");
+    expect(mappingRag(-17, opex)).toBe("RED");
+    // The same expense budget stored as a positive number reaches the same verdict.
+    const positive = { higherIsBetter: false, targetBudget: 15 };
+    expect(mappingRag(13, positive)).toBe("GREEN");
+    expect(mappingRag(17, positive)).toBe("RED");
+  });
+
+  it("evaluates churn and acquisition cost as lower-is-better", () => {
+    const churn = { higherIsBetter: false, targetBudget: 11 };
+    expect(mappingRag(9, churn)).toBe("GREEN");
+    expect(mappingRag(10.8, churn)).toBe("AMBER");
+    expect(mappingRag(12.9, churn)).toBe("RED");
+    const cac = { higherIsBetter: false, targetBudget: 2400 };
+    expect(mappingRag(2100, cac)).toBe("GREEN");
+    expect(mappingRag(2500, cac)).toBe("AMBER");
+    expect(mappingRag(3000, cac)).toBe("RED");
+  });
+
+  it("compares percentage-point moves as points, not as a percentage change", () => {
+    const margin = { higherIsBetter: true, targetBudget: 0.7 };
+    expect(mappingRag(0.8, margin)).toBe("GREEN");
+    expect(mappingRag(0.6, margin)).toBe("RED");
+  });
+});
+
 describe("parseMeasureNumber", () => {
   it("reads typed-in values in base units", () => {
     expect(parseMeasureNumber("$26M")).toBe(26_000_000);
@@ -133,6 +180,12 @@ describe("measureOrigin", () => {
   it("calls a higher value worse when lower is better", () => {
     const origin = measureOrigin({ ...base, number: 12.4, rag: "RED", mapping: mapping({ calculation: "DIRECT", higherIsBetter: false, targetBudget: 11 }) });
     expect(origin.status).toMatchObject({ budget: "11%", difference: "+1.4 pts (+12.7%)", verdict: "worse", direction: "Lower is better" });
+  });
+
+  it("claims no status when the mapping states no direction", () => {
+    const origin = measureOrigin({ ...base, number: 34_500_000, rag: "GREY", mapping: mapping({ calculation: "DIRECT", displayFormat: "currency", higherIsBetter: null, targetBudget: 26_000_000 }) });
+    expect(origin.status).toMatchObject({ label: "No data", budget: "$26.0M", difference: null, verdict: null, direction: null });
+    expect(origin.status.basis).toContain("does not state which direction is better");
   });
 
   it("reports the calculated value even when another value is showing", () => {

@@ -1,9 +1,12 @@
 # KPI performance-direction audit (October 2026 review)
 
 **Status:** corrections implemented on `feat/review-visual-parity` (PR #26), not
-merged. No schema change, no migration.
-**Scope:** `src/lib/kpi-status.ts`, `src/lib/review-report.ts`,
-`src/lib/review-format.ts`, `src/lib/kpi-gauge.ts` and their call sites.
+merged. One **proposed** migration is prepared and applied only to the local
+development database; it has **not** been run against production Neon.
+**Scope:** `src/lib/kpi-status.ts`, `src/lib/kpi-measure-mapping.ts`,
+`src/lib/kpi-gauge.ts`, `src/lib/primary-measure.ts`, `src/lib/review-data.ts`,
+`src/lib/review-edits.ts`, the Admin > Measure mappings page/action,
+`src/lib/review-report.ts` and their call sites.
 
 ---
 
@@ -38,11 +41,35 @@ status neutral. Nothing is coloured on a guess.
 
 ### Precedence with declared metadata
 
-`resolveDirection(higherIsBetter, name)` prefers an approved `KpiMeasureMapping`'s
-own `higherIsBetter`, and only then falls back to the name. It is used for pillar
-gauges, headline cards and P&L deltas, so an explicit declaration always wins.
+`resolveDirection(higherIsBetter, name)` distinguishes three states:
 
-No migration is needed: `KpiMeasureMapping.higherIsBetter` already exists.
+| Declared value | Meaning | Result |
+| --- | --- | --- |
+| `true` / `false` | an approved mapping states a direction | authoritative; the name is ignored |
+| `null` | a mapping exists but states **no** direction | `known: false`; neutral, and it does **not** fall back to the name |
+| `undefined` | there is no mapping at all | the measure's name is the only evidence; an unreadable name stays neutral |
+
+It is used for pillar gauges, headline cards and P&L deltas, so an explicit
+declaration always wins and an explicit silence stays silent.
+
+`mappingRag()` applies the same rule to a pillar's status: a mapping with a
+target but no stated direction returns `GREY`. **An unknown direction cannot
+become green**, even when the value happens to sit above its target. When a
+target itself states direction (`<12%`), that statement still wins for the gauge,
+because it is an explicit business declaration.
+
+### Declared direction is required, but "not stated" is a valid answer
+
+`KpiMeasureMapping.higherIsBetter` is now nullable and has **no default**. The
+Admin > Measure mappings form offers three options:
+
+- **Higher** — stored as `true`;
+- **Lower** — stored as `false`;
+- **Not stated (no status colour)** — stored as `null`.
+
+The server action maps only `HIGHER`/`LOWER` to booleans; a blank value stores
+`null`, and an unrecognised value is rejected (`error=direction`). A new mapping
+can therefore never silently inherit "higher is better" again.
 
 ---
 
@@ -145,24 +172,122 @@ and say which one was used.
 
 ---
 
-## 6. Residual risks and recommended follow-ups
+## 6. Primary-measure selection is configuration, not list position
 
-1. **`KpiMeasureMapping.higherIsBetter` defaults to `true`.** A mapping created
-   without an explicit choice therefore declares “higher is better”. For
-   lower-is-better measures (churn, CAC, cost ratios) that is silently wrong.
-   No schema change is needed, but the mapping should require an explicit value
-   — recommended migration for later approval:
-   *drop the `@default(true)` and backfill existing rows from the measure's
-   reviewed direction before making the column required.* Not done here.
-2. **Line selection is alphabetical, not explicit.** `getReviewPlan()` takes
-   `a.kpis[0]` (ordered by name) as “the area's measure”, and the pillar editor
-   writes to the same row. With one definition per area that is unambiguous; if
-   a curated area ever has two, the headline measure is decided by alphabet.
-   Recommendation (needs review because it changes an edit target): select the
-   measure that has an **active mapping** in both the read and the write path.
-3. **Names are still heuristic** for metrics that carry no mapping. Unknown
+### The defect
+
+`getReviewPlan()` read `a.kpis[0]` from a query ordered by `name`, and the pillar
+editor wrote to the same row. With one KPI per area that happened to work, but
+it made the headline measure depend on alphabetical order: renaming a KPI,
+adding a supporting metric or changing sort order could change which measure the
+strategy house presented. It could also put an observation from a supporting KPI
+under the pillar's name.
+
+### The rule now
+
+`src/lib/primary-measure.ts` (`selectPrimaryMeasure`) applies one persisted
+rule:
+
+| State | Result |
+| --- | --- |
+| exactly one KPI in the area has an **active** `KpiMeasureMapping` | that KPI is the primary measure |
+| no KPI has an active mapping | `missing` — neutral; no value or status is claimed |
+| two or more KPIs have active mappings | `ambiguous` — neutral; the conflicting names are shown, never an alphabetical tie-break |
+
+The resolver reads no name, order or date. Read (`getReviewPlan`) and write
+(`setPillarMeasure`) paths call the same function, so the measure the review
+shows is the measure Edit Mode writes to.
+
+The **Admin > Measure mappings** page now lists every KPI a pillar owns, marks
+the one with the active mapping as **Primary measure** and the rest as
+**Supporting measure**, and warns when a pillar has none or more than one.
+Activating a second mapping in the same pillar is refused (`error=primary-exists`);
+the admin must switch the current one off first, so the change is deliberate
+and audited rather than a silent re-point. Only admins can reach the page or the
+action (`requireSession({ role: "admin" })`); the review editor's existing
+`canEdit` permission is unchanged.
+
+### Neutral states, not guesses
+
+- `measure.primary = "missing"` shows the plan's declared measure name (when it
+  has one) with no value, no target comparison and a `no_data` status, plus a
+  note pointing at Admin > Measure mappings.
+- `measure.primary = "ambiguous"` shows the conflicting measure names and no
+  value or status.
+- A value write is refused while the primary is missing or ambiguous, rather
+  than writing to an arbitrary KPI.
+- A pillar's approved owner status (ReviewPillarStatus) still shows unchanged;
+  the change only removes a status that was previously *calculated* from an
+  alphabetically chosen KPI.
+
+### October reference measures
+
+The local dataset (synthetic, seeded from the reviewed plan) resolves:
+
+| Pillar | Primary measure shown |
+| --- | --- |
+| M&A | Acquired EBITDA closed |
+| Grow New Units | Gross unit adds |
+| Owner Retention | Owner unit churn (TTM) |
+| TRevPAR Expansion | TRevPAR growth (YoY) |
+| Margin Expansion | Shop NOI margin vs PY |
+
+The mapping's `timeBasis` supplies the YTD/LTM basis the reviewed report states.
+These names are **read from the database**, not hardcoded; the five pillars
+resolve only because their active mappings exist. If a deployment lacks those
+mappings, the review shows the neutral "primary measure not configured" state
+instead of guessing.
+
+## 7. Existing-data compatibility and the proposed migration
+
+### What the migration does
+
+`prisma/migrations/20261118220000_kpi_mapping_direction_optional/migration.sql`:
+
+```sql
+ALTER TABLE "KpiMeasureMapping" ALTER COLUMN "higherIsBetter" DROP DEFAULT;
+ALTER TABLE "KpiMeasureMapping" ALTER COLUMN "higherIsBetter" DROP NOT NULL;
+```
+
+It is additive/non-destructive: every stored `true`/`false` is preserved exactly.
+There is no backfill, because a stored `true` **cannot** be distinguished from
+one the old default supplied. Guessing would be the same defect in a different
+place.
+
+### Review before approval (read-only)
+
+List every mapping and the direction its stored value declares. A human must
+confirm each one against the business definition:
+
+```sql
+SELECT k."metricKey", k.name, m."higherIsBetter", m."targetBudget", m.active
+FROM "KpiMeasureMapping" m
+JOIN "KpiDefinition" k ON k.id = m."measureKpiId"
+ORDER BY k.name;
+```
+
+Local development database (5 mappings): `Owner unit churn (TTM)` is `false`; the
+other four are `true` and agree with their names. Production Neon was **not**
+inspected or modified from this environment.
+
+### If a correction is needed
+
+Use Admin > Measure mappings (audited, admin-only) to set the direction, or
+propose an explicit data migration naming each KPI and its approved direction.
+Do not bulk-flip values from a name heuristic.
+
+## 8. Residual risks and recommended follow-ups
+
+1. **Names are still heuristic** for metrics that carry no mapping. Unknown
    names stay neutral by design, so the remaining risk is an *uncoloured* delta
    rather than a wrongly coloured one.
-4. **Sign-only inference** is gone: `favorableDelta` requires a known direction
+2. **Sign-only inference** is gone: `favorableDelta` requires a known direction
    and applies the expense flip only to lower-is-better metrics whose comparator
    is negative.
+3. **A mapping with an unstated direction still derives a value**, but its
+   status is neutral. This is intentional: the number is factual, the verdict is
+   not.
+4. **Supporting KPIs have no status of their own** in the strategy house. They
+   remain supporting measures; their metrics continue to appear in the reviewed
+   report tables, where direction still comes from their definition name or
+   mapping.

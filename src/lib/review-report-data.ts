@@ -149,7 +149,9 @@ export const getReviewedReport = cache(async (period: string): Promise<ReviewedR
     target: def.target,
     strategicAreaId: def.strategicAreaId,
     areaCode: def.strategicArea?.code ?? null,
-    higherIsBetter: def.measureMapping?.higherIsBetter ?? null,
+    // undefined when the definition has no mapping; null when a mapping exists
+    // but states no direction. resolveDirection treats those differently.
+    higherIsBetter: def.measureMapping?.higherIsBetter,
   }));
 
   const periodRows: ReportObservation[] = defs.flatMap((def) => def.observations.map((observation) => ({ ...observation, kpiId: def.id })));

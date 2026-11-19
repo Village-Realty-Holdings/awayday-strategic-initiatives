@@ -105,8 +105,18 @@ export type ReviewMeasure = {
   /** The status set by hand for this pillar and month, if any. */
   statusOverride?: PillarStatus | null;
   /**
+   * How the primary measure was selected. `selected` means one active
+   * KpiMeasureMapping names it; `missing` and `ambiguous` are neutral states and
+   * show no value or status. Absent is treated as `selected` for older callers.
+   */
+  primary?: "selected" | "missing" | "ambiguous";
+  /** When `primary` is ambiguous, the measures that each claim to be primary. */
+  ambiguousKpis?: string[];
+  /**
    * The direction the approved measure mapping declares, when one is configured.
-   * Explicit metadata: it beats reading a direction out of the measure's name.
+   * `true`/`false` is an explicit declaration; `null` means a mapping exists but
+   * states no direction (neutral); `undefined` means there is no mapping, so the
+   * measure's name is the only direction source.
    */
   higherIsBetter?: boolean | null;
   /** Where the value came from and how its status was reached, for the pillar editor. */

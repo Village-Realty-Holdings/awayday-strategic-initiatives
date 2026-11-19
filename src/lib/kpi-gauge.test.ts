@@ -217,6 +217,12 @@ describe("accessible summary", () => {
     expect(label).toContain("Lower is better");
   });
 
+  it("says the direction is not stated rather than assuming higher is better", () => {
+    const label = gaugeAriaLabel(spec({ direction: "unknown" }));
+    expect(label).toContain("Direction not stated");
+    expect(label).not.toContain("Higher is better");
+  });
+
   it("flags a value outside the charted range", () => {
     expect(gaugeAriaLabel(spec({ actual: 75_000_000 }))).toContain("outside the charted range");
   });

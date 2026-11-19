@@ -608,7 +608,10 @@ model KpiMeasureMapping {
   denominatorMetricKey String?       // RATIO_DELTA_PY only
   timeBasis            String        // MONTHLY | YTD | LTM | POINT_IN_TIME
   displayFormat        String        // percent | currency | number
-  higherIsBetter       Boolean       @default(true)
+  // true = higher is better, false = lower is better, null = not stated.
+  // No default: an unstated direction must stay unstated (and colour nothing)
+  // rather than silently declaring "higher is better" for churn, CAC or costs.
+  higherIsBetter       Boolean?
   // Base units: $26M is 26000000, 11% is 11. Status is rated against the budget target.
   targetBudget         Float?
   targetStretch        Float?

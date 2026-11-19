@@ -1,9 +1,79 @@
 # Status
 
-_Last updated 2026-11-18 (evening), on branch `feat/review-visual-parity`
+_Last updated 2026-11-18 (late evening), on branch `feat/review-visual-parity`
 (stacked on PR #25; neither branch is merged or deployed)._
 
-## Latest: final review corrections on PR #26 (not merged)
+## Latest: KPI direction and primary-measure integrity corrections (PR #26, not merged)
+
+Two KPI integrity defects found in the previous review are corrected. This pass
+adds a **proposed schema migration** (prepared for review, applied only to the
+local development database) and no auth, CI or infrastructure change.
+
+**1. Direction can no longer be silently assumed.** `KpiMeasureMapping.higherIsBetter`
+defaulted to `true`, and the form turned anything other than `LOWER` into
+`true`. A new mapping therefore declared “higher is better” without anyone
+choosing it, which paints a rise in owner churn, CAC, operating expenses, unit
+losses or cancellations green.
+
+- The column is now `Boolean?` with **no default**; `true` = higher, `false` =
+  lower, `null` = not stated. The Admin form offers Higher / Lower / **Not
+  stated (no status colour)**, and the server action accepts only those three.
+- A stated direction is authoritative. An unstated one is neutral everywhere:
+  `mappingRag()` returns `GREY` (it cannot become green), the gauge says
+  “Direction not stated”, and a mapping's silence does not fall back to the
+  measure's name. Metrics with no mapping at all still use the name heuristic,
+  as before.
+- Negative expenses stored as negative numbers now rate by magnitude for a
+  lower-is-better target (`−13` against `−15` is an improvement), and negative
+  EBITDA keeps the plain higher-is-better comparison (`−$1.2M` against `−$1.0M`
+  is worse).
+- **Migration (needs engineering approval):**
+  `prisma/migrations/20261118220000_kpi_mapping_direction_optional/` drops the
+  default and the NOT NULL constraint. Existing `true`/`false` values are
+  preserved; there is **no guessed backfill**, because a stored `true` cannot be
+  told apart from one the old default supplied. See
+  [docs/kpi-direction-audit.md](docs/kpi-direction-audit.md) §7 for the
+  read-only review query. **Applied locally only — not to staging or Neon.**
+
+**2. A pillar's primary measure is configured, not alphabetical.** The review
+used `kpis[0]` from a name-ordered query, and Edit Mode wrote to the same
+position. `selectPrimaryMeasure()` now reads persisted configuration: the KPI
+with the **active measure mapping** is the primary measure. Renaming a KPI,
+adding a supporting metric or changing order cannot change it.
+
+- No mapping → `missing`: the plan's declared measure name with no value,
+  comparison or status, plus a note pointing at Admin > Measure mappings.
+- Two or more active mappings → `ambiguous`: neutral, with the conflicting names
+  shown; never an alphabetical tie-break.
+- Read (`getReviewPlan`) and write (`setPillarMeasure`) use the same resolver.
+  A value write is refused while the primary is missing or ambiguous.
+- Admin > Measure mappings now lists every KPI, marks Primary/Supporting, warns
+  when a pillar has none or more than one, and **refuses to activate a second
+  mapping in the same pillar**. Admin-only, audited; the review editor's
+  `canEdit` rule is unchanged.
+- Approved owner statuses (`ReviewPillarStatus`) still show unchanged. Three
+  enablers that have a KPI but no mapping (Tech & AI, Marketing, Guest
+  Experience) now show the neutral “primary measure not configured” state
+  instead of a status calculated from an alphabetically chosen KPI.
+- Reference measures resolve from the database for the five pillars: Acquired
+  EBITDA closed, Gross unit adds, Owner unit churn (TTM), TRevPAR growth (YoY),
+  Shop NOI margin vs PY. Their YTD/LTM basis comes from each mapping.
+
+See [ADR 0003](docs/adr/0003-declared-direction-and-primary-measure.md) and
+[docs/kpi-direction-audit.md](docs/kpi-direction-audit.md).
+
+**Verified locally:** `npm run typecheck`, `npm run lint`, `npm test` (63 files,
+745 tests) and `npm run build` pass. The local preview (`next dev` on
+`http://127.0.0.1:3000`, local `awayday_si_dev` Postgres) renders the five
+configured primary measures with their approved statuses; a temporarily cleared
+direction rendered the neutral gauge and “Direction not stated” basis text, then
+was restored. Light and dark server render checked.
+
+**Not verified:** the real October 2026 observations in Neon; any staging or
+production migration; any deployment. The migration is a **proposal awaiting
+engineering approval**.
+
+## Earlier: final review corrections on PR #26 (not merged)
 
 Two review concerns were addressed, plus the defects the re-review found.
 
@@ -32,9 +102,8 @@ wrapper elements / utilities, with a stylesheet regression test.
   else is unknown and stays neutral.
 - **Declared metadata now wins end to end.** `resolveDirection()` prefers an
   approved `KpiMeasureMapping.higherIsBetter` for gauges, headline cards and
-  P&L deltas. No migration: the column already exists. Recommended follow-up
-  (approval needed, not done): drop its `@default(true)` so a mapping must state
-  a direction.
+  P&L deltas. The `@default(true)` follow-up recommended here is **completed in
+  the latest section above**, with a proposed migration.
 - **Gauge defects:** target prose read the **b of “budget”** as a billions
   suffix (a 3,152-unit budget became 3.152 trillion), and a tight
   actual/target pair could collapse the axis (“4.5 to 4.5”, actual outside its
@@ -208,17 +277,21 @@ a value. Importing them is a separate, authorised ingestion action.
 ## Before release (engineering)
 
 1. Review PR #25, then the stacked visual-parity PR (base
-   `feat/strategy-review-parity`, so PR #25's diff is not duplicated). Neither
-   branch touches protected code: no auth, schema, migration, CI or
-   infrastructure change in either.
+   `feat/strategy-review-parity`, so PR #25's diff is not duplicated). PR #25
+   has no schema change. PR #26 now contains **one proposed migration** (an
+   engineering-owned schema change: `KpiMeasureMapping.higherIsBetter` becomes
+   nullable with no default). It is applied to the local development database
+   only and must be reviewed and approved before staging/production.
 2. Confirm the rendered review against the real October observations after the
-   data gap in the section below is closed.
+   data gap in the section below is closed, including that every pillar has one
+   active measure mapping and one declared direction.
 3. Decide the `docs/claude-so-what-generation-design.md` questions before any AI
    commentary work starts. The first is whether a draft store may be added; it is
    the only item in that document that needs a migration, and nothing in it is
    enabled today.
-4. Deploy through the existing Workers Builds path from `master` after merge.
-   Do not activate the experimental GitHub Actions workflow on
+4. Deploy through the existing Workers Builds path from `master` after merge,
+   running the pending migration through the approved release process. Do not
+   activate the experimental GitHub Actions workflow on
    `feat/github-actions-cloudflare-release` as part of this work.
 
 ## Earlier milestone: incident 2026-11-16, production 500 on signed-in pages

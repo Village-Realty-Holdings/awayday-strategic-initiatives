@@ -267,8 +267,9 @@ describe("report table", () => {
     const rev = buildReportRows(declared, rows).find((row) => row.id === "user_review:revenue")!;
     expect(rev.higherIsBetter).toBe(false);
     const cos = buildReportRows(declared, rows).find((row) => row.id === "user_review:cost_of_sales")!;
-    // No mapping supplied: null, so the name remains the only evidence.
-    expect(cos.higherIsBetter).toBeNull();
+    // No mapping supplied: undefined (not null), so the name remains the only
+    // evidence. Null would mean a mapping that exists but states no direction.
+    expect(cos.higherIsBetter).toBeUndefined();
   });
 
   it("never mixes populations", () => {

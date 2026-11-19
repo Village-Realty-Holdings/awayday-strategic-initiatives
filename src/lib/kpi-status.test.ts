@@ -155,11 +155,15 @@ describe("metric direction", () => {
     expect(resolveDirection(false, "Widget throughput")).toEqual({ direction: "lower", known: true });
     // A mapping that says lower wins even when the name says margin.
     expect(resolveDirection(false, "Maintenance margin")).toEqual({ direction: "lower", known: true });
-    // No declaration: the name decides, and an unknown name stays unknown.
-    expect(resolveDirection(null, "Owner churn")).toEqual({ direction: "lower", known: true });
+    // `undefined` means there is no mapping at all, so the name decides, and an
+    // unknown name stays unknown.
+    expect(resolveDirection(undefined, "Owner churn")).toEqual({ direction: "lower", known: true });
     expect(resolveDirection(undefined, "Widget throughput").known).toBe(false);
-    // Declared metadata does not make an unreadable name look decidable for a
-    // *different* metric: the ambiguity rule still applies when it is the fallback.
+    // `null` means a mapping exists but states no direction. That is an explicit
+    // unknown and must not fall back to the name: the mapping's silence is the
+    // newer, authored statement.
+    expect(resolveDirection(null, "Owner churn").known).toBe(false);
+    expect(resolveDirection(null, "Maintenance margin").known).toBe(false);
     expect(resolveDirection(null, "Churn and retention").known).toBe(false);
   });
 

@@ -115,6 +115,15 @@ describe("KpiGauge", () => {
     expect(html).toContain("kpi-gauge--warn");
   });
 
+  it("stays neutral when the direction is not stated", () => {
+    // No status is passed, and the spec says the direction is unknown: the gauge
+    // must not imply that higher is good, and its tone stays neutral.
+    const html = renderToStaticMarkup(<KpiGauge spec={spec({ direction: "unknown" })} />);
+    expect(html).toContain("Direction not stated");
+    expect(html).toContain("kpi-gauge--neutral");
+    expect(html).not.toContain("Higher is better");
+  });
+
   it("lets the approved reporting rule recolour under budget and floor breach", () => {
     const html = renderToStaticMarkup(<KpiGauge spec={spec()} status="floor_breached" toneRule="warn" />);
     expect(html).toContain("kpi-gauge--warn");

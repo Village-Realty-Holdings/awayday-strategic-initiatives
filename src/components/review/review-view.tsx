@@ -77,10 +77,10 @@ function measureGauge(area: ReviewArea): GaugeSpec | null {
     max: domain.max,
     actual: value,
     targets: markers.map((m) => ({ id: m.id, label: m.label, value: m.value, style: m.style })),
-    // An explicit "<" on a target always wins; otherwise use the declared
-    // direction for the metric, and stay neutral when the name is unknown.
-    direction:
-      markers.some((m) => m.lowerIsBetter) || (reading.known && reading.direction === "lower") ? "lower" : "higher",
+    // An explicit "<" on a target always wins. Otherwise the declared direction
+    // decides; when nothing states one, the gauge says so and stays neutral
+    // instead of implying that higher is good.
+    direction: markers.some((m) => m.lowerIsBetter) ? "lower" : reading.known ? reading.direction : "unknown",
     format: inferGaugeFormat(area.measure?.value, area.measure?.target),
   };
 }
@@ -173,6 +173,14 @@ function AreaSection({
             {area.measure?.value && area.measure.source === "derived" && <p className="mt-1 text-xs text-ink-faint">Calculated from {area.measure.inputs?.join(" and ")}.</p>}
             {!area.measure?.value && <p className="mt-1 text-xs text-ink-faint">No value loaded for this month.</p>}
             {area.measure?.statusOverride && <p className="mt-1 text-xs text-ink-faint">Status set by hand. Calculated: {ragLabel(area.measure.calculatedRag ?? "GREY")}.</p>}
+            {area.measure?.primary === "missing" && (
+              <p className="mt-1 text-xs text-ink-faint">Primary measure not configured. Choose one on Admin › Measure mappings; no status is claimed until then.</p>
+            )}
+            {area.measure?.primary === "ambiguous" && (
+              <p className="mt-1 text-xs text-ink-faint">
+                More than one measure is mapped, so no primary is shown: {area.measure.ambiguousKpis?.join(", ")}. Leave one mapping active.
+              </p>
+            )}
           </EditableMeasure>
           <EditableArea area={area} periodId={periodId} periodLabel={periodLabel}>
             <dl className="grid gap-3 text-xs sm:grid-cols-2">
@@ -394,6 +402,8 @@ export function ReviewView({
                   <span className="text-sm font-semibold text-ink">{a.number} · {a.name}</span>
                   {a.ownerLine && <span className="mt-0.5 text-note text-ink-faint">{a.ownerLine}</span>}
                   <span className="mt-1.5 text-note leading-4 text-ink-muted">{a.measure?.name || "Measure not set"}</span>
+                  {a.measure?.primary === "ambiguous" && <span className="text-nano text-ink-faint">Primary measure ambiguous</span>}
+                  {a.measure?.primary === "missing" && <span className="text-nano text-ink-faint">Primary measure not selected</span>}
                   <span className="flex flex-wrap items-baseline gap-1.5">
                     <span
                       className="tabular text-2xl font-semibold leading-tight text-ink"
@@ -462,7 +472,7 @@ export function ReviewView({
                 id: a.code,
                 cells: {
                   area: a.name,
-                  measure: a.measure!.name || "Not set",
+                  measure: `${a.measure!.name || "Not set"}${a.measure!.primary && a.measure!.primary !== "selected" ? " · no primary selected" : ""}`,
                   value: a.measure!.value ?? "—",
                   target: a.measure!.target || "Not set",
                   status: <MeasureStatus area={a} />,

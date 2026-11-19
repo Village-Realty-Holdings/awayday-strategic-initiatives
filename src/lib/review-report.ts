@@ -229,7 +229,7 @@ export function buildReportRows(metrics: readonly ReportMetric[], rows: readonly
       ytdVsBudget: deltaCell(kind, ytdActual, cell(metric, observationFor(own, metric.id, "YTD", "BUDGET"))),
       ytdVsPriorYear: deltaCell(kind, ytdActual, cell(metric, observationFor(own, metric.id, "YTD", "PRIOR_YEAR"))),
       target: metric.target,
-      higherIsBetter: metric.higherIsBetter ?? null,
+      higherIsBetter: metric.higherIsBetter,
       directionKey: directionKeyFor(metric),
     });
   }
@@ -508,7 +508,7 @@ export function buildExecCards(metrics: readonly ReportMetric[], rows: readonly 
           metricId: metric.id,
           timeBasis: spec.timeBasis,
           metricName: metric.name,
-          higherIsBetter: metric.higherIsBetter ?? null,
+          higherIsBetter: metric.higherIsBetter,
           value: actual.display,
           delta: deltaCell(kind, actual, cell(metric, comparison)),
           deltaLabel: basis === "BUDGET" ? "vs budget" : "vs prior year",
@@ -525,7 +525,7 @@ export function buildExecCards(metrics: readonly ReportMetric[], rows: readonly 
       metricId: metric.id,
       timeBasis: spec.timeBasis,
       metricName: metric.name,
-      higherIsBetter: metric.higherIsBetter ?? null,
+      higherIsBetter: metric.higherIsBetter,
       value: actual.display,
       delta: EMPTY_CELL,
       deltaLabel: "no comparison loaded",

@@ -31,6 +31,22 @@ vi.mock("@/lib/prisma", () => ({
 
 import { getReviewPeriod, getReviewPlan, resolvePeriod } from "./review-data";
 
+/** A complete KpiMeasureMapping row for a test fixture. */
+function mapping(over: Record<string, unknown> = {}) {
+  return {
+    active: true,
+    calculation: "DIRECT",
+    inputMetricKey: null,
+    denominatorMetricKey: null,
+    timeBasis: "YTD",
+    displayFormat: "number",
+    higherIsBetter: true,
+    targetBudget: null,
+    targetStretch: null,
+    ...over,
+  };
+}
+
 function initiative(over: Record<string, unknown>) {
   return {
     id: "i1",
@@ -108,7 +124,7 @@ describe("getReviewPlan", () => {
   it("uses StrategicArea rows and numbers the value drivers", async () => {
     getActivePlan.mockResolvedValue({ id: "fy27", code: "FY27", title: "FY27" });
     areaFindMany.mockResolvedValue([
-      { id: "a-ma", code: "M&A", name: "M&A", kind: "VALUE_DRIVER", goal: "Deepen our moat", owner: "Ryan McKendry / Curt Stark", kpiName: "Acquired EBITDA closed", kpiTarget: "$26M", kpis: [{ id: "k1", name: "Acquired EBITDA closed", target: "$26M total", observations: [] }] },
+      { id: "a-ma", code: "M&A", name: "M&A", kind: "VALUE_DRIVER", goal: "Deepen our moat", owner: "Ryan McKendry / Curt Stark", kpiName: "Acquired EBITDA closed", kpiTarget: "$26M", kpis: [{ id: "k1", name: "Acquired EBITDA closed", target: "$26M total", measureMapping: mapping({ calculation: "DIRECT", displayFormat: "currency", targetBudget: 26_000_000 }), observations: [] }] },
       { id: "a-tech", code: "TECH", name: "Tech & AI", kind: "ENABLER", goal: null, owner: "Tom Chess / Mohan Chandolu", kpiName: null, kpiTarget: null, kpis: [] },
     ]);
     initiativeFindMany.mockResolvedValue([
@@ -163,6 +179,126 @@ describe("getReviewPlan", () => {
     ]);
     // Owners come from the initiatives' leads when the area has no owner line.
     expect(plan.areas[2].ownerLine).toBe("Adam Hamdan");
+  });
+});
+
+describe("primary measure selection", () => {
+  const observation = (value: string, over: Record<string, unknown> = {}) => ({
+    kpiId: "k",
+    value,
+    reportingPeriod: "2026-10",
+    observedAt: new Date("2026-10-31"),
+    refreshedAt: new Date("2026-11-01"),
+    quality: "VALID",
+    publicationState: "APPROVED",
+    revision: 1,
+    reportingScope: "AWAYDAY_CONSOLIDATED",
+    comparisonBasis: "ACTUAL",
+    timeBasis: "POINT_IN_TIME",
+    entityScope: "CONSOLIDATED",
+    entityId: "AWAYDAY_CONSOLIDATED",
+    authorityRank: 15,
+    sourceCategory: "MANUAL",
+    ...over,
+  });
+  const area = (kpis: unknown[], over: Record<string, unknown> = {}) => ({
+    id: "a-ret",
+    code: "RETENTION",
+    name: "Owner Retention",
+    kind: "VALUE_DRIVER",
+    goal: null,
+    owner: null,
+    kpiName: "Owner unit churn (TTM)",
+    kpiTarget: "<12% goal; 12% budget",
+    kpis,
+    ...over,
+  });
+  const churnMapping = mapping({ calculation: "DIRECT", higherIsBetter: false, targetBudget: 11 });
+
+  beforeEach(() => {
+    getActivePlan.mockResolvedValue({ id: "fy27", code: "FY27", title: "FY27" });
+    initiativeFindMany.mockResolvedValue([]);
+    definitionFindMany.mockResolvedValue([]);
+  });
+
+  it("reads the measure from the KPI with the active mapping, not from list position", async () => {
+    const unmappedWithValue = { id: "k-support", name: "AAA supporting metric", target: "5%", measureMapping: null, observations: [observation("4%")] };
+    const mapped = { id: "k-primary", name: "Zzz owner unit churn", target: "12% budget", measureMapping: churnMapping, observations: [observation("9%")] };
+    // The supporting KPI sorts first and carries an observation; it must not win.
+    areaFindMany.mockResolvedValue([area([unmappedWithValue, mapped])]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({ kpiId: "k-primary", name: "Zzz owner unit churn", value: "9%", rag: "GREEN", primary: "selected" });
+  });
+
+  it("is unaffected by a rename or by adding a KPI", async () => {
+    const mapped = (name: string) => ({ id: "k-primary", name, target: "12% budget", measureMapping: churnMapping, observations: [] });
+    areaFindMany.mockResolvedValue([area([mapped("Owner unit churn (TTM)")])]);
+    const before = (await getReviewPlan("2026-10")).areas[0].measure;
+    areaFindMany.mockResolvedValue([area([{ id: "k-new", name: "AAA new metric", measureMapping: null, observations: [] }, mapped("Renamed churn measure")])]);
+    const after = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(before?.kpiId).toBe("k-primary");
+    expect(after?.kpiId).toBe("k-primary");
+  });
+
+  it("shows a neutral state, and no value, when no mapping selects a primary", async () => {
+    areaFindMany.mockResolvedValue([
+      area([{ id: "k1", name: "Owner unit churn (TTM)", target: "12% budget", measureMapping: null, observations: [observation("9%")] }]),
+    ]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({ kpiId: null, name: "Owner unit churn (TTM)", value: null, rag: "GREY", primary: "missing" });
+  });
+
+  it("shows a neutral, named state when two mappings claim to be primary", async () => {
+    areaFindMany.mockResolvedValue([
+      area([
+        { id: "k-b", name: "Owner unit churn (TTM)", measureMapping: churnMapping, observations: [observation("9%")] },
+        { id: "k-a", name: "Annualised churn", measureMapping: churnMapping, observations: [] },
+      ]),
+    ]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({ kpiId: null, value: null, rag: "GREY", primary: "ambiguous", ambiguousKpis: ["Annualised churn", "Owner unit churn (TTM)"] });
+  });
+
+  it("still selects the primary for a period with no observations, without inventing a value", async () => {
+    areaFindMany.mockResolvedValue([
+      area([{ id: "k-primary", name: "Owner unit churn (TTM)", target: "12% budget", measureMapping: churnMapping, observations: [] }]),
+    ]);
+    const measure = (await getReviewPlan("2026-08")).areas[0].measure;
+    expect(measure).toMatchObject({ kpiId: "k-primary", value: null, rag: "GREY", primary: "selected" });
+  });
+
+  it("leaves an unstated direction neutral even when the value looks good", async () => {
+    const unknownDirection = mapping({ calculation: "DIRECT", higherIsBetter: null, targetBudget: 11 });
+    areaFindMany.mockResolvedValue([
+      area([{ id: "k1", name: "Owner unit churn (TTM)", target: "12% budget", measureMapping: unknownDirection, observations: [observation("9%")] }]),
+    ]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({ rag: "GREY", higherIsBetter: null, primary: "selected" });
+  });
+
+  it("rates a declared lower-is-better measure against its budget", async () => {
+    areaFindMany.mockResolvedValue([
+      area([{ id: "k1", name: "Owner unit churn (TTM)", target: "12% budget", measureMapping: churnMapping, observations: [observation("9%")] }]),
+    ]);
+    expect((await getReviewPlan("2026-10")).areas[0].measure).toMatchObject({ rag: "GREEN", higherIsBetter: false });
+  });
+
+  it("keeps reporting populations separate when deriving the primary measure", async () => {
+    const yoy = mapping({ calculation: "YOY_PCT", inputMetricKey: "trevpar_finance", higherIsBetter: true, targetBudget: 1 });
+    areaFindMany.mockResolvedValue([
+      area([{ id: "k1", name: "TRevPAR growth (YoY)", target: "1% budget", measureMapping: yoy, observations: [] }], { code: "TREVPAR", kpiName: "TRevPAR growth (YoY)" }),
+    ]);
+    // Only shop-scoped rows are published, so the consolidated primary measure
+    // cannot be calculated from them.
+    definitionFindMany.mockResolvedValue([
+      {
+        metricKey: "trevpar_finance",
+        name: "TRevPAR (Finance definition)",
+        observations: [observation("136", { entityScope: "SHOP", entityId: "s1", comparisonBasis: "ACTUAL" }), observation("133", { entityScope: "SHOP", entityId: "s1", comparisonBasis: "PRIOR_YEAR" })],
+      },
+    ]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({ value: null, source: null, rag: "GREY" });
   });
 });
 

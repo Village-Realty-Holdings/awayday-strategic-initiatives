@@ -5,6 +5,7 @@ import { getActivePlan } from "@/lib/active-plan";
 import { PUBLICATION_APPROVED, PUBLICATION_SUPERSEDED } from "@/lib/kpi";
 import { getReviewPlan } from "@/lib/review-data";
 import { MANUAL_MEASURE_IDENTITY, MANUAL_SOURCE_CATEGORY } from "@/lib/review-kpi";
+import { selectPrimaryMeasure } from "@/lib/primary-measure";
 import { parseStatus } from "@/lib/initiatives";
 import { canEdit } from "@/lib/roles";
 import { initiativeOwnerMatches, isoDay, normalizeSoWhats, parseIsoDay, PERIOD_PATTERN, PILLAR_STATUSES, SUMMARY_SCOPE, type PillarStatus } from "@/lib/review-model";
@@ -176,18 +177,23 @@ export async function setPillarMeasure(actor: Actor, input: PillarMeasureInput):
   const plan = await getActivePlan();
   const area = await prisma.strategicArea.findUnique({
     where: { id: input.areaId },
-    // Same order as getReviewPlan, so this is the KPI the review shows.
-    select: { planVersionId: true, kind: true, kpis: { orderBy: { name: "asc" }, take: 1, select: { id: true } } },
+    // Every KPI the pillar owns. The measure value is written to the KPI with
+    // the active measure mapping — the same persisted rule the review reads —
+    // never to whichever KPI happens to come first in a name-ordered list.
+    select: { planVersionId: true, kind: true, kpis: { select: { id: true, name: true, measureMapping: { select: { active: true } } } } },
   });
   if (!plan || !area || area.planVersionId !== plan.id) return { ok: false, error: "That pillar is not in the active plan." };
-  const kpiId = area.kpis[0]?.id;
-  if (!kpiId) return { ok: false, error: "This pillar has no KPI definition to hold a value." };
   const statusField = input.status || null;
   if (statusField && area.kind === "ENABLER") return { ok: false, error: "Only pillars can have a status set by hand." };
   if (statusField && statusField !== "calculated" && !(PILLAR_STATUSES as readonly string[]).includes(statusField)) return { ok: false, error: "Unknown status." };
 
   if (input.value !== undefined) {
-    const saved = await saveMeasureValue(actor, kpiId, id, trimmed(input.value, 60));
+    // A value needs a primary measure to belong to. No mapping, or two, is a
+    // neutral configuration gap: refuse the write rather than guess the KPI.
+    const selection = selectPrimaryMeasure(area.kpis);
+    if (selection.status === "missing") return { ok: false, error: "This pillar has no primary measure. Choose one on Admin > Measure mappings." };
+    if (selection.status === "ambiguous") return { ok: false, error: "This pillar has more than one primary measure. Leave exactly one mapping active on Admin > Measure mappings." };
+    const saved = await saveMeasureValue(actor, selection.kpi.id, id, trimmed(input.value, 60));
     if (!saved.ok) return saved;
   }
   if (statusField) await saveMeasureStatus(actor, input.areaId, id, statusField === "calculated" ? null : (statusField as PillarStatus));

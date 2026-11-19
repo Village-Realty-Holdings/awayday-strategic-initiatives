@@ -8,6 +8,7 @@ const m = vi.hoisted(() => ({
   requireSession: vi.fn(),
   definitionFindUnique: vi.fn(),
   definitionCount: vi.fn(),
+  mappingCount: vi.fn(),
   upsert: vi.fn(),
   audit: vi.fn(),
   flash: vi.fn(),
@@ -25,7 +26,7 @@ vi.mock("@/lib/session", () => ({ requireSession: m.requireSession }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     kpiDefinition: { findUnique: m.definitionFindUnique, count: m.definitionCount },
-    kpiMeasureMapping: { upsert: m.upsert },
+    kpiMeasureMapping: { upsert: m.upsert, count: m.mappingCount },
   },
 }));
 
@@ -37,13 +38,14 @@ function form(fields: Record<string, string>) {
   return fd;
 }
 
-const measure = (mapping: unknown = null) => ({ id: "k-t", name: "TRevPAR growth (YoY)", strategicArea: { planVersionId: "fy27" }, measureMapping: mapping });
+const measure = (mapping: unknown = null) => ({ id: "k-t", name: "TRevPAR growth (YoY)", strategicAreaId: "a-trevpar", strategicArea: { planVersionId: "fy27" }, measureMapping: mapping });
 
 beforeEach(() => {
   vi.clearAllMocks();
   m.requireSession.mockResolvedValue({ user: { id: "u-admin", role: "admin" } });
   m.definitionFindUnique.mockResolvedValue(measure());
   m.definitionCount.mockResolvedValue(1);
+  m.mappingCount.mockResolvedValue(0);
   m.upsert.mockResolvedValue({ id: "map-1" });
 });
 
@@ -67,6 +69,37 @@ describe("adminSaveMeasureMapping", () => {
   it("stores direction and switching a mapping off", async () => {
     await expect(adminSaveMeasureMapping(form({ calculation: "DIRECT", direction: "LOWER", displayFormat: "percent", active: "" }))).rejects.toThrow("REDIRECT");
     expect(m.upsert.mock.calls[0][0].update).toMatchObject({ higherIsBetter: false, active: false, displayFormat: "percent", inputMetricKey: null });
+  });
+
+  it("stores an unstated direction as unknown instead of assuming higher is better", async () => {
+    await expect(adminSaveMeasureMapping(form({ calculation: "DIRECT", direction: "" }))).rejects.toThrow("REDIRECT");
+    expect(m.upsert.mock.calls[0][0].update).toMatchObject({ higherIsBetter: null });
+  });
+
+  it("rejects an unrecognised direction instead of falling back to higher", async () => {
+    await expect(adminSaveMeasureMapping(form({ direction: "SIDEWAYS" }))).rejects.toThrow("error=direction");
+    expect(m.upsert).not.toHaveBeenCalled();
+  });
+
+  it("lets an authorised admin change a declared direction, and audits it", async () => {
+    m.definitionFindUnique.mockResolvedValue(measure({ id: "map-1", higherIsBetter: true }));
+    await expect(adminSaveMeasureMapping(form({ direction: "LOWER" }))).rejects.toThrow("REDIRECT /admin/measure-mappings#");
+    expect(m.upsert.mock.calls[0][0].update).toMatchObject({ higherIsBetter: false });
+    expect(m.audit).toHaveBeenCalledWith("u-admin", "UPDATE", "KpiMeasureMapping", "map-1", expect.objectContaining({ before: expect.objectContaining({ higherIsBetter: true }) }));
+  });
+
+  it("refuses to create a second primary measure in the same pillar", async () => {
+    m.mappingCount.mockResolvedValue(1);
+    await expect(adminSaveMeasureMapping(form({}))).rejects.toThrow("error=primary-exists");
+    expect(m.mappingCount).toHaveBeenCalledWith({ where: { active: true, measureKpiId: { not: "k-t" }, measureKpi: { strategicAreaId: "a-trevpar" } } });
+    expect(m.upsert).not.toHaveBeenCalled();
+  });
+
+  it("lets a switched-off mapping coexist with the pillar's primary", async () => {
+    m.mappingCount.mockResolvedValue(1);
+    await expect(adminSaveMeasureMapping(form({ active: "" }))).rejects.toThrow("REDIRECT /admin/measure-mappings#");
+    expect(m.mappingCount).not.toHaveBeenCalled();
+    expect(m.upsert).toHaveBeenCalled();
   });
 
   it("refuses a measure outside the active plan", async () => {

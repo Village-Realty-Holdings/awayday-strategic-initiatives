@@ -35,7 +35,11 @@ export type GaugeSpec = {
   /** Null when no observation is loaded: the track and its targets still render. */
   actual: number | null;
   targets: readonly GaugeTarget[];
-  direction: KpiDirection;
+  /**
+   * Which way is better. `unknown` means nothing has stated it, so the gauge
+   * must not imply that higher is good: its status stays neutral.
+   */
+  direction: KpiDirection | "unknown";
   format: GaugeFormat;
   /** Decimal places for count kinds; ignored for currency/percent/points. */
   decimals?: number;
@@ -176,7 +180,9 @@ export function gaugeAriaLabel(spec: GaugeSpec): string {
   for (const target of spec.targets) {
     parts.push(`${target.label} ${formatGaugeValue(target.value, spec.format, spec.decimals)}`);
   }
-  parts.push(spec.direction === "lower" ? "Lower is better" : "Higher is better");
+  parts.push(
+    spec.direction === "lower" ? "Lower is better" : spec.direction === "higher" ? "Higher is better" : "Direction not stated",
+  );
   parts.push(
     `Range ${formatGaugeValue(domain.min, spec.format, spec.decimals)} to ${formatGaugeValue(domain.max, spec.format, spec.decimals)}`,
   );
