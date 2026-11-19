@@ -8,6 +8,7 @@ import { deriveMeasure, formatDerivedMeasure, mappingInputKeys, mappingRag, meas
 import { ambiguousMeasureNames, selectPrimaryMeasure } from "@/lib/primary-measure";
 import { buildFinanceTable, currentKpiValue, MANUAL_SOURCE_CATEGORY, type FinanceTable, type KpiRow } from "@/lib/review-kpi";
 import { REVIEWED_METRIC_PREFIX } from "@/lib/review-report";
+import { metricKind, parseTargetMarkers, primaryGoalMarker, sameQuantity } from "@/lib/review-format";
 import {
   PILLAR_STATUS_RAG,
   PILLAR_STATUSES,
@@ -253,10 +254,24 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
         // the plan's declared target text, but never an unmapped KPI's target,
         // so two different measures are not put side by side.
         const target = kpi?.target ?? (selection.status === "missing" ? (a.kpiTarget ?? null) : null);
+        // The reviewed report judges October against the pillar's **2026 goal**
+        // and shows FY27 budget/stretch beside it. The mapping's own targetBudget
+        // is FY27 planning data, so the definition's stated goal is used when it
+        // is written in the measure's own quantity; otherwise the mapping's
+        // target is the only figure there is. A goal labelled FY27, or one in a
+        // different quantity, is never substituted.
+        const goal = primaryGoalMarker(
+          parseTargetMarkers(target),
+          metricKind({ name: kpi?.name ?? a.kpiName ?? a.name, displayFormat: mapping?.displayFormat ?? null, unit: null }),
+        );
+        const reference =
+          goal && mapping && sameQuantity(derived?.value ?? parseMeasureNumber(obs?.value) ?? goal.value, goal.value)
+            ? { value: goal.value, label: goal.reference === "2026" ? "2026 goal" : "goal" }
+            : null;
         const calculatedRag = mapping
           ? derived
-            ? mappingRag(derived.value, mapping, derived.quality)
-            : mappingRag(parseMeasureNumber(obs?.value), mapping, obs?.quality)
+            ? mappingRag(derived.value, mapping, derived.quality, reference)
+            : mappingRag(parseMeasureNumber(obs?.value), mapping, obs?.quality, reference)
           : "GREY";
         // Only pillars can have a status set by hand.
         const stored = a.kind === "ENABLER" ? null : a.pillarStatuses?.[0]?.status;
@@ -271,6 +286,7 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
               rag: calculatedRag,
               target,
               mapping,
+              reference,
               rows: inputRows,
               names: inputNames,
               period,

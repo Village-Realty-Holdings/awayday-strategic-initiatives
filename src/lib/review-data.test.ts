@@ -283,6 +283,96 @@ describe("primary measure selection", () => {
     expect((await getReviewPlan("2026-10")).areas[0].measure).toMatchObject({ rag: "GREEN", higherIsBetter: false });
   });
 
+  it("selects a reviewed October measure once it is linked to the pillar and mapped", async () => {
+    // The October report's Grow primary is BD unit adds (BD Master), a reviewed
+    // metric, while the FY27 plan's own definition is Gross unit adds. Linking
+    // the reviewed definition to the pillar and activating its mapping is the
+    // whole configuration: the resolver then picks it, and the FY27 definition
+    // stays on the pillar as a supporting row with its mapping switched off.
+    const reviewed = {
+      id: "k-bd-adds",
+      name: "BD unit adds",
+      target: "2026 goal 23%",
+      measureMapping: mapping({ calculation: "DIRECT", displayFormat: "percent", higherIsBetter: true, targetBudget: 22, active: true }),
+      observations: [observation("3340")],
+    };
+    const planDefinition = {
+      id: "k-gross-adds",
+      name: "Gross unit adds",
+      target: "23% budget; 28% stretch",
+      measureMapping: mapping({ calculation: "DIRECT", displayFormat: "percent", higherIsBetter: true, targetBudget: 23, active: false }),
+      observations: [],
+    };
+    areaFindMany.mockResolvedValue([area([planDefinition, reviewed], { code: "GROW", kpiName: "Gross unit adds" })]);
+    const grow = (await getReviewPlan("2026-10")).areas[0];
+    expect(grow.measure).toMatchObject({ kpiId: "k-bd-adds", name: "BD unit adds", value: "3340", primary: "selected" });
+    // Supporting definitions are untouched and keep their own mapping state.
+    expect(planDefinition.measureMapping.active).toBe(false);
+  });
+
+  it("goes neutral, not alphabetical, when both the reviewed and the plan measure stay active", async () => {
+    const active = mapping({ calculation: "DIRECT", higherIsBetter: true, targetBudget: 23, active: true });
+    areaFindMany.mockResolvedValue([
+      area(
+        [
+          { id: "k-gross-adds", name: "Gross unit adds", measureMapping: active, observations: [] },
+          { id: "k-bd-adds", name: "BD unit adds", measureMapping: active, observations: [observation("3340")] },
+        ],
+        { code: "GROW", kpiName: "Gross unit adds" },
+      ),
+    ]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({ kpiId: null, primary: "ambiguous", value: null, rag: "GREY" });
+  });
+
+  it("judges the October status against the 2026 goal, not the FY27 budget beside it", async () => {
+    // The reviewed report rates each pillar against its 2026 goal and shows the
+    // FY27 budget and stretch next to it. A $24M result against a $20M goal is
+    // ahead; the same result against the $26M FY27 budget would only be amber.
+    const ma = mapping({ calculation: "DIRECT", displayFormat: "currency", higherIsBetter: true, targetBudget: 26_000_000 });
+    areaFindMany.mockResolvedValue([
+      area([{ id: "k-ma", name: "Acquired EBITDA closed", target: "2026 goal $20M; FY27 $26M budget; $47M stretch", measureMapping: ma, observations: [observation("$24M")] }], {
+        code: "M&A",
+        kpiName: "Acquired EBITDA closed",
+        kpiTarget: "2026 goal $20M; FY27 $26M budget; $47M stretch",
+      }),
+    ]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({ rag: "GREEN", calculatedRag: "GREEN" });
+    expect(measure?.origin?.status).toMatchObject({ budget: "$20.0M", reference: "2026 goal" });
+  });
+
+  it("falls back to the mapping's FY27 budget when the definition states no 2026 goal", async () => {
+    const ma = mapping({ calculation: "DIRECT", displayFormat: "currency", higherIsBetter: true, targetBudget: 26_000_000 });
+    areaFindMany.mockResolvedValue([
+      area([{ id: "k-ma", name: "Acquired EBITDA closed", target: "FY27 $33M budget", measureMapping: ma, observations: [observation("$24M")] }], {
+        code: "M&A",
+        kpiName: "Acquired EBITDA closed",
+      }),
+    ]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    expect(measure).toMatchObject({ rag: "AMBER" });
+    expect(measure?.origin?.status).toMatchObject({ budget: "$26.0M", reference: "FY27 budget" });
+  });
+
+  it("never rates a unit count against a growth percentage", async () => {
+    // Grow's 2026 goal is stated as a growth percentage; the pillar measure is a
+    // unit count. No status is claimed from a comparison across quantities.
+    const grow = mapping({ calculation: "DIRECT", displayFormat: "percent", higherIsBetter: true, targetBudget: 22 });
+    areaFindMany.mockResolvedValue([
+      area([{ id: "k-grow", name: "BD unit adds", target: "2026 goal 23%", measureMapping: grow, observations: [observation("3340")] }], {
+        code: "GROW",
+        kpiName: "BD unit adds",
+      }),
+    ]);
+    const measure = (await getReviewPlan("2026-10")).areas[0].measure;
+    // The goal is ignored (different quantity) and the mapping's own 22% target
+    // is three orders of magnitude from 3,340 units, so no status is claimed at
+    // all rather than a confident green from a meaningless ratio.
+    expect(measure?.origin?.status.reference).toBe("FY27 budget");
+    expect(measure).toMatchObject({ rag: "GREY", calculatedRag: "GREY" });
+  });
+
   it("keeps reporting populations separate when deriving the primary measure", async () => {
     const yoy = mapping({ calculation: "YOY_PCT", inputMetricKey: "trevpar_finance", higherIsBetter: true, targetBudget: 1 });
     areaFindMany.mockResolvedValue([

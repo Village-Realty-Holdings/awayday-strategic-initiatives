@@ -129,9 +129,11 @@ export type MeasureOrigin = {
   calculated: { value: string | null; note: string | null };
   status: {
     label: string;
-    /** The budget target as a number, or null when the status has none to compare with. */
+    /** The figure the status compares with, or null when it has none (2026 goal, else FY27 budget). */
     budget: string | null;
-    /** Value minus budget, signed, e.g. "+$8.5M (+32.7%)". */
+    /** What that figure is: "2026 goal", "FY27 budget", or null when nothing is stated. */
+    reference: string | null;
+    /** Value minus that figure, signed, e.g. "+$8.5M (+32.7%)". */
     difference: string | null;
     verdict: "better" | "worse" | "on target" | null;
     direction: "Higher is better" | "Lower is better" | null;

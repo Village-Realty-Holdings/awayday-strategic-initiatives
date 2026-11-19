@@ -242,10 +242,14 @@ function MeasureOriginDetails({ origin }: { origin: MeasureOrigin }) {
         <dt className="font-medium text-ink">Calculated status: {status.label}</dt>
         {status.difference && (
           <dd className="mt-0.5 text-ink-muted">
-            {status.difference} vs the {status.budget} budget target ({status.verdict}).
+            {status.difference} vs the {status.budget} {status.reference ?? "budget target"} ({status.verdict}).
           </dd>
         )}
-        {!status.difference && status.budget && <dd className="mt-0.5 text-ink-muted">Budget target: {status.budget}.</dd>}
+        {!status.difference && status.budget && (
+          <dd className="mt-0.5 text-ink-muted">
+            {status.reference === "FY27 budget" ? "FY27 budget target" : status.reference ?? "Target"}: {status.budget}.
+          </dd>
+        )}
         {status.direction && <dd className="mt-0.5 text-ink-muted">{status.direction}.</dd>}
         <dd className="mt-0.5 text-ink-muted">{status.basis}</dd>
       </div>

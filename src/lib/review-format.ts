@@ -159,6 +159,18 @@ export function parseTargetNumber(target: string | null | undefined): { value: n
   return { value: value * scale, lowerIsBetter: sign === "<" || sign === "\u2264" };
 }
 
+/**
+ * Which planning context a target belongs to, when its own words say so. The
+ * reviewed October report sets the 2026 goal beside the FY27 budget and stretch
+ * and judges status against the 2026 goal; the two are different statements and
+ * are never compared with one another. `null` means the text does not say, and
+ * nothing is assumed.
+ */
+export type TargetReference = "2026" | "FY27" | null;
+
+/** The unit a target's own figure is written in, so a goal is never compared across quantities. */
+export type TargetUnit = "percent" | "points" | "currency" | "count";
+
 /** One target marker read out of a definition's target prose. */
 export type TargetMarker = {
   /** Stable id for React and for tests. */
@@ -170,7 +182,28 @@ export type TargetMarker = {
   style: "goal" | "budget" | "stretch";
   /** An explicit "<" on the figure means lower is better for that target. */
   lowerIsBetter: boolean;
+  /** The planning context the text names, or null when it names none. */
+  reference: TargetReference;
+  /** The quantity the figure is written in. */
+  unit: TargetUnit;
 };
+
+const FY27_REFERENCE = /\bfy\s*-?\s*(?:27|2027)\b|\b(?:in|for)\s+2027\b|\bnext\s+year\b/i;
+const Y2026_REFERENCE = /\b2026\b|\bfy\s*-?\s*26\b|\bthis\s+year\b/i;
+
+function targetReference(text: string): TargetReference {
+  if (FY27_REFERENCE.test(text)) return "FY27";
+  if (Y2026_REFERENCE.test(text)) return "2026";
+  return null;
+}
+
+function targetUnit(figure: string, segment: string): TargetUnit {
+  const words = segment.toLowerCase();
+  if (/\bpt\b|\bpts\b|percentage\s*point|\bpp\b/.test(words)) return "points";
+  if (/%/.test(figure)) return "percent";
+  if (/\$|\busd\b/.test(figure.toLowerCase())) return "currency";
+  return "count";
+}
 
 const TARGET_STYLES: { style: TargetMarker["style"]; label: string; pattern: RegExp }[] = [
   { style: "stretch", label: "Stretch", pattern: /\bstretch\b|\bupside\b|\baspiration/i },
@@ -196,19 +229,34 @@ export function parseTargetMarkers(target: string | null | undefined): TargetMar
   if (!text) return [];
   const first = parseTargetNumber(text);
   if (first) {
-    return [{ id: "goal-0", label: "Goal", value: first.value, style: "goal", lowerIsBetter: first.lowerIsBetter }];
+    return [
+      {
+        id: "goal-0",
+        label: "Goal",
+        value: first.value,
+        style: "goal",
+        lowerIsBetter: first.lowerIsBetter,
+        reference: targetReference(text),
+        unit: targetUnit(text, text),
+      },
+    ];
   }
   const segments = text.split(/\s*[;·]\s*|\s+and\s+/i).filter((s) => s.trim() !== "");
   const markers: TargetMarker[] = [];
   const seen = new Set<string>();
   for (const segment of segments) {
+    // A planning-context token is not a figure: "2026 goal $23M" states one
+    // number, and "FY27 12%" states one. Scrubbing the year (and the FY label)
+    // before counting figures keeps the "one figure per segment" rule honest —
+    // otherwise the year counted as a second figure and the marker was dropped.
+    const scrubbed = segment.replace(/\bfy\s*-?\s*\d{2,4}\b/gi, " ").replace(/\b(?:19|20)\d{2}\b/g, " ");
     // The scale letter must not run into the next word: "3,152 budget" is a bare
     // 3,152, not "3,152b" (three trillion). An earlier pattern allowed `\s*`
     // before `[kmb]`, so the b of "budget" became a billions suffix and every
     // "… budget" target was plotted a billion times too large.
-    const figures = segment.match(/[<>\u2264\u2265~]?\s*\$?\s*[-+]?\d+(?:[.,]\d+)*(?:[kmb](?![a-z0-9])|\s+[kmb](?![a-z0-9]))?\s*%?/gi) ?? [];
+    const figures = scrubbed.match(/[<>\u2264\u2265~]?\s*\$?\s*[-+]?\d+(?:[.,]\d+)*(?:[kmb](?![a-z0-9])|\s+[kmb](?![a-z0-9]))?\s*%?/gi) ?? [];
     if (figures.length !== 1) continue; // ambiguous: not attributable to one target
-    const kind = TARGET_STYLES.find((k) => k.pattern.test(segment));
+    const kind = TARGET_STYLES.find((k) => k.pattern.test(segment)) ?? (targetReference(segment) ? { style: "goal" as const, label: "Goal" } : undefined);
     if (!kind) continue; // an unlabelled figure in prose is a component, not a target
     const parsed = parseTargetNumber(figures[0].replace(/\s+/g, ""));
     if (!parsed) continue;
@@ -221,7 +269,67 @@ export function parseTargetMarkers(target: string | null | undefined): TargetMar
       value: parsed.value,
       style: kind.style,
       lowerIsBetter: parsed.lowerIsBetter,
+      reference: targetReference(segment),
+      unit: targetUnit(figures[0], segment),
     });
   }
   return markers;
+}
+
+/**
+ * Whether a marker's figure is in the same quantity as a metric of `kind`. A
+ * count goal is never compared with a percentage measure: the reviewed report
+ * states Grow's 2026 goal as a growth percentage while the pillar measure is a
+ * unit count, and comparing them would rate 3,340 units against 23%.
+ */
+export function markerMatchesKind(marker: TargetMarker, kind: MetricKind): boolean {
+  switch (kind) {
+    case "currency":
+      return marker.unit === "currency";
+    case "percent":
+      return marker.unit === "percent";
+    case "points":
+      // A margin goal is written either "+0.7 pt" or "+0.7%" and means the same.
+      return marker.unit === "points" || marker.unit === "percent";
+    case "count":
+      return marker.unit === "count";
+    default:
+      return marker.unit === "count" || marker.unit === "percent";
+  }
+}
+
+/**
+ * Whether a value and a target are plausibly the same quantity. Two figures more
+ * than two orders of magnitude apart are not a comparison: a unit count of
+ * 3,340 against a 23% growth target, or a $34.8M result against a $26 target,
+ * would otherwise produce a confident status from a meaningless ratio. Zero
+ * carries no scale evidence either way, so it does not veto.
+ */
+export function sameQuantity(actual: number, target: number): boolean {
+  const a = Math.abs(actual);
+  const t = Math.abs(target);
+  if (a === 0 || t === 0) return true;
+  const ratio = a / t;
+  return ratio >= 0.01 && ratio <= 100;
+}
+
+/**
+ * The target the reviewed report judges a status against: the goal, preferring
+ * one whose own text says 2026 over an unlabelled goal, and never a budget, a
+ * stretch, or a figure the text labels FY27. When a metric kind is supplied,
+ * only a goal written in that quantity qualifies, so a unit count is never
+ * rated against a growth percentage.
+ */
+export function primaryGoalMarker(markers: readonly TargetMarker[], kind?: MetricKind): TargetMarker | null {
+  const goals = markers.filter(
+    (marker) => marker.style === "goal" && marker.reference !== "FY27" && (kind === undefined || markerMatchesKind(marker, kind)),
+  );
+  return goals.find((marker) => marker.reference === "2026") ?? goals[0] ?? null;
+}
+
+/** How a target marker is labelled, naming its planning context when the text does. */
+export function targetMarkerLabel(marker: TargetMarker): string {
+  if (marker.reference === "2026") return marker.style === "goal" ? "2026 goal" : `2026 ${marker.style}`;
+  if (marker.reference === "FY27") return marker.style === "goal" ? "FY27 goal" : `FY27 ${marker.style}`;
+  return marker.label;
 }

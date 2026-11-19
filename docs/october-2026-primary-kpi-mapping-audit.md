@@ -1,5 +1,11 @@
 # October 2026 primary KPI mapping audit
 
+**Superseded for implementation detail by**
+[`october-2026-parity-corrections.md`](october-2026-parity-corrections.md), which
+records the code corrections, the production identities supplied in the handoff
+JSON, and the import previews. This document remains the record of the read-only
+audit and its production-access blocker.
+
 **Status:** read-only audit, documentation only. Nothing in production Neon was
 read or written during this session (see §2). No mapping, KPI definition,
 observation, publication state, schema or infrastructure was changed.

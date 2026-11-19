@@ -1,9 +1,34 @@
 # Status
 
-_Last updated 2026-11-18 (late evening), on branch `feat/review-visual-parity`
+_Last updated 2026-11-18 (latest), on branch `feat/review-visual-parity`
 (stacked on PR #25; neither branch is merged or deployed)._
 
-## Latest: KPI direction and primary-measure integrity corrections (PR #26, not merged)
+## Latest: October 2026 parity — the 2026 goal is the yardstick, not the FY27 target (PR #26, not merged)
+
+The reference page (`Awayday October 2026 Strategy Review(2).html`) sets each
+pillar's **2026 goal** beside its **FY27 budget and stretch** and judges status
+against the 2026 goal. The app was judging the pillar against the mapping's FY27
+target instead, and could rate a count against a percentage.
+
+- A pillar's status now compares with the goal its own definition states, in the
+  measure's own quantity. A figure the target text labels `FY27` is never used;
+  a goal written as a percentage is never applied to a unit count; and a target
+  three orders of magnitude from the value claims no status at all (`GREY`)
+  instead of a confident green.
+- The reference used (`2026 goal` or `FY27 budget`) is named in the measure
+  editor, and gauge markers are labelled with their context.
+- Approved owner statuses are untouched and still win over the calculated one.
+- Production's five pillar mappings still point at the FY27 plan definitions
+  (`Gross unit adds`, `Owner unit churn (TTM)`, …), not the October measures
+  (`BD unit adds (BD Master)`, `Annualized Unit Churn (Finance)`, …). The
+  configuration change, the import previews (Base Business comparisons,
+  historical series, 49-brand churn) and the So-What findings are in
+  [docs/october-2026-parity-corrections.md](docs/october-2026-parity-corrections.md).
+  **No production mapping, observation, target or So-What was changed.**
+- 764 tests pass. Local preview running on `127.0.0.1:3000` against
+  `awayday_si_dev`; nothing deployed.
+
+## Previous: KPI direction and primary-measure integrity corrections (PR #26, not merged)
 
 Two KPI integrity defects found in the previous review are corrected. This pass
 adds a **proposed schema migration** (prepared for review, applied only to the

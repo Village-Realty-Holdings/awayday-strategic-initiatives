@@ -139,6 +139,39 @@ describe("mappingRag with explicit and unknown directions", () => {
   });
 });
 
+describe("mappingRag against the 2026 goal rather than the FY27 target", () => {
+  it("judges the October value by the goal the definition states", () => {
+    // M&A: FY27 budget $26M, 2026 goal $23M. The reviewed report rates against
+    // the 2026 goal, so a $24M year-to-date result is ahead, not merely above a
+    // distant planning figure.
+    const mapping = { higherIsBetter: true, targetBudget: 26_000_000 };
+    expect(mappingRag(24_000_000, mapping)).toBe("AMBER"); // within 10% of the FY27 budget
+    expect(mappingRag(24_000_000, mapping, "VALID", { value: 23_000_000, label: "2026 goal" })).toBe("AMBER");
+    expect(mappingRag(25_500_000, mapping, "VALID", { value: 23_000_000, label: "2026 goal" })).toBe("GREEN");
+    expect(mappingRag(20_000_000, mapping, "VALID", { value: 23_000_000, label: "2026 goal" })).toBe("RED");
+  });
+
+  it("keeps the declared direction when a goal is supplied", () => {
+    // Churn: 2026 goal <12%, FY27 budget 12%. A lower-is-better goal must not
+    // flip the verdict just because the goal figure is different.
+    const churn = { higherIsBetter: false, targetBudget: 11 };
+    expect(mappingRag(12.4, churn, "VALID", { value: 12, label: "2026 goal" })).toBe("AMBER");
+    expect(mappingRag(13.5, churn, "VALID", { value: 12, label: "2026 goal" })).toBe("RED");
+    expect(mappingRag(10.5, churn, "VALID", { value: 12, label: "2026 goal" })).toBe("GREEN");
+  });
+
+  it("claims no status when the target and the value are in different quantities", () => {
+    // A mapping whose identity changed can carry a percentage target beside a
+    // unit count. 3,340 units against 22% is not a comparison, so it is not green.
+    expect(mappingRag(3340, { higherIsBetter: true, targetBudget: 22 })).toBe("GREY");
+    expect(mappingRag(34_800_000, { higherIsBetter: true, targetBudget: 26_000_000 })).toBe("GREEN");
+  });
+
+  it("still refuses to colour an undeclared direction, goal or no goal", () => {
+    expect(mappingRag(24_000_000, { higherIsBetter: null, targetBudget: 26_000_000 }, "VALID", { value: 23_000_000, label: "2026 goal" })).toBe("GREY");
+  });
+});
+
 describe("parseMeasureNumber", () => {
   it("reads typed-in values in base units", () => {
     expect(parseMeasureNumber("$26M")).toBe(26_000_000);
@@ -175,6 +208,14 @@ describe("measureOrigin", () => {
     const origin = measureOrigin(base);
     expect(origin.value).toEqual({ summary: "Entered by hand", details: ["Entered on the review by Erin", "Saved 4 Nov 2026"] });
     expect(origin.status).toMatchObject({ label: "Ahead", budget: "$26.0M", difference: "+$8.5M (+32.7%)", verdict: "better", direction: "Higher is better" });
+  });
+
+  it("says which reference the status used, so 2026 and FY27 are never confused", () => {
+    const againstGoal = measureOrigin({ ...base, reference: { value: 23_000_000, label: "2026 goal" } });
+    expect(againstGoal.status).toMatchObject({ budget: "$23.0M", reference: "2026 goal", verdict: "better" });
+    expect(againstGoal.status.basis).toContain("2026 goal");
+    const againstBudget = measureOrigin(base);
+    expect(againstBudget.status).toMatchObject({ budget: "$26.0M", reference: "FY27 budget" });
   });
 
   it("calls a higher value worse when lower is better", () => {

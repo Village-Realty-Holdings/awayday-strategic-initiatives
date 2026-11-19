@@ -7,7 +7,7 @@
 // (reportingScope + entityScope + timeBasis + comparisonBasis), and each table
 // section names the population it belongs to.
 
-import { formatDelta, formatMetricValue, metricKind, parseNumber, parseTargetNumber, type MetricKind } from "@/lib/review-format";
+import { formatDelta, formatMetricValue, metricKind, parseNumber, parseTargetMarkers, parseTargetNumber, primaryGoalMarker, sameQuantity, type MetricKind } from "@/lib/review-format";
 
 // Formatters live in review-format.ts so client components can use them without
 // importing the Prisma-backed KPI module. Re-exported here for existing callers.
@@ -645,15 +645,28 @@ export function scorecardStatusLabel(status: ScorecardRow["status"]): string {
 }
 
 /**
- * Status of a value against a definition's target, in the target's own unit.
- * Amber within 10% of the target on either side, matching the app's other
- * target comparisons; no status when either side is missing or not a single
- * comparable figure.
+ * Status of a value against the reference the reviewed report judges it by: the
+ * definition's own goal, in the measure's own quantity. The October report sets
+ * the 2026 goal beside the FY27 budget and stretch and judges against the 2026
+ * goal, so a figure the target text labels FY27 is never used, and a goal
+ * written in another quantity (a growth percentage beside a unit count) is not
+ * used either. Amber within 10% of the target on either side, matching the app's
+ * other target comparisons; no status when either side is missing or not a
+ * single comparable figure.
  */
-export function statusAgainstTarget(value: string | null | undefined, target: string | null | undefined): ScorecardRow["status"] {
+export function statusAgainstTarget(
+  value: string | null | undefined,
+  target: string | null | undefined,
+  kind?: MetricKind,
+): ScorecardRow["status"] {
   const actual = parseNumber(value ?? null);
-  const parsed = parseTargetNumber(target);
-  if (actual === null || parsed === null) return "no_data";
+  if (actual === null) return "no_data";
+  const goal = primaryGoalMarker(parseTargetMarkers(target), kind);
+  const parsed =
+    goal && sameQuantity(actual, goal.value)
+      ? { value: goal.value, lowerIsBetter: goal.lowerIsBetter }
+      : parseTargetNumber(target);
+  if (parsed === null) return "no_data";
   if (Math.abs(actual - parsed.value) <= Math.abs(parsed.value) * 0.1) return "on_track";
   const better = parsed.lowerIsBetter ? actual < parsed.value : actual > parsed.value;
   return better ? "ahead" : "behind";
@@ -724,7 +737,7 @@ export function buildPillarScorecard(
         delta: delta?.cell ?? EMPTY_CELL,
         deltaLabel: delta?.label ?? "no comparison loaded",
         target: metric.target,
-        status: statusAgainstTarget(actualRow?.value ?? null, metric.target ?? null),
+        status: statusAgainstTarget(actualRow?.value ?? null, metric.target ?? null, kind),
         metricName: metric.name,
       } satisfies ScorecardRow;
     });

@@ -1,6 +1,7 @@
 import { CONSOLIDATED_REPORTING_SCOPE, selectCurrentObservations } from "@/lib/kpi";
 import { BASIS_LABEL, formatKpiValue, TIME_LABEL, type KpiRow } from "@/lib/review-kpi";
 import { fmtLong, isoDay, ragAgainst, ragLabel, type MeasureOrigin, type Rag } from "@/lib/review-model";
+import { sameQuantity } from "@/lib/review-format";
 
 // How a pillar's measure gets its value from the metrics the import publishes.
 // One KpiMeasureMapping row per measure says which metrics to read and which
@@ -121,17 +122,41 @@ export function formatDerivedMeasure(value: number, mapping: Pick<MeasureMapping
 }
 
 /**
- * Rates a value against the mapping's budget target, in its stated direction.
+ * The figure a status is judged against, and what that figure is. The reviewed
+ * October report judges each pillar against its **2026 goal** and shows the FY27
+ * budget and stretch beside it; the mapping's own `targetBudget` is FY27
+ * planning data. Keeping the reference explicit is what stops an October status
+ * from being decided by an FY27 number.
+ */
+export type StatusReference = { value: number; label: string; lowerIsBetter?: boolean };
+
+/**
+ * Rates a value against the reference it is judged by: the definition's 2026
+ * goal when it states one, otherwise the mapping's budget target. Always in the
+ * mapping's stated direction.
  *
  * A mapping that states no direction gets `GREY`. Even a value that happens to
  * sit above its target is not "good" until someone says which way is better:
  * an unknown direction must never become green.
  */
-export function mappingRag(value: number | null, mapping: Pick<MeasureMapping, "higherIsBetter" | "targetBudget">, quality = "VALID"): Rag {
-  if (value === null || mapping.targetBudget === null) return "GREY";
+export function mappingRag(
+  value: number | null,
+  mapping: Pick<MeasureMapping, "higherIsBetter" | "targetBudget">,
+  quality = "VALID",
+  reference?: StatusReference | null,
+): Rag {
+  const target = reference ? reference.value : mapping.targetBudget;
+  if (value === null || target === null) return "GREY";
   if (mapping.higherIsBetter === null) return "GREY";
   if (quality === "UNAVAILABLE" || quality === "INVALID") return "GREY";
   if (quality === "STALE") return "AMBER";
+  // A target and a value in different quantities are not a comparison. The
+  // stored target may be a percentage while the measure is a unit count (a
+  // mapping whose identity changed); claiming green from that ratio would be
+  // worse than claiming nothing.
+  if (!sameQuantity(value, target)) return "GREY";
+  // The mapping's declared direction is authoritative. A goal marked "<" only
+  // speaks when the mapping states no direction, which is already GREY above.
   const lowerIsBetter = mapping.higherIsBetter === false;
   // Expenses are reported as negative numbers. For a lower-is-better metric
   // whose target is negative, "less negative" is better, so the comparison is
@@ -139,8 +164,8 @@ export function mappingRag(value: number | null, mapping: Pick<MeasureMapping, "
   // Without this, a negative-budget expense mapping would rate every reduction
   // as worse. Positive targets, and higher-is-better metrics (including a
   // negative EBITDA budget), keep the plain comparison.
-  if (lowerIsBetter && mapping.targetBudget < 0) return ragAgainst(Math.abs(value), Math.abs(mapping.targetBudget), true);
-  return ragAgainst(value, mapping.targetBudget, lowerIsBetter);
+  if (lowerIsBetter && target < 0) return ragAgainst(Math.abs(value), Math.abs(target), true);
+  return ragAgainst(value, target, lowerIsBetter);
 }
 
 const CALCULATION_TEXT: Record<string, string> = {
@@ -207,6 +232,12 @@ export type MeasureOriginInput = {
   rag: Rag;
   target: string | null;
   mapping: (MeasureMapping & { active?: boolean }) | null;
+  /**
+   * The figure the status was judged against when it is not the mapping's own
+   * budget target — the definition's 2026 goal. Absent means the mapping's
+   * targetBudget was used.
+   */
+  reference?: StatusReference | null;
   rows: RowsByMetric;
   names: ReadonlyMap<string, string>;
   period: string;
@@ -214,13 +245,13 @@ export type MeasureOriginInput = {
 
 /** Where a measure's value came from and how its status was reached. */
 export function measureOrigin(input: MeasureOriginInput): MeasureOrigin {
-  const { number, rag, target, mapping } = input;
+  const { number, rag, target, mapping, reference } = input;
   const value = valueOrigin(input);
   const calculated = calculatedOrigin(input);
   const label = ragLabel(rag);
   if (!mapping) {
     const basis = target ? `Compared with the first number in the target text, "${target}". ${STATUS_RULE}` : "No target to compare with.";
-    return { value, calculated, status: { label, budget: null, difference: null, verdict: null, direction: null, basis } };
+    return { value, calculated, status: { label, budget: null, reference: null, difference: null, verdict: null, direction: null, basis } };
   }
   const direction = mapping.higherIsBetter === null ? null : mapping.higherIsBetter ? "Higher is better" : "Lower is better";
   if (mapping.higherIsBetter === null) {
@@ -230,6 +261,7 @@ export function measureOrigin(input: MeasureOriginInput): MeasureOrigin {
       status: {
         label,
         budget: mapping.targetBudget === null ? null : formatInUnits(mapping.targetBudget, mapping.displayFormat),
+        reference: mapping.targetBudget === null ? null : "FY27 budget",
         difference: null,
         verdict: null,
         direction,
@@ -237,14 +269,26 @@ export function measureOrigin(input: MeasureOriginInput): MeasureOrigin {
       },
     };
   }
-  if (mapping.targetBudget === null) return { value, calculated, status: { label, budget: null, difference: null, verdict: null, direction, basis: "No budget target is set on the mapping, so there's no rating." } };
-  const budget = formatInUnits(mapping.targetBudget, mapping.displayFormat);
-  if (number === null) return { value, calculated, status: { label, budget, difference: null, verdict: null, direction, basis: `No value to compare with the budget target. ${STATUS_RULE}` } };
-  const difference = number - mapping.targetBudget;
+  const comparedValue = reference ? reference.value : mapping.targetBudget;
+  const comparedLabel = reference ? (reference.label ?? "goal") : "FY27 budget";
+  if (comparedValue === null) return { value, calculated, status: { label, budget: null, reference: null, difference: null, verdict: null, direction, basis: "No budget target is set on the mapping, so there's no rating." } };
+  const budget = formatInUnits(comparedValue, mapping.displayFormat);
+  if (number === null) return { value, calculated, status: { label, budget, reference: comparedLabel, difference: null, verdict: null, direction, basis: `No value to compare with the ${comparedLabel.toLowerCase()}. ${STATUS_RULE}` } };
+  const difference = number - comparedValue;
   const verdict = difference === 0 ? "on target" : difference > 0 === mapping.higherIsBetter ? "better" : "worse";
   return {
     value,
     calculated,
-    status: { label, budget, difference: formatDifference(difference, mapping.targetBudget, mapping.displayFormat), verdict, direction, basis: STATUS_RULE },
+    status: {
+      label,
+      budget,
+      reference: comparedLabel,
+      difference: formatDifference(difference, comparedValue, mapping.displayFormat),
+      verdict,
+      direction,
+      basis: reference
+        ? `Compared with the ${comparedLabel.toLowerCase()}, the figure this measure's definition states. ${STATUS_RULE}`
+        : STATUS_RULE,
+    },
   };
 }

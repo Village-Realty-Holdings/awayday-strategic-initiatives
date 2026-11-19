@@ -139,6 +139,21 @@ describe("target parsing and status", () => {
     expect(statusAgainstTarget(null, "5")).toBe("no_data");
     expect(statusAgainstTarget("4", "TBD")).toBe("no_data");
   });
+
+  it("judges a status by the definition's goal, never by an FY27 figure or another quantity", () => {
+    // The reviewed report sets the 2026 goal beside the FY27 budget and stretch.
+    // A status is judged against the goal, in the measure's own quantity.
+    expect(statusAgainstTarget("$34.8M", "2026 goal $23M; FY27 $33M budget; $47M stretch", "currency")).toBe("ahead");
+    expect(statusAgainstTarget("$34.8M", "$23M goal; $33M budget; $47M stretch", "currency")).toBe("ahead");
+    // Only an FY27 figure is stated: no October status is claimed from it.
+    expect(statusAgainstTarget("$34.8M", "FY27 $33M budget", "currency")).toBe("no_data");
+    // Grow's goal is a growth percentage while the measure is a unit count.
+    expect(statusAgainstTarget("3340", "2026 goal 23%", "count")).toBe("no_data");
+    expect(statusAgainstTarget("3340", "2,608 goal", "count")).toBe("ahead");
+    // A margin goal written as a percent is read as points.
+    expect(statusAgainstTarget("0.8", "2026 goal +0.7 pt", "points")).toBe("ahead");
+    expect(statusAgainstTarget("0.8", "2026 goal +0.7%", "points")).toBe("ahead");
+  });
 });
 
 describe("observation authority", () => {

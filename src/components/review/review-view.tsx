@@ -24,7 +24,7 @@ import { KpiGauge } from "./kpi-gauge";
 import { KpiStatusBadge, MixedPerformanceChip } from "./kpi-status-badge";
 import { inferGaugeFormat, looksLikeDifferentQuantity, suggestDomain, type GaugeSpec } from "@/lib/kpi-gauge";
 import { resolveDirection, ragToStatus, summarizeStatuses, type KpiStatus } from "@/lib/kpi-status";
-import { parseNumber, parseTargetMarkers } from "@/lib/review-format";
+import { parseNumber, parseTargetMarkers, targetMarkerLabel } from "@/lib/review-format";
 import { SummaryGantt } from "./summary-gantt";
 
 function anchor(area: ReviewArea): string {
@@ -76,7 +76,7 @@ function measureGauge(area: ReviewArea): GaugeSpec | null {
     min: domain.min,
     max: domain.max,
     actual: value,
-    targets: markers.map((m) => ({ id: m.id, label: m.label, value: m.value, style: m.style })),
+    targets: markers.map((m) => ({ id: m.id, label: targetMarkerLabel(m), value: m.value, style: m.style })),
     // An explicit "<" on a target always wins. Otherwise the declared direction
     // decides; when nothing states one, the gauge says so and stays neutral
     // instead of implying that higher is good.
