@@ -10,12 +10,29 @@ database with both migrations applied._
 | --- | --- |
 | PR #25 | Merged (`master` `b19f36f`); deployed 2026-11-19T05:40Z (version `4dbdd50f`) |
 | PR #26 | Merged (`master` `7c034c5`, 2026-11-19T13:28Z); deployed 2026-11-19T13:32Z, version `b4ad6a9d` at 100% traffic |
+| PR #28 (status hotfix) | Merged (`master` `2deeed2`, 2026-11-19T16:09Z); Workers Builds deployed version `1fd934a6` at 100% traffic 2026-11-19T16:13Z |
 | Production migrations | **19 applied.** `20261118220000_kpi_mapping_direction_optional` and `20261119044941_review_so_what_tone` applied 2026-11-19 with `prisma migrate deploy` on the direct (non-pooler) endpoint; 0 failed, 0 rolled back, schema up to date |
 | Migration data safety | Verified on the live branch: mapping, So-What and observation fingerprints identical before/after; 5 mappings kept `true/true/false/true/true`; 0 rows carry a tone; 7 So-What rows intact |
 | Production business data | **Unchanged.** No observation, target, pillar status or So-What was written; no import was run |
 | Post-deploy verification | Every authenticated route redirects to `/login` (307) with no 5xx; `/login` 200; `/api/mcp` 405 on GET; the review page's exact `reviewPeriod` + `soWhats(tone)` query and the five-pillar primary query both succeed against the migrated schema. Authenticated browser rendering was not performed (no production sign-in on this machine) |
 | Pillar colours (hotfix) | **Restored.** The reviewed 2026 primary measures are applied and the five October status statements are stored; the house renders green / green / red / amber / amber with the combined wording. See `docs/october-2026-status-regression-hotfix.md` |
 | So-What tones | Still `NULL` on all 7 October rows; the colour comes from the pillar-RAG fallback. Stored tones are prepared and awaiting approval (5 change no colour, 2 do) |
+
+## Latest: hotfix released — the October status indicators are back (2026-11-19)
+
+PR #28 merged as `2deeed2` and Cloudflare Workers Builds deployed version
+`1fd934a6` to 100% traffic at 16:13Z. Production smoke test: `/` and every
+authenticated route 307 to `/login` (no 5xx), `/login` 200, `POST /api/mcp` 401
+with a bad token. The rendered result was verified by running the merged commit
+against the production database: the house shows green / green / red / amber /
+amber with `ahead/good`, `behind/crit`, `on_track/warn` badge tones, all four
+combined wordings intact, the seven So-What blocks neutral / positive / positive
+/ negative / warning / warning / neutral, and `/review/2026-09` still shows
+September's four statuses. Light and dark both render; the signed-in live page
+itself was not opened from this machine (no production credentials), which is the
+one verification step left. Data after the deploy is unchanged: 224
+observations, 7 So-Whats (0 tones), 9 pillar statuses (4 September + 5 October),
+5 active mappings of 9.
 
 ## Latest: the October status indicators are restored (hotfix, 2026-11-19)
 
