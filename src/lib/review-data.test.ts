@@ -468,8 +468,11 @@ describe("primary measure selection", () => {
     const measure = (await getReviewPlan("2026-10")).areas[0].measure;
     expect(measure).toMatchObject({ rag: "GREY", calculatedRag: "GREY", statusGap: "no-goal" });
     expect(measure?.origin?.status).toMatchObject({ budget: null, reference: null, gap: "no-goal", difference: null });
-    // The FY27 budget is still reported, in its own context field.
-    expect(measure?.origin?.status.context).toBe("FY27 budget $26.0M · stretch $47.0M");
+    // The FY27 budget is still reported, in its own context field — and the
+    // definition's own reviewed wording ("FY27 $33M budget", October 2026) wins
+    // over the mapping's older planning figure ($26M). The stretch still comes
+    // from the mapping, which is the only place it is stated.
+    expect(measure?.origin?.status.context).toBe("FY27 budget $33.0M · stretch $47.0M");
   });
 
   it("refuses an unlabelled figure that is the mapping's own FY27 budget", async () => {

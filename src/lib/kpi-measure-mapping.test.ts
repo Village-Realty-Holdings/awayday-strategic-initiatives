@@ -283,6 +283,26 @@ describe("measureOrigin", () => {
     expect(origin.status.basis).toContain("does not state which direction is better");
   });
 
+  it("shows the reviewed FY27 budget when the definition states it", () => {
+    // October states M&A's FY27 budget as ~$33M; the mapping still carries the
+    // older $26M planning figure. The reviewed wording wins, but only for a
+    // figure in the measure's own quantity.
+    const origin = measureOrigin({ ...base, target: "2026 goal $23M · FY27 $33M budget · $47M stretch" });
+    expect(origin.status.context).toBe("FY27 budget $33.0M · stretch $47.0M");
+    const counts = measureOrigin({ ...base, mapping: mapping({ displayFormat: "number", targetBudget: 3152 }), target: "YTD budget 2,608 (+28%) · FY27 22% gross adds (30% stretch)" });
+    // A percentage FY27 target is not a count budget, so it is not printed as one.
+    expect(counts.status.context).toBe("FY27 budget 3,152");
+  });
+
+  it("lets the reviewer's approved status win the label and the verdict", () => {
+    const origin = measureOrigin({ ...base, number: 12.4, rag: "RED", approvedLabel: "Behind · October beat budget", mapping: mapping({ calculation: "DIRECT", higherIsBetter: false, targetBudget: 11 }), reference: { value: 12, label: "2026 goal" } });
+    expect(origin.status.label).toBe("Behind · October beat budget");
+    expect(origin.status.verdict).toBe("worse");
+    expect(origin.status.basis).toContain("Behind · October beat budget");
+    // Without an approved status the calculated label is used, as before.
+    expect(measureOrigin({ ...base, number: 12.4, rag: "RED", mapping: mapping({ calculation: "DIRECT", higherIsBetter: false, targetBudget: 11 }), reference: { value: 12, label: "2026 goal" } }).status.label).toBe("Behind");
+  });
+
   it("reports the calculated value even when another value is showing", () => {
     expect(measureOrigin({ ...base, calculatedValue: "+2.5%" }).calculated).toEqual({ value: "+2.5%", note: null });
   });

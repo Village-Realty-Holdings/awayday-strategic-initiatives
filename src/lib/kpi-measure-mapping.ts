@@ -1,7 +1,7 @@
 import { CONSOLIDATED_REPORTING_SCOPE, selectCurrentObservations } from "@/lib/kpi";
 import { BASIS_LABEL, formatKpiValue, TIME_LABEL, type KpiRow } from "@/lib/review-kpi";
 import { fmtLong, isoDay, ragAgainst, ragLabel, STATUS_GAP_TEXT, type MeasureOrigin, type MeasureStatusGap, type Rag } from "@/lib/review-model";
-import { quantityCompatibility, quantityOfFormat, sameQuantity, type Quantity } from "@/lib/review-format";
+import { parseTargetMarkers, quantityCompatibility, quantityOfFormat, sameQuantity, type Quantity } from "@/lib/review-format";
 
 // How a pillar's measure gets its value from the metrics the import publishes.
 // One KpiMeasureMapping row per measure says which metrics to read and which
@@ -308,6 +308,13 @@ export type MeasureOriginInput = {
   reference?: StatusReference | null;
   /** Why no status is claimed, when one is not. */
   gap?: StatusGap | null;
+  /**
+   * The reviewer's approved status word or phrase for this pillar and month.
+   * When present it is the status the review shows, so the "how the value was
+   * reached" line cannot contradict the headline, scorecard or gauge (for
+   * example "On track" beside an approved "Behind · October beat budget").
+   */
+  approvedLabel?: string | null;
   rows: RowsByMetric;
   names: ReadonlyMap<string, string>;
   period: string;
@@ -315,10 +322,14 @@ export type MeasureOriginInput = {
 
 /** Where a measure's value came from and how its status was reached. */
 export function measureOrigin(input: MeasureOriginInput): MeasureOrigin {
-  const { number, rag, target, mapping, reference, gap } = input;
+  const { number, rag, target, mapping, reference, gap, approvedLabel } = input;
   const value = valueOrigin(input);
   const calculated = calculatedOrigin(input);
-  const label = ragLabel(rag, gap ?? null);
+  // The reviewer's approved status wins. The label beside the colour must be the
+  // word the review actually approved, so a calculated "Not configured" or a
+  // band-based "Ahead" can never sit next to an approved "Behind" or "On goal".
+  const approved = approvedLabel?.trim() || null;
+  const label = approved ?? ragLabel(rag, gap ?? null);
   if (!mapping) {
     const basis = target ? `Compared with the first number in the target text, "${target}". ${STATUS_RULE}` : "No target to compare with.";
     return { value, calculated, status: { label, budget: null, reference: null, context: null, gap: gap ?? null, difference: null, verdict: null, direction: null, basis } };
@@ -326,7 +337,10 @@ export function measureOrigin(input: MeasureOriginInput): MeasureOrigin {
   const direction = mapping.higherIsBetter === null ? null : mapping.higherIsBetter ? "Higher is better" : "Lower is better";
   // FY27 planning figures are context only. They are never the reference a
   // review status is judged against, so they are reported in their own field.
-  const context = fy27Context(mapping);
+  // The definition's own FY27 wording wins over the mapping's planning figure,
+  // which can be older than the reviewed report (M&A stated ~$33M in October
+  // while the mapping still carried the superseded $26M budget).
+  const context = fy27Context(mapping, target);
   if (mapping.higherIsBetter === null || gap) {
     return {
       value,
@@ -340,7 +354,9 @@ export function measureOrigin(input: MeasureOriginInput): MeasureOrigin {
         difference: null,
         verdict: null,
         direction,
-        basis: STATUS_GAP_TEXT[gap ?? "no-direction"],
+        basis: approved
+          ? `The reviewer approved “${approved}”. ${STATUS_GAP_TEXT[gap ?? "no-direction"]}`
+          : STATUS_GAP_TEXT[gap ?? "no-direction"],
       },
     };
   }
@@ -352,7 +368,11 @@ export function measureOrigin(input: MeasureOriginInput): MeasureOrigin {
   const budget = formatInUnits(reference.value, mapping.displayFormat);
   if (number === null) return { value, calculated, status: { label, budget, reference: reference.label, context, gap: "no-value", difference: null, verdict: null, direction, basis: `No value to compare with the ${reference.label.toLowerCase()}.` } };
   const difference = number - reference.value;
-  const verdict = difference === 0 ? "on target" : difference > 0 === Boolean(mapping.higherIsBetter) ? "better" : "worse";
+  // The verdict follows the status the review shows. When the reviewer approved
+  // a status, the calculated difference stays as factual context but the verdict
+  // cannot call a pillar "better" while its approved badge says otherwise.
+  const calculatedVerdict = difference === 0 ? "on target" : difference > 0 === Boolean(mapping.higherIsBetter) ? "better" : "worse";
+  const verdict = approved ? (rag === "GREEN" ? "better" : rag === "RED" ? "worse" : "on target") : calculatedVerdict;
   return {
     value,
     calculated,
@@ -365,15 +385,43 @@ export function measureOrigin(input: MeasureOriginInput): MeasureOrigin {
       difference: formatDifference(difference, reference.value, mapping.displayFormat),
       verdict,
       direction,
-      basis: `Compared with the ${reference.label.toLowerCase()}, the figure this measure's definition states. ${STATUS_RULE}`,
+      basis: approved
+        ? `The reviewer approved “${approved}”; the difference from the ${reference.label.toLowerCase()} is shown as context.`
+        : `Compared with the ${reference.label.toLowerCase()}, the figure this measure's definition states. ${STATUS_RULE}`,
     },
   };
 }
 
-/** "FY27 budget $26.0M · stretch $47.0M", or null when the mapping states neither. */
-function fy27Context(mapping: Pick<MeasureMapping, "displayFormat" | "targetBudget" | "targetStretch">): string | null {
-  const budget = mapping.targetBudget === null || mapping.targetBudget === undefined ? null : formatInUnits(mapping.targetBudget, mapping.displayFormat);
-  const stretch = mapping.targetStretch === null || mapping.targetStretch === undefined ? null : formatInUnits(mapping.targetStretch, mapping.displayFormat);
+/**
+ * "FY27 budget $33.0M · stretch $47.0M", or null when neither is stated.
+ *
+ * The definition's own target text is the reviewed report's wording, so it wins
+ * over the mapping's planning record when the two disagree (October states FY27
+ * M&A ~$33M; the mapping still carries the superseded $26M budget). Only figures
+ * in the measure's own quantity are read, so a count measure's "FY27 22% gross
+ * adds" is never printed as an FY27 dollar budget.
+ */
+function fy27Context(
+  mapping: Pick<MeasureMapping, "displayFormat" | "targetBudget" | "targetStretch">,
+  target?: string | null,
+): string | null {
+  const quantity = quantityOfFormat(mapping.displayFormat);
+  const stated = parseTargetMarkers(target ?? null).filter(
+    (marker) => marker.reference === "FY27" || marker.style === "stretch",
+  );
+  const sameQuantityAsMeasure = (unit: string) => quantityCompatibility(quantity, unit as Quantity) === "compatible";
+  const statedBudget = stated.find((marker) => marker.style === "budget" && sameQuantityAsMeasure(marker.unit));
+  const statedStretch = stated.find((marker) => marker.style === "stretch" && sameQuantityAsMeasure(marker.unit));
+  const budget = statedBudget
+    ? formatInUnits(statedBudget.value, mapping.displayFormat)
+    : mapping.targetBudget === null || mapping.targetBudget === undefined
+      ? null
+      : formatInUnits(mapping.targetBudget, mapping.displayFormat);
+  const stretch = statedStretch
+    ? formatInUnits(statedStretch.value, mapping.displayFormat)
+    : mapping.targetStretch === null || mapping.targetStretch === undefined
+      ? null
+      : formatInUnits(mapping.targetStretch, mapping.displayFormat);
   if (!budget && !stretch) return null;
   return [budget && `FY27 budget ${budget}`, stretch && `stretch ${stretch}`].filter((part): part is string => Boolean(part)).join(" · ");
 }
