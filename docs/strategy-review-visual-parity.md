@@ -42,7 +42,7 @@ Four reference behaviours drove most of the work:
 | Flash / mismatch | Possible on first paint | None: the attribute is in the server-rendered HTML, so there is no client-side correction step and no hydration mismatch |
 | System override | `:root:not([data-theme="light"])` | `html:not([data-theme="light"]):not([data-theme="dark"])` inside the dark media query, so an explicit light choice survives a dark OS |
 | Print | Light | Light, always (explicit override block) |
-| Selector | Not present in the report | `ThemeToggle`, a three-option radio group (Light / Dark / System) with `aria-label="Colour theme"`, icons plus words from `sm` up, icons only on phones, live announcement of the change |
+| Selector | Not present in the report | `ThemeToggle` at **every** width: a three-option radio group (Light / Dark / System) with `aria-label="Colour theme"` and words from `sm` up, and a compact icon button below `sm` that opens a popover with the same three labelled options. Both share the cookie and the live announcement |
 
 Why a cookie rather than the report's inline script: the application ships a CSP
 that keeps `script-src 'unsafe-inline'` only because Next 16 does not propagate
@@ -116,7 +116,7 @@ rule may override, and an override can never turn a shortfall green.
 | Brand churn | 49-row table, red ≥20% / green <10%, totals row | Searchable, sortable table with the same bands and totals, plus a count of skipped rows | Parity | The totals row's percentages remain derived, as documented in `strategy-review-parity.md` |
 | So-What sections | `<ul class="plain">` with `up`/`down`/`flag` list items, bold claim then evidence | `SoWhatList`: one card per item, bold headline, `whitespace-pre-line` body, tone border + glyph + `sr-only` spoken word, tone taken from the section's status | Parity of hierarchy | Tone is derived from status; `ReviewSoWhat` has no tone column (see the AI design doc) |
 | Dark mode | Token palette, dark chips, dark tables | Token palette stamped server-side, verified dark background `rgb(18,26,33)` and ink `rgb(238,242,245)` in the rendered page | Parity | The report's accent hues are tuned to its own brand palette; the dashboard keeps its existing brand tokens |
-| Mobile | Report is responsive but its gauge labels collide | Desktop and 390 px verified: no page-level horizontal scroll, no overlapping or clipped labels, legend replaces labels under 40rem, tables scroll inside their own container | Better than the reference | The theme selector is hidden below `sm` because the shell has no room beside the breadcrumbs on a phone; the device setting governs there |
+| Mobile | Report is responsive but its gauge labels collide | Desktop and 390 px verified: no page-level horizontal scroll, no overlapping or clipped labels, legend replaces labels under 40rem, tables scroll inside their own container | Better than the reference | None outstanding: the theme choice stays available on phones, and the sidebar becomes a sheet so the content column is full width |
 
 ---
 
@@ -161,7 +161,7 @@ Neon), `next dev`, headless Chrome over the DevTools protocol with
 | --- | --- |
 | `npm run typecheck` | clean |
 | `npm run lint` | clean |
-| `npm test` | 62 files, 691 tests passing |
+| `npm test` | 62 files, 707 tests passing |
 | `npm run build` | succeeds, routes unchanged |
 | Page-level horizontal scroll at 390 px | 0 px, light and dark |
 | Gauge label overlaps / clipping | none, desktop and mobile |
@@ -172,7 +172,13 @@ Neon), `next dev`, headless Chrome over the DevTools protocol with
 | Theme persistence | After a reload with the OS still light, the page paints dark from the server-rendered attribute — no flash, no correction step |
 | Explicit light over a dark OS | `data-theme="light"` with `prefers-color-scheme: dark` stays light |
 | System after a choice | Selecting System removes the attribute and the page follows the OS again (dark background under a dark OS) |
-| Statuses rendered | ahead 3, behind 6, on track 5, no data 15 |
+| Statuses rendered | ahead 27, behind 13, on track 19, no data 48 |
+| Theme control at 390 / 768 / 1440 px | compact button / segmented / segmented — never both, never neither |
+| Header height at 390 px | 56 px (was 77 px when both controls rendered) |
+| Mobile theme selection | Light, Dark and System each selectable from the popover; cookie written; announced |
+| Mobile theme persistence | Reload keeps the choice, painted from the server-rendered `data-theme` |
+| Mobile keyboard access | Enter/Space open the popover, arrow keys change the choice, Escape returns focus to the trigger |
+| Gauge accuracy | six pillar/enabler gauges; every marker inside its axis |
 | Delta tones | favourable 20, unfavourable 31, neutral 15 |
 | So-what tones | neutral and negative sections both rendered |
 | Contrast (AA) | all sampled text ≥ 6.01:1 |

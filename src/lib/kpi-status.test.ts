@@ -6,8 +6,10 @@ import {
   isMixed,
   KPI_STATUSES,
   KPI_STATUS_META,
+  measureDirection,
   metricDirection,
   ragToStatus,
+  resolveDirection,
   statusFromComparison,
   statusToneWithRule,
   summarizeStatuses,
@@ -87,6 +89,80 @@ describe("metric direction", () => {
     expect(metricDirection("Guest review score").direction).toBe("higher");
   });
 
+  it("classifies the reviewed business measures as the business reads them", () => {
+    const expected: [string, "higher" | "lower"][] = [
+      ["Revenue", "higher"],
+      ["Adjusted EBITDA", "higher"],
+      ["Shop NOI", "higher"],
+      ["Gross profit", "higher"],
+      ["Occupancy", "higher"],
+      ["Occupancy vs market", "higher"],
+      ["BD unit adds", "higher"],
+      ["Net unit adds", "higher"],
+      ["Annualized unit churn", "lower"],
+      ["Owner unit churn (TTM)", "lower"],
+      ["Cash CAC", "lower"],
+      ["Operating expenses", "lower"],
+      ["Support cost", "lower"],
+      ["Guest review score", "higher"],
+      ["Maintenance margin", "higher"],
+      ["Shop NOI margin vs prior year", "higher"],
+      ["Shop NOI margin vs PY, ex-OTA", "higher"],
+      ["TRevPAR growth vs PY, reported", "higher"],
+      ["TRevPAR growth vs PY, ex-OTA", "higher"],
+    ];
+    for (const [name, direction] of expected) {
+      const reading = metricDirection(name);
+      expect({ name, direction: reading.direction, known: reading.known }).toEqual({ name, direction, known: true });
+    }
+  });
+
+  it("does not let a broad word decide a compound name", () => {
+    // "units" alone is higher-is-better; "units lost" is the opposite.
+    expect(metricDirection("Units lost").direction).toBe("lower");
+    expect(metricDirection("Deals lost").direction).toBe("lower");
+    expect(metricDirection("Revenue lost").direction).toBe("lower");
+    // "cost" alone is lower-is-better; an efficiency measure rises to improve.
+    expect(metricDirection("Cost efficiency").direction).toBe("higher");
+    expect(metricDirection("Cost savings vs plan").direction).toBe("higher");
+    // A score is normally higher-is-better, but a risk score is a warning sign.
+    expect(metricDirection("Risk score").direction).toBe("lower");
+    // A bare "days" or "rate" is not a direction.
+    expect(metricDirection("Days").known).toBe(false);
+    expect(metricDirection("Rate").known).toBe(false);
+    expect(metricDirection("Growth").known).toBe(false);
+  });
+
+  it("keeps a name that mixes churn and retention uncoloured", () => {
+    // Two sides of the same coin in one label: no single verdict is honest.
+    expect(metricDirection("Churn and retention").known).toBe(false);
+    // Only one of them named: the word that is there decides.
+    expect(metricDirection("Net revenue churn").direction).toBe("lower");
+    expect(metricDirection("Owner retention").direction).toBe("higher");
+  });
+
+  it("prefers an approved mapping's own direction over the name", () => {
+    expect(measureDirection(false)).toEqual({ direction: "lower", known: true });
+    expect(measureDirection(true)).toEqual({ direction: "higher", known: true });
+    expect(measureDirection(null)).toBeNull();
+    expect(measureDirection(undefined)).toBeNull();
+  });
+
+  it("resolves declared metadata first and only then the name", () => {
+    // A mapping can contradict the name and it wins: the business approved it.
+    // "Widget throughput" reads as neither direction on its own.
+    expect(resolveDirection(true, "Widget throughput")).toEqual({ direction: "higher", known: true });
+    expect(resolveDirection(false, "Widget throughput")).toEqual({ direction: "lower", known: true });
+    // A mapping that says lower wins even when the name says margin.
+    expect(resolveDirection(false, "Maintenance margin")).toEqual({ direction: "lower", known: true });
+    // No declaration: the name decides, and an unknown name stays unknown.
+    expect(resolveDirection(null, "Owner churn")).toEqual({ direction: "lower", known: true });
+    expect(resolveDirection(undefined, "Widget throughput").known).toBe(false);
+    // Declared metadata does not make an unreadable name look decidable for a
+    // *different* metric: the ambiguity rule still applies when it is the fallback.
+    expect(resolveDirection(null, "Churn and retention").known).toBe(false);
+  });
+
   it("marks an unrecognised name as unknown rather than assuming a direction", () => {
     const reading = metricDirection("Widget throughput");
     expect(reading.known).toBe(false);
@@ -126,6 +202,36 @@ describe("favour, not sign", () => {
     expect(deltaTone(0.3, ebitda, -1.0)).toBe("good");
     // A negative comparator on a lower-is-better metric keeps the expense rule.
     expect(favorableDelta(-0.2, -1.0, metricDirection("Cost of sales"))).toBe(false);
+  });
+
+  it("reads operating expenses stored as negatives in both directions", () => {
+    const opex = metricDirection("Operating expenses");
+    // Less spend than budget is better, even though the delta is positive.
+    expect(favorableDelta(2, -15, opex)).toBe(true);
+    expect(favorableDelta(-2, -15, opex)).toBe(false);
+    // The same metric stored as a positive magnitude behaves the same way.
+    expect(favorableDelta(-2, 15, opex)).toBe(true);
+    expect(favorableDelta(2, 15, opex)).toBe(false);
+    expect(deltaTone(2, opex, -15)).toBe("good");
+  });
+
+  it("compares percentage points as points, not as a percentage change", () => {
+    const exOta = metricDirection("Shop NOI margin vs PY, ex-OTA");
+    const reported = metricDirection("Shop NOI margin vs PY, reported");
+    // Both are higher-is-better, so their delta signs mean what they say. The
+    // ex-OTA and reported bases disagree, and each keeps its own verdict.
+    expect(exOta).toEqual(reported);
+    expect(statusFromComparison({ actual: 0.8, target: 0.7, direction: exOta.direction })).toBe("ahead");
+    expect(statusFromComparison({ actual: -1.0, target: 0.7, direction: reported.direction })).toBe("behind");
+    // A 1.0 pt improvement is +1 point here, never a 100% move.
+    expect(favorableDelta(0.5, 0.3, exOta)).toBe(true);
+    expect(favorableDelta(-0.5, 0.3, reported)).toBe(false);
+  });
+
+  it("gives no status when a KPI has no target to compare with", () => {
+    expect(statusFromComparison({ actual: 12.4, target: null, direction: "lower" })).toBe("no_data");
+    expect(statusFromComparison({ actual: null, target: 11, direction: "lower" })).toBe("no_data");
+    expect(statusFromComparison({ actual: Number.NaN, target: 11, direction: "higher" })).toBe("no_data");
   });
 
   it("leaves a zero delta and an unknown direction neutral", () => {

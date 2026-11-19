@@ -145,6 +145,33 @@ describe("theme CSS", () => {
     }
   });
 
+  it("sizes the compact theme trigger for touch and styles it from tokens", () => {
+    const block = css.slice(css.indexOf(".theme-toggle__trigger {"), css.indexOf(".theme-toggle__menu-option"));
+    expect(block).toContain("width: 2rem");
+    expect(block).toContain("height: 2rem");
+    expect(block).toContain("flex: none");
+    expect(block).toContain("var(--color-surface-2)");
+    expect(block).not.toMatch(/#[0-9a-f]{3,6}\b/i);
+    // The menu option row is a full-width target inside the popover.
+    const menu = css.slice(css.indexOf(".theme-toggle__menu-option"));
+    expect(menu).toContain("width: 100%");
+    expect(menu).not.toMatch(/#[0-9a-f]{3,6}\b/i);
+  });
+
+  it("lets utilities own the breakpoint of the narrow-screen controls", () => {
+    // These rules are unlayered, so a `display` here would outrank Tailwind's
+    // layered `hidden` / `md:hidden`. That is exactly how the phone rendered the
+    // segmented control and the compact button together, and how the desktop
+    // kept the mobile navigation button. Display must come from utilities.
+    for (const selector of [".theme-toggle__trigger", ".mobile-nav__trigger"]) {
+      const start = css.indexOf(`${selector} {`);
+      expect(start, `${selector} should exist`).toBeGreaterThan(-1);
+      const block = css.slice(start, css.indexOf("}", start));
+      expect(block, `${selector} must not declare display`).not.toMatch(/display\s*:/);
+      expect(block, `${selector} must not declare place-items`).not.toMatch(/place-items\s*:/);
+    }
+  });
+
   it("styles the gauge and the sticky report table from tokens", () => {
     expect(css).toContain(".kpi-gauge__plot");
     expect(css).toContain(".kpi-gauge__label");

@@ -32,6 +32,27 @@ describe("parseTargetMarkers", () => {
     ]);
   });
 
+  it("does not read the first letter of the next word as a scale suffix", () => {
+    // "3,152 budget" is a bare 3,152. Reading the "b" as billions turned the
+    // marker into 3.152 trillion, which broke the axis and the marker position.
+    const markers = parseTargetMarkers("2,608 goal; 3,152 budget");
+    expect(markers.map((m) => [m.style, m.value])).toEqual([
+      ["goal", 2608],
+      ["budget", 3152],
+    ]);
+    expect(parseTargetMarkers("0.7 goal; 0.25 budget; 1 stretch").map((m) => [m.style, m.value])).toEqual([
+      ["goal", 0.7],
+      ["budget", 0.25],
+      ["stretch", 1],
+    ]);
+    // A genuine attached suffix still scales: "$33M budget".
+    expect(parseTargetMarkers("$23M goal; $33M budget; $47M stretch").map((m) => m.value)).toEqual([
+      23_000_000, 33_000_000, 47_000_000,
+    ]);
+    // ...and a spaced suffix is still honoured when it stands alone.
+    expect(parseTargetMarkers("2.5 M goal")[0]).toMatchObject({ value: 2_500_000 });
+  });
+
   it("never invents a marker from text with no usable figure", () => {
     expect(parseTargetMarkers("TBD")).toEqual([]);
     expect(parseTargetMarkers("")).toEqual([]);

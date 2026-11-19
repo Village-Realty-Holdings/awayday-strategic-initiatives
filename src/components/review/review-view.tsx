@@ -23,7 +23,7 @@ import { PeriodStatusBadge } from "./status";
 import { KpiGauge } from "./kpi-gauge";
 import { KpiStatusBadge, MixedPerformanceChip } from "./kpi-status-badge";
 import { inferGaugeFormat, looksLikeDifferentQuantity, suggestDomain, type GaugeSpec } from "@/lib/kpi-gauge";
-import { metricDirection, ragToStatus, summarizeStatuses, type KpiStatus } from "@/lib/kpi-status";
+import { resolveDirection, ragToStatus, summarizeStatuses, type KpiStatus } from "@/lib/kpi-status";
 import { parseNumber, parseTargetMarkers } from "@/lib/review-format";
 import { SummaryGantt } from "./summary-gantt";
 
@@ -68,7 +68,9 @@ function measureGauge(area: ReviewArea): GaugeSpec | null {
   ) {
     return null;
   }
-  const reading = metricDirection(area.measure?.name);
+  // The approved mapping's own direction wins; the name is only a fallback for
+  // a measure with no mapping.
+  const reading = resolveDirection(area.measure?.higherIsBetter, area.measure?.name);
   const domain = suggestDomain([value, ...markers.map((m) => m.value)]);
   return {
     min: domain.min,

@@ -26,6 +26,32 @@ describe("ThemeToggle", () => {
     expect(html).toContain('data-state="checked"');
   });
 
+  it("keeps a theme control at every width instead of hiding it on phones", () => {
+    const html = renderToStaticMarkup(<ThemeToggle initial="system" />);
+    // The segmented control is for wide screens: the *wrapper* carries the
+    // breakpoint, because the `.theme-toggle` stylesheet rule declares `display`
+    // and unlayered CSS outranks Tailwind's layered `hidden` utility. Putting the
+    // breakpoint on the element itself left the segmented control visible on a
+    // phone beside the compact button.
+    expect(html).toMatch(/<div class="hidden sm:flex">/);
+    expect(html).not.toMatch(/class="theme-toggle hidden/);
+    // ...and below sm the compact trigger is present, so a phone still has a way
+    // to choose. Hiding both was the defect this replaced.
+    expect(html).toMatch(/class="sm:hidden"/);
+    expect(html).toContain("<button");
+    expect(html).toMatch(/type="button"/);
+    expect(html).toContain('aria-label="Colour theme: System. Choose light, dark or system."');
+    expect(html).toContain("theme-toggle__trigger");
+    // The trigger gets its own display utility so the stylesheet need not set one.
+    expect(html).toMatch(/class="theme-toggle__trigger grid place-items-center"/);
+  });
+
+  it("names the current choice on the compact trigger for assistive technology", () => {
+    const html = renderToStaticMarkup(<ThemeToggle initial="dark" />);
+    expect(html).toContain("Colour theme: Dark.");
+    expect(html).toContain('title="Colour theme: Dark"');
+  });
+
   it("is a segmented control, not a single mystery icon", () => {
     const html = renderToStaticMarkup(<ThemeToggle initial="light" />);
     expect(html).toContain("theme-toggle");

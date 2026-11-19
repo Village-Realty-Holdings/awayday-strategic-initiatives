@@ -281,6 +281,7 @@ export const getReviewPlan = cache(async (period: string): Promise<ReviewPlan> =
                 source,
                 calculatedRag,
                 statusOverride,
+                higherIsBetter: mapping ? mapping.higherIsBetter : null,
                 origin,
                 ...(derived && mapping ? { inputs: mappingInputKeys(mapping).map((key) => inputNames.get(key) ?? key) } : {}),
               }

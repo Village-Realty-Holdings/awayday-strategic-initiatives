@@ -1,6 +1,65 @@
 # Status
 
-_Last updated 2026-11-18, on branch `feat/review-visual-parity` (stacked on PR #25; neither branch is merged or deployed)._
+_Last updated 2026-11-18 (evening), on branch `feat/review-visual-parity`
+(stacked on PR #25; neither branch is merged or deployed)._
+
+## Latest: final review corrections on PR #26 (not merged)
+
+Two review concerns were addressed, plus the defects the re-review found.
+
+**1. Theme selection at every width.** The control is no longer hidden below
+`sm`. Wide screens keep the three-option segmented control; below `sm` a compact
+icon button opens a popover with the same Light / Dark / System radio group,
+keyboard operable, labelled, announced, and sharing the same cookie. The first
+attempt put `hidden sm:inline-flex` on the element whose unlayered stylesheet
+rule declares `display`, so Tailwind's layered utility lost: the phone rendered
+the segmented control **and** the compact button (header 77 px instead of 56 px)
+and the desktop kept the mobile navigation button. Visibility now lives on
+wrapper elements / utilities, with a stylesheet regression test.
+
+**2. KPI direction rules audited and corrected.** See
+[docs/kpi-direction-audit.md](docs/kpi-direction-audit.md). Findings:
+
+- **A direction read from a shortened display label.** `Support cost as % of
+  revenue` prints as “Support % of revenue”, so `cost` was lost and the only
+  match was `revenue` → *higher is better*. A +1 pp rise in a cost ratio was
+  coloured green. Rows now carry `directionKey` (definition name *and* metric-key
+  words) and the table reads direction from that.
+- **Broad matches narrowed:** `cost`, `units`, `days`, `scores`, `profit`,
+  `churn`, `occupanc`, `vacanc`, `cancell` no longer match neighbouring words.
+  Compound identities (`units lost`, `risk score`, `cost efficiency`) and an
+  ambiguity rule (a name with both churn and retention) decide first; anything
+  else is unknown and stays neutral.
+- **Declared metadata now wins end to end.** `resolveDirection()` prefers an
+  approved `KpiMeasureMapping.higherIsBetter` for gauges, headline cards and
+  P&L deltas. No migration: the column already exists. Recommended follow-up
+  (approval needed, not done): drop its `@default(true)` so a mapping must state
+  a direction.
+- **Gauge defects:** target prose read the **b of “budget”** as a billions
+  suffix (a 3,152-unit budget became 3.152 trillion), and a tight
+  actual/target pair could collapse the axis (“4.5 to 4.5”, actual outside its
+  own range). Both fixed, with regression tests.
+
+**Verified locally:** `npm run typecheck`, `npm run lint`, `npm test` (62 files,
+707 tests) and `npm run build` pass. Rendered from local synthetic Postgres at
+390 / 768 / 1440 px in light and dark: no page-level horizontal scroll, exactly
+one theme control per width, six gauges all inside their axes, corrected
+favourable/unfavourable tones (`Support % of revenue` now red when it rises),
+dark background `rgb(18,26,33)`, sampled dark contrast 6.72:1 (muted) to 15.6:1
+(body).
+
+**Not verified:** the real October 2026 observations in Neon; the supplied
+reference HTML is not present in this environment, so the preview dataset was
+built from the reviewed figures already encoded in the repository's reference
+fixtures plus the local synthetic seed. No deployment.
+
+**Local preview (development only).** `next dev` on `http://localhost:3000`
+against the local `awayday_si_dev` Postgres, with `DEV_AUTH_AS=dev@awayday.test`
+(the documented local-only bypass). Synthetic, disposable, gitignored; nothing
+was sent to Neon or Cloudflare.
+
+**Documentation gaps fixed in this pass:** `docs/kpi-direction-audit.md` added;
+the visual-parity document no longer claims the phone theme control is hidden.
 
 ## Current milestone: visual parity, theme, status vocabulary and AI commentary design
 

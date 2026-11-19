@@ -196,15 +196,25 @@ export function suggestDomain(values: readonly number[]): { min: number; max: nu
   const high = Math.max(...finite);
   const span = high - low || Math.abs(high) || 1;
   const pad = span * 0.15;
-  const min = low >= 0 ? 0 : low - pad;
-  const max = high + pad;
-  return { min: roundStep(min), max: roundStep(max) };
+  const roundedMin = roundStep(low >= 0 ? 0 : low - pad);
+  const roundedMax = roundStep(high + pad);
+  // A tight cluster can snap both ends to the same round number ("4.5 to 4.5"
+  // for a 4.64 actual against a 4.5 goal), which leaves the actual outside its
+  // own axis and the gauge unreadable. Keep at least one step of range, and step
+  // up again if rounding landed below the largest value.
+  const max = roundedMax > roundedMin ? roundedMax : roundedMin + stepFor(roundedMin);
+  return { min: roundedMin, max: max < high ? max + stepFor(max) : max };
+}
+
+/** The rounding step `roundStep` uses at this magnitude. */
+function stepFor(value: number): number {
+  const magnitude = Math.abs(value);
+  if (magnitude === 0) return 1;
+  return magnitude >= 100 ? 10 : magnitude >= 10 ? 1 : magnitude >= 1 ? 0.5 : 0.1;
 }
 
 function roundStep(value: number): number {
-  const magnitude = Math.abs(value);
-  if (magnitude === 0) return 0;
-  const step = magnitude >= 100 ? 10 : magnitude >= 10 ? 1 : magnitude >= 1 ? 0.5 : 0.1;
+  const step = stepFor(value);
   return Math.round(value / step) * step;
 }
 

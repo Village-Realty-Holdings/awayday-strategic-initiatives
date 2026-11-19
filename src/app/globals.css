@@ -599,6 +599,69 @@ html[data-theme="dark"] .strategy-house__values {
   color: var(--color-navy-deep);
 }
 
+/* Narrow screens: one button the width of a tap target. It keeps the header
+   height and never widens the row, so the theme choice no longer has to be
+   hidden on phones to avoid horizontal scrolling.
+
+   Display is deliberately NOT declared here. This block is unlayered and would
+   beat Tailwind's layered `hidden` / `md:hidden` utilities; the element supplies
+   `grid place-items-center` itself so its wrapper's breakpoint still applies. */
+.theme-toggle__trigger {
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-2);
+  color: var(--color-ink-muted);
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+}
+.theme-toggle__trigger:hover,
+.theme-toggle__trigger[data-state="open"] {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+.theme-toggle__trigger:focus-visible {
+  outline: 2px solid var(--color-navy);
+  outline-offset: 2px;
+}
+/* Narrow-screen navigation trigger (components/shell/mobile-nav.tsx). Same tap
+   size as the theme button, so the two sit level in the header. Display comes
+   from utilities for the same reason as the theme trigger above. */
+.mobile-nav__trigger {
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-surface-2);
+  color: var(--color-ink-muted);
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+}
+.mobile-nav__trigger:hover,
+.mobile-nav__trigger[data-state="open"] {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+.mobile-nav__trigger:focus-visible {
+  outline: 2px solid var(--color-navy);
+  outline-offset: 2px;
+}
+.theme-toggle__menu-option {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  text-align: left;
+  font-size: 0.75rem;
+  line-height: 1.25;
+}
+
 /* ---------------------------------------------------------------------------
  * KPI gauge (components/review/kpi-gauge.tsx).
  *

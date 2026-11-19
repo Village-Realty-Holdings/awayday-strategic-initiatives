@@ -84,6 +84,7 @@ import {
   RealEstate01Icon,
   UserLove01Icon,
   Sun03Icon,
+  Menu01Icon,
   Moon02Icon,
   ComputerIcon,
 } from "@hugeicons/core-free-icons";
@@ -181,6 +182,7 @@ export const Settings = make(Settings01Icon, "Settings");
 export const Sun = make(Sun03Icon, "Sun");
 export const Moon = make(Moon02Icon, "Moon");
 export const Monitor = make(ComputerIcon, "Monitor");
+export const Menu = make(Menu01Icon, "Menu");
 
 // People & security
 export const Users = make(UserGroupIcon, "Users");

@@ -104,6 +104,11 @@ export type ReviewMeasure = {
   calculatedRag?: Rag;
   /** The status set by hand for this pillar and month, if any. */
   statusOverride?: PillarStatus | null;
+  /**
+   * The direction the approved measure mapping declares, when one is configured.
+   * Explicit metadata: it beats reading a direction out of the measure's name.
+   */
+  higherIsBetter?: boolean | null;
   /** Where the value came from and how its status was reached, for the pillar editor. */
   origin?: MeasureOrigin;
 };

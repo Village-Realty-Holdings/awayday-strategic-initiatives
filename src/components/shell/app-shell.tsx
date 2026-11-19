@@ -9,6 +9,7 @@ import { AskPanel } from "@/components/ask-panel";
 import { FlashToaster } from "@/components/flash-toaster";
 import { SessionKeepalive } from "@/components/shell/session-keepalive";
 import { DevTestingTool } from "@/components/dev-testing/dev-testing-tool";
+import { MobileNav } from "@/components/shell/mobile-nav";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { isDevAuthEnabled } from "@/lib/dev-auth";
 import { DEFAULT_THEME_PREFERENCE, type ThemePreference } from "@/lib/theme";
@@ -35,7 +36,9 @@ export function AppShell({
   return (
     <BreadcrumbProvider>
     <div className="app-shell flex h-dvh overflow-hidden bg-bg">
-      <aside data-chrome className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-surface">
+      {/* A fixed column from md up; below it the same navigation lives in
+            MobileNav, so the page keeps its full width on a phone. */}
+      <aside data-chrome className="hidden h-full w-60 shrink-0 flex-col border-r border-border bg-surface md:flex">
         <div className="flex h-14 shrink-0 items-center border-b border-border px-5">
           <Image
             src="/awayday-logo.png"
@@ -78,14 +81,17 @@ export function AppShell({
             logo row's, so sidebar and top bar form one white frame. */}
         <header
           data-chrome
-          className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-border bg-surface px-6 py-1"
+          className="flex min-h-14 shrink-0 items-center justify-between gap-2 border-b border-border bg-surface px-3 py-1 sm:gap-3 sm:px-6"
         >
-          <Breadcrumbs />
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <MobileNav name={user.name} role={user.role} />
+            <Breadcrumbs />
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
             <AskPanel />
-            {/* Phones have no room beside the breadcrumbs in this shell, so the
-                device setting governs there; the full control appears from sm up. */}
-            <ThemeToggle initial={theme} className="hidden sm:block" />
+            {/* Every width gets a theme control: the segmented choice from sm up,
+                a compact icon button with the same three options below it. */}
+            <ThemeToggle initial={theme} />
           </div>
         </header>
         {/* Content area: the page's scroll container, framed by the sidebar

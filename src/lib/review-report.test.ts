@@ -12,6 +12,7 @@ import {
   buildReportRows,
   buildTrendChart,
   currentPeriodRows,
+  directionKeyFor,
   formatDelta,
   formatMetricValue,
   formatValueForKind,
@@ -29,6 +30,7 @@ import {
   type ReportObservation,
   type TrendChartSpec,
 } from "./review-report";
+import { metricDirection } from "./kpi-status";
 
 // Synthetic fixtures only. The shapes mirror KpiDefinition/KpiObservation; the
 // amounts are invented so no private figure is committed.
@@ -247,6 +249,26 @@ describe("report table", () => {
     expect(costRow.monthActual.display).toBe("\u2212$400K");
     expect(costRow.monthVsBudget.display).toBeNull();
     expect(costRow.ytdActual.display).toBeNull();
+  });
+
+  it("reads a delta's direction from the metric identity, not the shortened label", () => {
+    // "Support cost as % of revenue" is shortened to "Support % of revenue" in the
+    // table. Reading direction from that label lost "cost" and coloured a rise in
+    // a cost ratio green; the key carries both the definition name and metric key.
+    const support = metric({ id: "support", name: "Support cost as % of revenue", metricKey: "user_review:support_cost_pct", unit: "percent", displayFormat: "percent" });
+    expect(directionKeyFor(support)).toBe("Support cost as % of revenue support cost pct");
+    expect(metricDirection(directionKeyFor(support))).toEqual({ direction: "lower", known: true });
+    // A label that keeps its decisive word is unaffected.
+    expect(metricDirection(directionKeyFor(revenue))).toEqual({ direction: "higher", known: true });
+  });
+
+  it("carries a mapping's declared direction onto the row, for the delta's colour", () => {
+    const declared = [{ ...revenue, higherIsBetter: false }, costOfSales];
+    const rev = buildReportRows(declared, rows).find((row) => row.id === "user_review:revenue")!;
+    expect(rev.higherIsBetter).toBe(false);
+    const cos = buildReportRows(declared, rows).find((row) => row.id === "user_review:cost_of_sales")!;
+    // No mapping supplied: null, so the name remains the only evidence.
+    expect(cos.higherIsBetter).toBeNull();
   });
 
   it("never mixes populations", () => {

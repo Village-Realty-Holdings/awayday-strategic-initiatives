@@ -113,6 +113,9 @@ export const getReviewedReport = cache(async (period: string): Promise<ReviewedR
         target: true,
         strategicAreaId: true,
         strategicArea: { select: { code: true, name: true } },
+        // Declared direction, when this definition is itself a measure with an
+        // approved mapping. Read-only, one row per definition.
+        measureMapping: { select: { higherIsBetter: true } },
         observations: {
           where: { ...CURRENT_WHERE, reportingPeriod: period, sourceCategory: REVIEWED_SOURCE_CATEGORY },
           select: OBSERVATION_SELECT,
@@ -146,6 +149,7 @@ export const getReviewedReport = cache(async (period: string): Promise<ReviewedR
     target: def.target,
     strategicAreaId: def.strategicAreaId,
     areaCode: def.strategicArea?.code ?? null,
+    higherIsBetter: def.measureMapping?.higherIsBetter ?? null,
   }));
 
   const periodRows: ReportObservation[] = defs.flatMap((def) => def.observations.map((observation) => ({ ...observation, kpiId: def.id })));

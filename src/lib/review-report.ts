@@ -29,6 +29,11 @@ export type ReportMetric = {
   strategicAreaId: string | null;
   /** StrategicArea.code of the linked area, when the definition is tied to one. */
   areaCode?: string | null;
+  /**
+   * Direction declared by an approved measure mapping, when this definition has
+   * one. Explicit metadata: it is preferred over reading the name.
+   */
+  higherIsBetter?: boolean | null;
 };
 
 export type ReportObservation = KpiObservationRecord & { kpiId: string };
@@ -158,7 +163,22 @@ export type ReportTableRow = {
   ytdVsBudget: ComparisonCell;
   ytdVsPriorYear: ComparisonCell;
   target: string | null;
+  /** Declared direction of this row's metric, when a mapping states one. */
+  higherIsBetter?: boolean | null;
+  /**
+   * The metric identity a delta's direction is read from — the definition's name
+   * plus its metric key. A table label is shortened for display ("Support % of
+   * revenue"), so reading direction from the label lost the decisive word and
+   * coloured a rise in a cost ratio green.
+   */
+  directionKey: string;
 };
+
+/** See `ReportTableRow.directionKey`: name and key words, never the display label. */
+export function directionKeyFor(metric: Pick<ReportMetric, "name" | "metricKey">): string {
+  const key = metric.metricKey.replace(/^[a-z_]+[:_]/i, "").replace(/[_:]+/g, " ");
+  return `${metric.name} ${key}`.trim();
+}
 
 type Basis = "ACTUAL" | "BUDGET" | "PRIOR_YEAR";
 
@@ -209,6 +229,8 @@ export function buildReportRows(metrics: readonly ReportMetric[], rows: readonly
       ytdVsBudget: deltaCell(kind, ytdActual, cell(metric, observationFor(own, metric.id, "YTD", "BUDGET"))),
       ytdVsPriorYear: deltaCell(kind, ytdActual, cell(metric, observationFor(own, metric.id, "YTD", "PRIOR_YEAR"))),
       target: metric.target,
+      higherIsBetter: metric.higherIsBetter ?? null,
+      directionKey: directionKeyFor(metric),
     });
   }
   return built.sort((a, b) => a.label.localeCompare(b.label));
@@ -389,6 +411,8 @@ export type ExecCard = {
   metricId: string | null;
   timeBasis: string | null;
   metricName: string | null;
+  /** Declared direction of the card's metric, when a mapping states one. */
+  higherIsBetter?: boolean | null;
   value: string | null;
   delta: ComparisonCell;
   deltaLabel: string;
@@ -484,6 +508,7 @@ export function buildExecCards(metrics: readonly ReportMetric[], rows: readonly 
           metricId: metric.id,
           timeBasis: spec.timeBasis,
           metricName: metric.name,
+          higherIsBetter: metric.higherIsBetter ?? null,
           value: actual.display,
           delta: deltaCell(kind, actual, cell(metric, comparison)),
           deltaLabel: basis === "BUDGET" ? "vs budget" : "vs prior year",
@@ -500,6 +525,7 @@ export function buildExecCards(metrics: readonly ReportMetric[], rows: readonly 
       metricId: metric.id,
       timeBasis: spec.timeBasis,
       metricName: metric.name,
+      higherIsBetter: metric.higherIsBetter ?? null,
       value: actual.display,
       delta: EMPTY_CELL,
       deltaLabel: "no comparison loaded",

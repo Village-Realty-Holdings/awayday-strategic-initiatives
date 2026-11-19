@@ -181,6 +181,19 @@ describe("suggested domain", () => {
     expect(domain.max).toBeGreaterThanOrEqual(0.8);
   });
 
+  it("never collapses to a single point, and always contains every value", () => {
+    // 4.64 against a 4.5 goal used to snap both ends to 4.5, so the gauge showed
+    // "Actual 4.64 (outside the charted range)" on an axis of 4.5 to 4.5.
+    for (const values of [[4.64, 4.5], [4.64, 4.65, 4.7], [94, 3.3, 1, 3], [12.4, 12, 11]]) {
+      const domain = suggestDomain(values);
+      expect(domain.max, `${values.join(",")} must have range`).toBeGreaterThan(domain.min);
+      for (const value of values) {
+        expect(value, `${value} must sit inside ${domain.min}..${domain.max}`).toBeGreaterThanOrEqual(domain.min);
+        expect(value, `${value} must sit inside ${domain.min}..${domain.max}`).toBeLessThanOrEqual(domain.max);
+      }
+    }
+  });
+
   it("copes with nothing to plot", () => {
     expect(suggestDomain([])).toEqual({ min: 0, max: 1 });
   });

@@ -160,25 +160,52 @@ export type DirectionReading = {
   known: boolean;
 };
 
-// Checked before the higher-is-better list, because "units churned" contains
-// "units" and "cost of sales" contains nothing that reads as a profit measure.
+// Direction rules are narrow on purpose. An earlier version matched broad
+// substrings ("cost", "units", "days", "scores"), which misclassifies names that
+// merely contain the word: "cost efficiency" is better when it rises, "units
+// lost" is better when it falls, and "risk score" is a warning sign. So:
+//
+//   1. AMBIGUOUS names are recognised first and stay uncoloured. A name that
+//      says both "churn" and "retention" has no single verdict.
+//   2. COMPOUND identities come next, because the phrase fixes the meaning
+//      regardless of the words inside it.
+//   3. Then the two word-bounded lists, lower first: "unit churn" is churn.
+//   4. Anything else is unknown, so a comparison for it stays neutral.
+const AMBIGUOUS_DIRECTION = [
+  // Both sides of the same coin in one name.
+  /\b(churn|attrition)\b.*\bretention\b/,
+  /\bretention\b.*\b(churn|attrition)\b/,
+  // A variance with no stated measure, or a bare "change"/"gap": the sign tells
+  // you nothing until the metric is named.
+  /^(change|variance|gap|delta|growth|movement|difference)$/,
+];
+
+const COMPOUND_DIRECTION: { pattern: RegExp; direction: KpiDirection }[] = [
+  // Fewer is better, whatever else the name says.
+  { pattern: /\b(units?|owners?|deals?|customers?|guests?|accounts?|listings?|rooms?)\s+(lost|lost in)\b/, direction: "lower" },
+  { pattern: /\brevenue\s+lost\b|\blost\s+revenue\b/, direction: "lower" },
+  { pattern: /\brisk\s+(score|rating)\b|\bseverity\b/, direction: "lower" },
+  { pattern: /\bdays?\s+(to|per)\b|\bcycle\s+time\b|\btime\s+to\b/, direction: "lower" },
+  // More is better, whatever else the name says.
+  { pattern: /\bcost\s+(efficiency|savings?|avoidance)\b/, direction: "higher" },
+  { pattern: /\bexpense\s+(efficiency|savings?)\b/, direction: "higher" },
+  { pattern: /\bspend\s+efficiency\b/, direction: "higher" },
+];
+
 const LOWER_IS_BETTER = [
-  /\bchurn\w*/,
+  /\bchurn(s|ed|ing)?\b/,
   /\battrition\b/,
   /\bturnover\b/,
   /\bcac\b/,
   /\bcost per\b/,
-  /\bcost of (sales|goods|revenue)\b/,
-  /\bcost\b/,
+  /\bcost of (sales|goods|revenue|service)\b/,
+  /\bcosts?\b/,
   /\bopex\b/,
   /\bexpenses?\b/,
   /\bspend\b/,
-  /\bdays?\b/,
-  /\bcycle time\b/,
-  /\btime to\b/,
-  /\bvacanc\w*/,
+  /\bvacanc(y|ies)\b/,
   /\bdelinquen\w*/,
-  /\bcancell\w*/,
+  /\bcancellations?\b/,
   /\brefunds?\b/,
   /\bchargebacks?\b/,
   /\bwrite[- ]?offs?\b/,
@@ -186,15 +213,21 @@ const LOWER_IS_BETTER = [
   /\bincidents?\b/,
   /\bescalations?\b/,
   /\bfloors? breached\b/,
+  /\bloss(es)?\b/,
+  /\bleakage\b/,
+  /\bbacklog\b/,
+  /\bdowntime\b/,
 ];
 
 const HIGHER_IS_BETTER = [
   /\bmargins?\b/,
   /\bebitda\b/,
   /\bnoi\b/,
+  /\bgross profit\b/,
+  /\bprofit(ability)?\b/,
   /\brevenue\b/,
-  /\boccupanc\w*/,
-  /\btrevpar\b/,
+  /\boccupanc(y|ies)\b/,
+  /\bt?revpar\b/,
   /\badr\b/,
   /\bgbv\b/,
   /\btake rate\b/,
@@ -205,7 +238,6 @@ const HIGHER_IS_BETTER = [
   /\bdeals?\b/,
   /\bunits?\b/,
   /\bearnings?\b/,
-  /\bprofit\w*/,
   /\bbookings?\b/,
   /\breviews?\b/,
   /\bguests?\b/,
@@ -217,11 +249,40 @@ const HIGHER_IS_BETTER = [
  * which direction to colour, never a value.
  */
 export function metricDirection(name: string | null | undefined): DirectionReading {
-  const text = (name ?? "").toLowerCase();
+  const text = (name ?? "").toLowerCase().trim();
   if (!text) return { direction: "higher", known: false };
+  if (AMBIGUOUS_DIRECTION.some((pattern) => pattern.test(text))) return { direction: "higher", known: false };
+  const compound = COMPOUND_DIRECTION.find((rule) => rule.pattern.test(text));
+  if (compound) return { direction: compound.direction, known: true };
   if (LOWER_IS_BETTER.some((pattern) => pattern.test(text))) return { direction: "lower", known: true };
   if (HIGHER_IS_BETTER.some((pattern) => pattern.test(text))) return { direction: "higher", known: true };
   return { direction: "higher", known: false };
+}
+
+/**
+ * The direction an approved mapping declares, when there is one. Explicit
+ * metadata beats a name match: the mapping's `higherIsBetter` is the business's
+ * own statement about the measure, so it is used as-is. Null means the caller
+ * should fall back to `metricDirection`.
+ */
+export function measureDirection(higherIsBetter: boolean | null | undefined): DirectionReading | null {
+  if (higherIsBetter == null) return null;
+  return { direction: higherIsBetter ? "higher" : "lower", known: true };
+}
+
+/**
+ * The direction to colour a measure with, preferring declared metadata.
+ *
+ * An approved measure mapping's `higherIsBetter` is the business's own statement
+ * about the measure, so it wins. The name is only consulted when no mapping has
+ * declared a direction, and a name that reads both ways still yields `known:
+ * false` — which keeps the comparison neutral rather than guessing.
+ */
+export function resolveDirection(
+  higherIsBetter: boolean | null | undefined,
+  name: string | null | undefined,
+): DirectionReading {
+  return measureDirection(higherIsBetter) ?? metricDirection(name);
 }
 
 /**

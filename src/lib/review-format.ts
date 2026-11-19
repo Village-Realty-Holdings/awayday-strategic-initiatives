@@ -202,7 +202,11 @@ export function parseTargetMarkers(target: string | null | undefined): TargetMar
   const markers: TargetMarker[] = [];
   const seen = new Set<string>();
   for (const segment of segments) {
-    const figures = segment.match(/[<>\u2264\u2265~]?\s*\$?\s*[-+]?\d+(?:[.,]\d+)*\s*[kmb]?\s*%?/gi) ?? [];
+    // The scale letter must not run into the next word: "3,152 budget" is a bare
+    // 3,152, not "3,152b" (three trillion). An earlier pattern allowed `\s*`
+    // before `[kmb]`, so the b of "budget" became a billions suffix and every
+    // "… budget" target was plotted a billion times too large.
+    const figures = segment.match(/[<>\u2264\u2265~]?\s*\$?\s*[-+]?\d+(?:[.,]\d+)*(?:[kmb](?![a-z0-9])|\s+[kmb](?![a-z0-9]))?\s*%?/gi) ?? [];
     if (figures.length !== 1) continue; // ambiguous: not attributable to one target
     const kind = TARGET_STYLES.find((k) => k.pattern.test(segment));
     if (!kind) continue; // an unlabelled figure in prose is a component, not a target

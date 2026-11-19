@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import type { ExecCard, ReportTableRow } from "@/lib/review-report";
 import type { ReportSection } from "@/lib/review-report-data";
-import { deltaTone, metricDirection, type StatusTone } from "@/lib/kpi-status";
+import { deltaTone, resolveDirection, type StatusTone } from "@/lib/kpi-status";
 
 // Presentation only: every number shown here was shaped from KpiObservation by
 // review-report.ts. Missing values render "—" rather than a guess.
@@ -20,17 +20,23 @@ function Cell({
   against,
   delta,
   directionSource,
+  higherIsBetter,
 }: {
   value: string | null;
   against?: number | null;
   delta?: number | null;
   /** The metric name a delta's direction is read from; omit for plain actuals. */
   directionSource?: string;
+  /** Direction declared by an approved mapping; preferred over the name. */
+  higherIsBetter?: boolean | null;
 }) {
   if (value === null) return <span className="text-ink-faint">—</span>;
   // A delta is only coloured once its direction is known; a plain actual never
   // is. Nothing is inferred from the sign of a number alone.
-  const tone = delta == null || !directionSource ? null : deltaTone(delta, metricDirection(directionSource), against);
+  const tone =
+    delta == null || (!directionSource && higherIsBetter == null)
+      ? null
+      : deltaTone(delta, resolveDirection(higherIsBetter, directionSource), against);
   return (
     <span
       className={`tabular ${tone ? TONE_CLASS[tone] : ""}`}
@@ -125,7 +131,8 @@ export function ComparisonTable({
                       value={entry.row.monthVsBudget.display}
                       against={entry.row.monthVsBudget.against}
                       delta={entry.row.monthVsBudget.value}
-                      directionSource={`${entry.row.label} budget variance`}
+                      directionSource={entry.row.directionKey}
+                      higherIsBetter={entry.row.higherIsBetter}
                     />
                   </td>
                   <td className="px-3 py-1.5 text-right">
@@ -133,7 +140,8 @@ export function ComparisonTable({
                       value={entry.row.monthVsPriorYear.display}
                       against={entry.row.monthVsPriorYear.against}
                       delta={entry.row.monthVsPriorYear.value}
-                      directionSource={`${entry.row.label} prior year variance`}
+                      directionSource={entry.row.directionKey}
+                      higherIsBetter={entry.row.higherIsBetter}
                     />
                   </td>
                   <td className="border-l border-border px-3 py-1.5 text-right">
@@ -144,7 +152,8 @@ export function ComparisonTable({
                       value={entry.row.ytdVsBudget.display}
                       against={entry.row.ytdVsBudget.against}
                       delta={entry.row.ytdVsBudget.value}
-                      directionSource={`${entry.row.label} budget variance`}
+                      directionSource={entry.row.directionKey}
+                      higherIsBetter={entry.row.higherIsBetter}
                     />
                   </td>
                   <td className="px-3 py-1.5 text-right">
@@ -152,7 +161,8 @@ export function ComparisonTable({
                       value={entry.row.ytdVsPriorYear.display}
                       against={entry.row.ytdVsPriorYear.against}
                       delta={entry.row.ytdVsPriorYear.value}
-                      directionSource={`${entry.row.label} prior year variance`}
+                      directionSource={entry.row.directionKey}
+                      higherIsBetter={entry.row.higherIsBetter}
                     />
                   </td>
                 </tr>
@@ -174,7 +184,8 @@ export function ExecSummary({ cards, monthName }: { cards: ExecCard[]; monthName
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {cards.map((card) => {
-        const reading = metricDirection(card.metricName ?? card.title);
+        // An approved mapping's declared direction wins over the card's name.
+        const reading = resolveDirection(card.higherIsBetter, card.metricName ?? card.title);
         const tone = card.value ? deltaTone(card.delta.value, reading, card.delta.against) : null;
         return (
           <Card key={card.id} className="gap-1.5 p-4" data-exec-card={card.id}>
