@@ -1,12 +1,27 @@
 # Status
 
-_Last updated 2026-11-18 (latest), on branch `feat/review-visual-parity`
-(stacked on PR #25; as of this commit neither branch is merged or deployed)._
+_Last updated 2026-11-18 (latest). PR #25 is **merged and deployed** to
+production (`master` b19f36f → Worker version `4dbdd50f`). PR #26 is reviewed,
+green and based on the new `master`, but **not merged**: it must not reach
+production before its two additive migrations are applied. See
+[docs/october-2026-release-runbook.md](docs/october-2026-release-runbook.md)._
+
+## Release state
+
+| Item | State |
+| --- | --- |
+| PR #25 | Merged into `master` (merge commit `b19f36f`); Workers Builds deployed 2026-11-19T05:40Z; live login page 200, `/` redirects to `/login` |
+| PR #26 | Open, based on `master`, mergeable, Workers Builds check green; head `feat/review-visual-parity` |
+| Production migrations | **17 applied. Migrations 18 and 19 (`higherIsBetter` nullable, `ReviewSoWhat.tone`) are NOT applied.** PR #26 cannot deploy without them |
+| Production business data | Unchanged: no observation, target, status or So-What written |
+| Post-deploy verification | Public surface verified; authenticated pages not verifiable from this machine (no production sign-in) |
 
 ## Latest: rollback is drift-safe and atomic; quantities are compared explicitly; status labels are preserved (PR #26)
 
-Three further review findings are closed. No production write, import, migration or
-deployment; PR #26 is still stacked on PR #25.
+Three further review findings are closed. This branch is now based on `master`
+after PR #25 merged; the corrections themselves are not deployed, because PR #26
+waits on its two migrations (see the release state above). No production write,
+import or migration was performed.
 
 - **A — Configuration rollback cannot overwrite a newer decision.**
   `prisma/configure-october-2026-primary-measures.ts` now snapshots **both** the
