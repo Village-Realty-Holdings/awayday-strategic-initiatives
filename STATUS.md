@@ -12,7 +12,7 @@ production before its two additive migrations are applied. See
 | --- | --- |
 | PR #25 | Merged into `master` (merge commit `b19f36f`); Workers Builds deployed 2026-11-19T05:40Z; live login page 200, `/` redirects to `/login` |
 | PR #26 | Open, based on `master`, mergeable, Workers Builds check green; head `feat/review-visual-parity` |
-| Production migrations | **17 applied. Migrations 18 and 19 (`higherIsBetter` nullable, `ReviewSoWhat.tone`) are NOT applied.** PR #26 cannot deploy without them |
+| Production migrations | **17 applied. Migrations 18 and 19 (`higherIsBetter` nullable, `ReviewSoWhat.tone`) are NOT applied.** Both were applied successfully to an isolated replica of that exact state, with byte-identical data before/after — see [the runbook](docs/october-2026-release-runbook.md) §1a. PR #26 cannot deploy before they reach production |
 | Production business data | Unchanged: no observation, target, status or So-What written |
 | Post-deploy verification | Public surface verified; authenticated pages not verifiable from this machine (no production sign-in) |
 

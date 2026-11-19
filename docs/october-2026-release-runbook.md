@@ -36,6 +36,32 @@ Confirm the two are the only difference:
 git diff --name-only origin/master origin/feat/review-visual-parity -- prisma/migrations
 ```
 
+## 1a. Replica verification already performed (2026-11-19)
+
+The two migrations were applied, in order, to an **isolated local Postgres 17
+replica** rebuilt from this repository's migration history truncated at
+`20261109180000_mcp_oauth` — the same state production is in — and seeded with
+representative rows before migrating:
+
+| Check | Result |
+| --- | --- |
+| Replica built from the 17 migrations production has | 17 dirs, ends at `20261109180000_mcp_oauth` |
+| Pre-migration column state | `higherIsBetter boolean NOT NULL default true`; `ReviewSoWhat` has no `tone` — matches the verified production schema |
+| `prisma migrate deploy` for the two pending migrations | both applied, "All migrations have been successfully applied." |
+| `higherIsBetter` after | `type=boolean`, `nullable=YES`, `default=(none)` |
+| `ReviewSoWhat.tone` after | `USER-DEFINED`, `udt_name=SoWhatTone`, `nullable=YES`, `default=(none)` |
+| Enum labels | `POSITIVE,WARNING,NEGATIVE,NEUTRAL` (in that order) |
+| Rows with a tone set | 0 |
+| Mapping rows (5) before vs after | identical aggregate fingerprint `f531b6ec…`; `true/true/false/true/true` preserved exactly |
+| So-What rows (33) before vs after | identical aggregate fingerprint `af858668…` |
+| `_prisma_migrations` order | `…mcp_oauth → …kpi_mapping_direction_optional → …review_so_what_tone` |
+| §7 rollback SQL | parses and executes inside a rolled-back transaction |
+
+The replica database and temporary files were dropped afterwards. This proves the
+statements and their ordering against production's schema state, but it is **not**
+a substitute for the pre-flight in §2 against the real branch, because only that
+run can detect drift between production's live schema and its migration history.
+
 ## 2. Pre-flight, read-only
 
 Run against the Neon **production** branch (`frosty-resonance-20920085`,
