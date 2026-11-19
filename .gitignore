@@ -216,3 +216,6 @@ prisma/generated/
 # Supplied reference bundle (October 2026 review HTML + read-only production KPI
 # identities). Must never be committed: it contains business financial content.
 .reference/
+
+# Before-snapshots written by the reviewed configuration scripts
+.october-*-before.json

@@ -1,4 +1,4 @@
-import type { SoWhat, SoWhatToneValue } from "@/lib/review-model";
+import type { Rag, SoWhat, SoWhatToneValue } from "@/lib/review-model";
 import type { KpiStatus } from "@/lib/kpi-status";
 
 /**
@@ -99,6 +99,25 @@ export function toneForStatus(status: KpiStatus | null | undefined): SoWhatTone 
     case "under_budget":
     case "needs_attention":
       return "warning";
+    default:
+      return "neutral";
+  }
+}
+
+/**
+ * A pillar's own RAG as the fallback tone for its so-whats, so a section's
+ * commentary carries the colour its pill and its badge carry. The review's
+ * pillar RAG is green / amber / red, and an on-track pillar may be amber; the
+ * status word alone cannot tell those apart, its RAG can.
+ */
+export function toneForRag(rag: Rag | null | undefined): SoWhatTone {
+  switch (rag) {
+    case "GREEN":
+      return "positive";
+    case "AMBER":
+      return "warning";
+    case "RED":
+      return "negative";
     default:
       return "neutral";
   }

@@ -118,10 +118,16 @@ export function statusTone(status: KpiStatus): StatusTone {
 /**
  * `under_budget` and `floor_breached` are the two statuses whose colour the
  * business rules may set. Callers that know the approved meaning pass it in;
- * everything else gets the documented default.
+ * everything else gets the documented default. An `on_track` pillar may state
+ * amber, because the review's own pillar RAG calls that yellow.
  */
 export function statusToneWithRule(status: KpiStatus, rule?: StatusTone): StatusTone {
   if ((status === "under_budget" || status === "floor_breached") && rule) return rule;
+  // The review's pillar RAG is green / amber / red, so an "on track" pillar
+  // states amber: its house card's border is amber, and its badge must match.
+  // The rule still cannot make a shortfall look better than it is, so this is
+  // the only direction an on-track override may move in.
+  if (status === "on_track" && rule === "warn") return "warn";
   return statusTone(status);
 }
 

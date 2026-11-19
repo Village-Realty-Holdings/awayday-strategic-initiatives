@@ -79,3 +79,45 @@ describe("MeasureStatus — October status and the 'Not configured' state", () =
     expect(out).toContain('data-status="no_data"');
   });
 });
+
+// The October review's combined statements: the approved wording is shown in
+// full, and the colour still comes from the status word, so green / amber / red
+// reach the screen for the combined states too.
+describe("MeasureStatus — approved wording and its colour", () => {
+  const approved = (wording: string, override: "AHEAD" | "ON_TRACK" | "BEHIND", rag: "GREEN" | "AMBER" | "RED") =>
+    measure({ rag, statusOverride: override, statusWording: wording, approvedStatus: wording, statusGap: "no-goal" });
+
+  it("shows 'Ahead · CAC off track' in full rather than only 'Ahead'", () => {
+    const out = html(area({ measure: approved("Ahead · CAC off track", "AHEAD", "GREEN") }));
+    expect(out).toContain("Ahead · CAC off track");
+    expect(out).not.toContain(NOT_CONFIGURED_LABEL);
+    expect(out).toContain('data-status="ahead"');
+    expect(out).toContain("bg-ok-soft");
+  });
+
+  it("shows 'Behind · October beat budget' in red", () => {
+    const out = html(area({ measure: approved("Behind · October beat budget", "BEHIND", "RED") }));
+    expect(out).toContain("Behind · October beat budget");
+    expect(out).toContain('data-status="behind"');
+    expect(out).toContain("bg-risk-soft");
+  });
+
+  it("shows 'On track reported · October under PY' in amber", () => {
+    const out = html(area({ measure: approved("On track reported · October under PY", "ON_TRACK", "AMBER") }));
+    expect(out).toContain("On track reported · October under PY");
+    expect(out).toContain('data-status="on_track"');
+    expect(out).toContain("bg-warn-soft");
+  });
+
+  it("shows 'On goal ex-OTA · behind reported' in amber", () => {
+    const out = html(area({ measure: approved("On goal ex-OTA · behind reported", "ON_TRACK", "AMBER") }));
+    expect(out).toContain("On goal ex-OTA · behind reported");
+    expect(out).toContain("bg-warn-soft");
+  });
+
+  it("renders the plain status word, with no wording bolted on, when none was approved", () => {
+    const out = html(area({ measure: measure({ rag: "GREEN", statusOverride: "AHEAD", statusWording: null }) }));
+    expect(out).toContain("Ahead");
+    expect(out).not.toContain("·");
+  });
+});

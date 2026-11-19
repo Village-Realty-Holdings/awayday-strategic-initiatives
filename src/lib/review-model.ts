@@ -17,7 +17,66 @@ export type PillarTone = "ahead" | "on_track" | "behind";
 export const PILLAR_STATUSES = ["AHEAD", "ON_TRACK", "BEHIND"] as const;
 export type PillarStatus = (typeof PILLAR_STATUSES)[number];
 export const PILLAR_STATUS_RAG: Record<PillarStatus, Rag> = { AHEAD: "GREEN", ON_TRACK: "AMBER", BEHIND: "RED" };
+export const PILLAR_STATUS_WORD: Record<PillarStatus, string> = { AHEAD: "Ahead", ON_TRACK: "On track", BEHIND: "Behind" };
 export type Rag = "GREEN" | "AMBER" | "RED" | "GREY";
+
+/**
+ * An approved pillar status may carry the reviewer's own wording after the
+ * status word, e.g. "Ahead · CAC off track" or "On track reported · October
+ * under PY". The status word selects the colour; the wording after it is the
+ * business statement that was approved and is shown exactly as it was written.
+ *
+ * This keeps a combined reading combined: an "Ahead · CAC off track" pillar is
+ * not reduced to "Ahead" and its warning is not lost. The vocabulary below is
+ * only the status words themselves — no business wording lives in code — and a
+ * stored value that does not begin with one of them is not a status at all, so
+ * an unrecognised value shows nothing rather than an invented colour.
+ */
+const APPROVED_STATUS_PREFIXES: readonly { prefix: string; status: PillarStatus }[] = [
+  // "on goal" is the same claim as "on track" in the October review's own words
+  // ("On goal ex-OTA · behind reported").
+  { prefix: "on track", status: "ON_TRACK" },
+  { prefix: "on goal", status: "ON_TRACK" },
+  { prefix: "ahead", status: "AHEAD" },
+  { prefix: "behind", status: "BEHIND" },
+];
+
+export type ApprovedPillarStatus = {
+  /** The status word, which selects the colour. */
+  status: PillarStatus;
+  /** What to show: the approved wording, or the plain status word when none was added. */
+  wording: string;
+  /** True when the reviewer added wording after the status word. */
+  custom: boolean;
+};
+
+/**
+ * Read an approved status stored on a pillar for a month. Accepts both the
+ * plain form ("AHEAD", as the September review stored it) and the combined form
+ * ("Ahead · CAC off track"). Anything else returns null.
+ */
+export function parseApprovedPillarStatus(stored: string | null | undefined): ApprovedPillarStatus | null {
+  const value = (stored ?? "").trim();
+  if (!value) return null;
+  // The stored status may be the machine form ("ON_TRACK") or the reviewer's
+  // wording ("On track reported · October under PY"); both read the same word.
+  const lower = value.toLowerCase().replace(/_/g, " ");
+  for (const { prefix, status } of APPROVED_STATUS_PREFIXES) {
+    if (!lower.startsWith(prefix)) continue;
+    // The status word has to end where it ends: "ahead" is a status,
+    // "aheadness" is not one that this vocabulary knows.
+    const rest = lower.slice(prefix.length);
+    if (rest && /[a-z0-9]/.test(rest[0])) continue;
+    // "AHEAD", "Ahead" and "Ahead of plan" all mean ahead; only the last one
+    // carries wording of its own to show.
+    return { status, wording: rest ? value : PILLAR_STATUS_WORD[status], custom: Boolean(rest) };
+  }
+  return null;
+}
+
+export function isApprovedPillarStatus(stored: string | null | undefined): boolean {
+  return parseApprovedPillarStatus(stored) !== null;
+}
 
 /**
  * Why a review pillar's calculated status could not be established. The
@@ -128,6 +187,13 @@ export type ReviewMeasure = {
   calculatedRag?: Rag;
   /** The status set by hand for this pillar and month, if any. */
   statusOverride?: PillarStatus | null;
+  /** The approved status exactly as stored, e.g. "AHEAD" or "Ahead · CAC off track". */
+  approvedStatus?: string | null;
+  /**
+   * The reviewer's own wording after the status word, when one was approved
+   * (e.g. "Ahead · CAC off track"). Shown as written; null for a plain status.
+   */
+  statusWording?: string | null;
   /**
    * How the primary measure was selected. `selected` means one active
    * KpiMeasureMapping names it; `missing` and `ambiguous` are neutral states and

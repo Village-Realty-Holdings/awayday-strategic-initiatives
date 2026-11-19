@@ -318,7 +318,7 @@ const TOOLS: Tool[] = [
             value: a.measure.value,
             target: a.measure.target,
             status: ragLabel(a.measure.rag),
-            statusSetByHand: a.measure.statusOverride ?? null,
+            statusSetByHand: a.measure.approvedStatus ?? null,
             valueSource: a.measure.source,
           },
           initiatives: a.sis.map((s) => ({

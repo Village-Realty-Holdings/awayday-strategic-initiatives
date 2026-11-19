@@ -8,7 +8,7 @@ import { MANUAL_MEASURE_IDENTITY, MANUAL_SOURCE_CATEGORY } from "@/lib/review-kp
 import { selectPrimaryMeasure } from "@/lib/primary-measure";
 import { parseStatus } from "@/lib/initiatives";
 import { canEdit } from "@/lib/roles";
-import { initiativeOwnerMatches, isoDay, normalizeSoWhats, parseIsoDay, PERIOD_PATTERN, PILLAR_STATUSES, reviewSoWhatScopeList, type PillarStatus } from "@/lib/review-model";
+import { initiativeOwnerMatches, isApprovedPillarStatus, isoDay, normalizeSoWhats, parseIsoDay, PERIOD_PATTERN, reviewSoWhatScopeList } from "@/lib/review-model";
 import { recordSiUpdate } from "@/lib/si-updates";
 
 // ---------------------------------------------------------------------------
@@ -188,7 +188,11 @@ export async function setPillarMeasure(actor: Actor, input: PillarMeasureInput):
   if (!plan || !area || area.planVersionId !== plan.id) return { ok: false, error: "That pillar is not in the active plan." };
   const statusField = input.status || null;
   if (statusField && area.kind === "ENABLER") return { ok: false, error: "Only pillars can have a status set by hand." };
-  if (statusField && statusField !== "calculated" && !(PILLAR_STATUSES as readonly string[]).includes(statusField)) return { ok: false, error: "Unknown status." };
+  // A status is one of the approved status words, optionally followed by the
+  // reviewer's own wording ("Ahead · CAC off track"). The status word is what
+  // the review colours; the wording is stored and shown as it was written.
+  if (statusField && statusField !== "calculated" && !isApprovedPillarStatus(statusField)) return { ok: false, error: "Unknown status." };
+  if (statusField && statusField.length > 80) return { ok: false, error: "That status is too long." };
 
   if (input.value !== undefined) {
     // A value needs a primary measure to belong to. No mapping, or two, is a
@@ -199,11 +203,11 @@ export async function setPillarMeasure(actor: Actor, input: PillarMeasureInput):
     const saved = await saveMeasureValue(actor, selection.kpi.id, id, trimmed(input.value, 60));
     if (!saved.ok) return saved;
   }
-  if (statusField) await saveMeasureStatus(actor, input.areaId, id, statusField === "calculated" ? null : (statusField as PillarStatus));
+  if (statusField) await saveMeasureStatus(actor, input.areaId, id, statusField === "calculated" ? null : statusField);
   return { ok: true };
 }
 
-async function saveMeasureStatus(actor: Actor, areaId: string, id: string, status: PillarStatus | null) {
+async function saveMeasureStatus(actor: Actor, areaId: string, id: string, status: string | null) {
   const where = { periodId_strategicAreaId: { periodId: id, strategicAreaId: areaId } };
   const before = await prisma.reviewPillarStatus.findUnique({ where, select: { id: true, status: true } });
   if ((before?.status ?? null) === status) return;
