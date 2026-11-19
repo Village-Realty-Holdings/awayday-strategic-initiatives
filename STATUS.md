@@ -1,7 +1,7 @@
 # Status
 
-_Last updated 2026-11-19. **The October parity presentation corrections are
-merged and deployed.** PR #30 squashed to `a3ee1c5`; Cloudflare Workers Builds
+_Last updated 2026-11-19. **The October parity presentation corrections and the
+follow-up status/FY27 wording correction are merged and deployed.** PR #30 squashed to `a3ee1c5`; Cloudflare Workers Builds
 reported success for that commit and deployed version `58331ab7` at 100% traffic.
 The seven October So-What tones are stored; the two October goal-line corrections
 remain prepared but **not applied** because this session had no production
@@ -15,6 +15,7 @@ database credentials (see below)._
 | PR #26 | Merged (`master` `7c034c5`, 2026-11-19T13:28Z); deployed 2026-11-19T13:32Z, version `b4ad6a9d` at 100% traffic |
 | PR #28 (status hotfix) | Merged (`master` `2deeed2`, 2026-11-19T16:09Z); Workers Builds deployed version `1fd934a6` at 100% traffic 2026-11-19T16:13Z |
 | PR #30 (October parity corrections) | Merged (`master` `a3ee1c5`, squash, 2026-11-19T17:36Z); Workers Builds check for `a3ee1c5` = success; deployed version `58331ab7` at 100% traffic 2026-11-19T17:42Z |
+| PR #32 (approved status + reviewed FY27 wording) | Merged (`master` `f7fbcb2`, squash, 2026-11-19); GitHub `Analyze` and CodeQL pass, Workers Builds check for `f7fbcb2` = success and the production build for that commit completed. Post-deploy smoke test: `/login` 200, `/`, `/review/2026-10`, `/review/2026-09` 307 to `/login`, `/api/mcp` GET 405 / POST 401 |
 | Production migrations | **19 applied.** `20261118220000_kpi_mapping_direction_optional` and `20261119044941_review_so_what_tone` applied 2026-11-19 with `prisma migrate deploy` on the direct (non-pooler) endpoint; 0 failed, 0 rolled back, schema up to date |
 | Migration data safety | Verified on the live branch: mapping, So-What and observation fingerprints identical before/after; 5 mappings kept `true/true/false/true/true`; 0 rows carry a tone; 7 So-What rows intact |
 | Production business data | **Unchanged.** No observation, target, pillar status or So-What was written; no import was run |
@@ -22,6 +23,39 @@ database credentials (see below)._
 | Pillar colours (hotfix) | **Restored.** The reviewed 2026 primary measures are applied and the five October status statements are stored; the house renders green / green / red / amber / amber with the combined wording. See `docs/october-2026-status-regression-hotfix.md` |
 | So-What tones | **Stored.** All 7 October rows carry a semantic tone — POSITIVE 1, WARNING 5, NEGATIVE 1 — applied by `prisma/configure-october-2026-so-what-tones.ts`. The script writes its snapshot `.october-so-what-tones-before.json` only after the serializable write transaction commits, so the snapshot timestamp (2026-11-19T17:20:41Z) evidences a successful production write; identity, scope, order and wording were not touched and each record has an audit row. This session had no production credentials, so the rows were not re-read afterwards |
 | October goal lines | **Prepared, not applied.** `prisma/configure-october-2026-goal-lines.ts` computes the Grow and M&A `KpiDefinition.target` corrections and refuses to write on drift, but no production snapshot exists, so the write has not been made. It needs a production `DATABASE_URL` (dry run first, then `--apply --snapshot`). Until then Grow shows no goal line and M&A keeps its stored `$26M total` wording — which the gauge no longer plots as a goal |
+
+## Latest: the approved status and the reviewed FY27 wording now win (PR #32, `f7fbcb2`, 2026-11-19)
+
+Two contradictions survived PR #30 in the "how the value was reached" line
+(the text the review shows beside a pillar's status badge):
+
+- **The line's word came from the calculated colour, not the approved status.**
+  A pillar approved as "Behind · October beat budget" could still read "Ahead"
+  beside it. `measureOrigin()` now takes the reviewer's approved wording from
+  `review-data.ts`, and that wording wins the label, the basis sentence and the
+  verdict; the calculated difference stays as factual context.
+- **The FY27 line used the measure mapping's planning figure.** M&A's mapping
+  still says `$26M` while production's reviewed definition states
+  `2026 goal $23M · FY27 ~$33M (1/3 tuck-ins) · $47M stretch`. A figure in the
+  definition's own reviewed target text now wins, and only when it is in the
+  measure's own quantity — so Grow's "FY27 22% gross adds (30% stretch)" is
+  never printed as an FY27 count budget. With no reviewed wording the mapping
+  figure is still used.
+
+Verified read-only against the production branch this session (direct endpoint,
+no writes): 72 definitions, 224 observations, 9 mappings (5 active), 7 So-Whats
+with tones POSITIVE 1 / WARNING 5 / NEGATIVE 1, 9 pillar statuses (4 September
+untouched, 5 October approved). The two October goal lines are **already
+applied** in production — Grow reads `YTD budget 2,608 (+28%) · full-year budget
+3,152 already passed · FY27 22% gross adds (30% stretch)`, M&A reads
+`2026 goal $23M · FY27 ~$33M (1/3 tuck-ins) · $47M stretch` — and the goal-lines
+script now reports "0 changes, 2 untouched". Its markers parse to goal $23M /
+FY27 budget $33M / stretch $47M, which is what the page will now display in
+place of the mapping's $26M.
+
+`npx tsc --noEmit`, `npm run lint`, `npx vitest run` (70 files / 903 tests),
+`npm run build` and `npx prisma validate` passed before merging. No observation,
+mapping, pillar status, So-What or planning record was written.
 
 ## Latest: October parity presentation corrections (PR #30, `a3ee1c5`, 2026-11-19)
 
