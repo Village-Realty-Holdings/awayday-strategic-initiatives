@@ -1,20 +1,49 @@
 # Status
 
-_Last updated 2026-11-18 (latest). PR #25 is **merged and deployed** to
-production (`master` b19f36f → Worker version `4dbdd50f`). PR #26 is reviewed,
-green and based on the new `master`, but **not merged**: it must not reach
-production before its two additive migrations are applied. See
-[docs/october-2026-release-runbook.md](docs/october-2026-release-runbook.md)._
+_Last updated 2026-11-19 (latest). **Both PRs are merged and deployed.** Production
+runs the complete PR #26 application (Worker version `b4ad6a9d`) against a
+database with both migrations applied._
 
 ## Release state
 
 | Item | State |
 | --- | --- |
-| PR #25 | Merged into `master` (merge commit `b19f36f`); Workers Builds deployed 2026-11-19T05:40Z; live login page 200, `/` redirects to `/login` |
-| PR #26 | Open, based on `master`, mergeable, Workers Builds check green; head `feat/review-visual-parity` |
-| Production migrations | **17 applied. Migrations 18 and 19 (`higherIsBetter` nullable, `ReviewSoWhat.tone`) are NOT applied.** Both were applied successfully to an isolated replica of that exact state, with byte-identical data before/after — see [the runbook](docs/october-2026-release-runbook.md) §1a. PR #26 cannot deploy before they reach production |
-| Production business data | Unchanged: no observation, target, status or So-What written |
-| Post-deploy verification | Public surface verified; authenticated pages not verifiable from this machine (no production sign-in) |
+| PR #25 | Merged (`master` `b19f36f`); deployed 2026-11-19T05:40Z (version `4dbdd50f`) |
+| PR #26 | Merged (`master` `7c034c5`, 2026-11-19T13:28Z); deployed 2026-11-19T13:32Z, version `b4ad6a9d` at 100% traffic |
+| Production migrations | **19 applied.** `20261118220000_kpi_mapping_direction_optional` and `20261119044941_review_so_what_tone` applied 2026-11-19 with `prisma migrate deploy` on the direct (non-pooler) endpoint; 0 failed, 0 rolled back, schema up to date |
+| Migration data safety | Verified on the live branch: mapping, So-What and observation fingerprints identical before/after; 5 mappings kept `true/true/false/true/true`; 0 rows carry a tone; 7 So-What rows intact |
+| Production business data | **Unchanged.** No observation, target, pillar status or So-What was written; no import was run |
+| Post-deploy verification | Every authenticated route redirects to `/login` (307) with no 5xx; `/login` 200; `/api/mcp` 405 on GET; the review page's exact `reviewPeriod` + `soWhats(tone)` query and the five-pillar primary query both succeed against the migrated schema. Authenticated browser rendering was not performed (no production sign-in on this machine) |
+| Known gap vs the approved local preview | Production's five pillars still use the FY27 plan definitions and their target text states no 2026 goal, so each pillar renders **"Not configured"** with the documented reason instead of a colour. The reviewed configuration script (`--apply`) has not been run; that is a business-data decision, not a code defect |
+
+## Latest: released — PR #25 and PR #26 are both live (2026-11-19)
+
+The complete Strategy Review implementation reviewed locally is now in
+production: dark/light theme (including the mobile theme selector), the shared
+status vocabulary and badges, explicit quantity compatibility for 2026-goal
+comparisons, separate FY27 budget/stretch presentation, tone-aware So-What
+rendering, transactions-safe configuration rollback with drift detection, and
+the reviewed report sections (executive cards, pillar scorecards, gauges,
+historical charts, brand churn).
+
+- **Migrations:** both pending migrations applied to the production branch with
+  `prisma migrate deploy` on the direct endpoint. `higherIsBetter` is now
+  nullable with no default; `ReviewSoWhat.tone` is a nullable `SoWhatTone`.
+  Pre-flight found 17 applied, 0 failed, 0 rolled back; post-flight found 19
+  applied, 0 failed, 0 rolled back, 0 logged.
+- **Preservation evidence:** `KpiMeasureMapping`, `ReviewSoWhat` and
+  `KpiObservation` fingerprints were identical before and after, and the five
+  stored directions were unchanged.
+- **Verification:** `npm run typecheck`, `npm run lint`, `npm test` (816 tests,
+  65 files), `npm run build` and `npx prisma validate` all pass on the merged
+  tree, which is identical to the validated PR head. GitHub CodeQL, Analyze and
+  Workers Builds are green on the merge commit.
+- **Still open, data only:** October's 2026 goals are not yet written into the
+  pillar target text (so statuses are neutral), the reviewed primaries are not
+  linked, 35 historical observations and the four bridge So-What texts are
+  missing, and Grow still needs a count-based 2026 goal. See
+  [docs/october-2026-parity-corrections.md](docs/october-2026-parity-corrections.md) §12
+  and [docs/october-2026-release-runbook.md](docs/october-2026-release-runbook.md).
 
 ## Latest: rollback is drift-safe and atomic; quantities are compared explicitly; status labels are preserved (PR #26)
 
