@@ -1,11 +1,11 @@
 # Status
 
 _Last updated 2026-11-19. **The October parity presentation corrections are
-implemented and verified on branch `fix/october-parity-presentation`; they are
-released only once that branch is merged and Workers Builds has deployed the merge
-commit (see the PR link recorded in the release table). Production still runs the
-PR #28 application until then. The seven October So-What tones are stored; the two
-October goal-line corrections are prepared but not applied (see below)._
+merged and deployed.** PR #30 squashed to `a3ee1c5`; Cloudflare Workers Builds
+reported success for that commit and deployed version `58331ab7` at 100% traffic.
+The seven October So-What tones are stored; the two October goal-line corrections
+remain prepared but **not applied** because this session had no production
+database credentials (see below)._
 
 ## Release state
 
@@ -14,6 +14,7 @@ October goal-line corrections are prepared but not applied (see below)._
 | PR #25 | Merged (`master` `b19f36f`); deployed 2026-11-19T05:40Z (version `4dbdd50f`) |
 | PR #26 | Merged (`master` `7c034c5`, 2026-11-19T13:28Z); deployed 2026-11-19T13:32Z, version `b4ad6a9d` at 100% traffic |
 | PR #28 (status hotfix) | Merged (`master` `2deeed2`, 2026-11-19T16:09Z); Workers Builds deployed version `1fd934a6` at 100% traffic 2026-11-19T16:13Z |
+| PR #30 (October parity corrections) | Merged (`master` `a3ee1c5`, squash, 2026-11-19T17:36Z); Workers Builds check for `a3ee1c5` = success; deployed version `58331ab7` at 100% traffic 2026-11-19T17:42Z |
 | Production migrations | **19 applied.** `20261118220000_kpi_mapping_direction_optional` and `20261119044941_review_so_what_tone` applied 2026-11-19 with `prisma migrate deploy` on the direct (non-pooler) endpoint; 0 failed, 0 rolled back, schema up to date |
 | Migration data safety | Verified on the live branch: mapping, So-What and observation fingerprints identical before/after; 5 mappings kept `true/true/false/true/true`; 0 rows carry a tone; 7 So-What rows intact |
 | Production business data | **Unchanged.** No observation, target, pillar status or So-What was written; no import was run |
@@ -22,7 +23,7 @@ October goal-line corrections are prepared but not applied (see below)._
 | So-What tones | **Stored.** All 7 October rows carry a semantic tone — POSITIVE 1, WARNING 5, NEGATIVE 1 — applied by `prisma/configure-october-2026-so-what-tones.ts`. The script writes its snapshot `.october-so-what-tones-before.json` only after the serializable write transaction commits, so the snapshot timestamp (2026-11-19T17:20:41Z) evidences a successful production write; identity, scope, order and wording were not touched and each record has an audit row. This session had no production credentials, so the rows were not re-read afterwards |
 | October goal lines | **Prepared, not applied.** `prisma/configure-october-2026-goal-lines.ts` computes the Grow and M&A `KpiDefinition.target` corrections and refuses to write on drift, but no production snapshot exists, so the write has not been made. It needs a production `DATABASE_URL` (dry run first, then `--apply --snapshot`). Until then Grow shows no goal line and M&A keeps its stored `$26M total` wording — which the gauge no longer plots as a goal |
 
-## Latest: October parity presentation corrections (PR #30, 2026-11-19)
+## Latest: October parity presentation corrections (PR #30, `a3ee1c5`, 2026-11-19)
 
 The five pillar headline cards, the scorecards, the gauges, the executive cards,
 the missing-data labels and the So-What colours now reproduce the reviewed
@@ -74,6 +75,12 @@ month beside a YTD headline, and both secondary figures resolved from the paired
 definition. This session could not reach the production database (no credentials),
 so the production page itself was not rendered or re-read; code changes touch no
 observation, target, mapping, status or revision.
+
+**Post-deploy smoke test (unauthenticated).** `/login` 200; `/`, `/review/2026-10`
+and `/review/2026-09` all 307 to `/login` with the correct `redirect`; `/api/mcp`
+405 on GET; no 5xx. The signed-in page was **not** opened, and the production
+database was **not** queried, in this session — authenticated visual parity is
+still to be confirmed by someone with production sign-in.
 
 **Still outstanding, by design** — see `docs/october-2026-parity-corrections.md`
 §12: the executive cards' budget and prior-year observations do not exist for the
