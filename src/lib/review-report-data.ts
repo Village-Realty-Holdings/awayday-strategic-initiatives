@@ -2,6 +2,7 @@ import { cache } from "react";
 import { PUBLICATION_APPROVED } from "@/lib/kpi";
 import { prisma } from "@/lib/prisma";
 import {
+  applyReviewedComparisons,
   buildBrandChurn,
   buildExecCards,
   buildPillarScorecard,
@@ -100,7 +101,7 @@ export type ReviewedReport = {
  * observations, and the chart families' history.
  */
 export const getReviewedReport = cache(async (period: string): Promise<ReviewedReport> => {
-  const [defs, history, pillarStatuses, activeMappings] = await Promise.all([
+  const [defs, history, pillarStatuses, activeMappings, reviewedComparisons] = await Promise.all([
     prisma.kpiDefinition.findMany({
       where: { metricKey: { startsWith: REVIEWED_METRIC_PREFIX } },
       orderBy: { name: "asc" },
@@ -168,6 +169,13 @@ export const getReviewedReport = cache(async (period: string): Promise<ReviewedR
           },
         },
       },
+    }),
+    // The reviewed comparison lines for this month's headline cards. Bounded by
+    // period, at most a handful of rows per card; plain text and a tone only.
+    prisma.reviewExecComparison.findMany({
+      where: { periodId: period },
+      orderBy: [{ cardKey: "asc" }, { order: "asc" }],
+      select: { cardKey: true, order: true, text: true, tone: true, sourceDocumentName: true },
     }),
   ]);
 
@@ -258,7 +266,10 @@ export const getReviewedReport = cache(async (period: string): Promise<ReviewedR
     if (scorecard.loaded > 0) scorecards[code] = scorecard;
   }
 
-  const execCards = buildExecCards(metrics, periodRows, period);
+  // The comparison lines the reviewed report printed under each headline card.
+  // Presentation data for this month only: a month with no rows keeps the
+  // calculated comparison, and nothing here creates an observation.
+  const execCards = applyReviewedComparisons(buildExecCards(metrics, periodRows, period), reviewedComparisons);
   // A chart may not reuse a headline's exact identity: the reviewed history and the
   // headline are different facts even when they share a definition.
   const headlineIdentities = new Set(

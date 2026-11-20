@@ -8,6 +8,7 @@ const TABS: LinkTab[] = [
   { label: "Groups", href: "/admin/groups", icon: Layers },
   { label: "Data sources", href: "/admin/data-sources", icon: Database },
   { label: "Measure mappings", href: "/admin/measure-mappings", icon: SlidersHorizontal },
+  { label: "Review data quality", href: "/admin/review-data-quality", icon: LineChart },
   { label: "Initiatives", href: "/admin/initiatives", icon: Target },
   { label: "Plan versions", href: "/admin/plans", icon: CalendarCheck },
   { label: "Strategy reference", href: "/admin/reference", icon: Compass },

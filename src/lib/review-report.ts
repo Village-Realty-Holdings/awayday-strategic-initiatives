@@ -404,6 +404,23 @@ export const EXEC_CARD_SPECS: ExecCardSpec[] = [
   },
 ];
 
+/**
+ * One line of a reviewed executive-summary comparison, as the report printed it
+ * ("$1.8M under the $0.6M budget", "+3.6% vs budget") with the colour the
+ * reviewer gave that line. Presentation data: it stands in for no observation.
+ */
+export type ReviewedComparisonLine = {
+  text: string;
+  /** Stored tone; null reads neutrally, never inferred from the wording. */
+  tone: "POSITIVE" | "WARNING" | "NEGATIVE" | "NEUTRAL" | null;
+};
+
+/** The reviewed comparison printed under one card, with its provenance. */
+export type ReviewedComparison = {
+  lines: ReviewedComparisonLine[];
+  sourceDocumentName: string | null;
+};
+
 export type ExecCard = {
   id: string;
   title: string;
@@ -426,7 +443,55 @@ export type ExecCard = {
    */
   comparisonState: "loaded" | "no-budget-or-prior-year";
   missingIdentities: string[];
+  /**
+   * The comparison the reviewed report actually printed for this card and
+   * month, when one has been recorded. It is shown in preference to a
+   * calculated comparison, and it is never derived from an observation: the
+   * report may compare with a budget this application does not hold.
+   */
+  reviewed: ReviewedComparison | null;
 };
+
+/** A stored reviewed comparison line, as the loader reads it. */
+export type ReviewedComparisonRow = {
+  cardKey: string;
+  order: number;
+  text: string;
+  tone: string | null;
+  sourceDocumentName: string | null;
+};
+
+const COMPARISON_TONES = new Set(["POSITIVE", "WARNING", "NEGATIVE", "NEUTRAL"]);
+
+function reviewedTone(value: string | null): ReviewedComparisonLine["tone"] {
+  return value && COMPARISON_TONES.has(value) ? (value as ReviewedComparisonLine["tone"]) : null;
+}
+
+/**
+ * Attach the reviewed comparison lines to the cards they belong to. Lines are
+ * kept in the reviewer's order, one card at a time; a line for a card that does
+ * not exist this month is ignored rather than invented onto another card.
+ */
+export function applyReviewedComparisons(
+  cards: readonly ExecCard[],
+  rows: readonly ReviewedComparisonRow[],
+): ExecCard[] {
+  if (rows.length === 0) return cards.map((card) => ({ ...card, reviewed: card.reviewed ?? null }));
+  const byCard = new Map<string, ReviewedComparisonRow[]>();
+  for (const row of rows) byCard.set(row.cardKey, [...(byCard.get(row.cardKey) ?? []), row]);
+  return cards.map((card) => {
+    const found = byCard.get(card.id);
+    if (!found || found.length === 0) return { ...card, reviewed: card.reviewed ?? null };
+    const ordered = [...found].sort((a, b) => a.order - b.order);
+    return {
+      ...card,
+      reviewed: {
+        lines: ordered.filter((line) => line.text.trim().length > 0).map((line) => ({ text: line.text, tone: reviewedTone(line.tone) })),
+        sourceDocumentName: ordered.find((line) => line.sourceDocumentName)?.sourceDocumentName ?? null,
+      },
+    };
+  });
+}
 
 const BASIS_LABEL: Record<ExecCardSpec["timeBasis"], string> = { MONTHLY: "Month", YTD: "YTD", LTM: "LTM" };
 
@@ -501,6 +566,7 @@ export function buildExecCards(metrics: readonly ReportMetric[], rows: readonly 
         basisLabel: BASIS_LABEL[spec.timeBasis],
         comparisonState: "no-budget-or-prior-year" as const,
         missingIdentities: [],
+        reviewed: null,
       };
     }
     const { metric, row } = found;
@@ -534,6 +600,7 @@ export function buildExecCards(metrics: readonly ReportMetric[], rows: readonly 
           basisLabel: BASIS_LABEL[spec.timeBasis],
           comparisonState: "loaded" as const,
           missingIdentities: [],
+          reviewed: null,
         };
       }
     }
@@ -554,6 +621,7 @@ export function buildExecCards(metrics: readonly ReportMetric[], rows: readonly 
       deltaLabel: NO_COMPARISON_LABEL,
       basisLabel: BASIS_LABEL[spec.timeBasis],
       comparisonState: "no-budget-or-prior-year" as const,
+      reviewed: null,
       missingIdentities: (["BUDGET", "PRIOR_YEAR"] as const).map(
         (basis) => `${BASIS_LABEL[spec.timeBasis]} ${basis === "BUDGET" ? "budget" : "prior year"} · ${metric.name} · ${scopeLabel(foundScope)}`,
       ),

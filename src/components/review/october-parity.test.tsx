@@ -5,7 +5,7 @@ import { ExecSummary } from "./report-sections";
 import { areaStatusSummary, measureGauge, measureValueText, secondaryValueText } from "./review-view";
 import { pairedBasisName, parseTargetMarkers, primaryGoalMarker } from "@/lib/review-format";
 import { PILLAR_STATUS_RAG, PILLAR_STATUS_WORD, parseApprovedPillarStatus, reviewBasisLabel, type ReviewArea, type ReviewMeasure } from "@/lib/review-model";
-import { buildExecCards, buildPillarScorecard, type ReportMetric, type ReportObservation } from "@/lib/review-report";
+import { applyReviewedComparisons, buildExecCards, buildPillarScorecard, type ReportMetric, type ReportObservation } from "@/lib/review-report";
 import type { KpiObservationRecord } from "@/lib/kpi";
 
 /**
@@ -420,8 +420,52 @@ describe("executive summary card comparisons", () => {
       "Month budget · Adjusted EBITDA · Base Business",
       "Month prior year · Adjusted EBITDA · Base Business",
     ]);
+    // The executive page stays business-readable: it never prints the technical
+    // identities. They remain on the card for the admin data-quality view.
     const html = renderToStaticMarkup(<ExecSummary cards={cards} monthName="October" />);
-    expect(html).toContain("Required to compare: Month budget · Adjusted EBITDA · Base Business");
+    expect(html).not.toContain("Required to compare");
+    expect(html).toContain("No comparison recorded for this month.");
+  });
+
+  it("shows the reviewed comparison lines, with the reviewer's own colours", () => {
+    // The reviewed report printed "$1.8M under the $0.6M budget" in red and
+    // "$1.3M under PY" in red; no budget observation exists for the population,
+    // so the statement is reviewed presentation data, not a calculation.
+    const cards = applyReviewedComparisons(
+      buildExecCards(execMetrics, [observation({ kpiId: "ebitda", value: "-1200000", timeBasis: "MONTHLY" })], PERIOD),
+      [
+        { cardKey: "month-adjusted-ebitda", order: 0, text: "$1.8M under the $0.6M budget", tone: "NEGATIVE", sourceDocumentName: "Awayday October 2026 Strategy Review(2).html" },
+        { cardKey: "month-adjusted-ebitda", order: 1, text: "$1.3M under PY", tone: "NEGATIVE", sourceDocumentName: "Awayday October 2026 Strategy Review(2).html" },
+      ],
+    );
+    const card = cards.find((c) => c.id === "month-adjusted-ebitda")!;
+    expect(card.reviewed?.lines).toEqual([
+      { text: "$1.8M under the $0.6M budget", tone: "NEGATIVE" },
+      { text: "$1.3M under PY", tone: "NEGATIVE" },
+    ]);
+    expect(card.reviewed?.sourceDocumentName).toBe("Awayday October 2026 Strategy Review(2).html");
+    const html = renderToStaticMarkup(<ExecSummary cards={cards} monthName="October" />);
+    expect(html).toContain("$1.8M under the $0.6M budget");
+    expect(html).toContain("$1.3M under PY");
+    expect(html).toContain('data-tone="negative"');
+    expect(html).not.toContain("No comparison recorded for this month.");
+  });
+
+  it("keeps a mixed reviewed comparison mixed, line by line", () => {
+    // Shop NOI missed budget but beat prior year in the reviewed report: the two
+    // lines must not collapse into one colour.
+    const cards = applyReviewedComparisons(
+      buildExecCards(execMetrics, [observation({ kpiId: "noi", value: "3800000", timeBasis: "MONTHLY" })], PERIOD),
+      [
+        { cardKey: "month-shop-noi", order: 0, text: "\u221214.4% vs budget", tone: "NEGATIVE", sourceDocumentName: null },
+        { cardKey: "month-shop-noi", order: 1, text: "+22.2% vs PY", tone: "POSITIVE", sourceDocumentName: null },
+      ],
+    );
+    const card = cards.find((c) => c.id === "month-shop-noi")!;
+    const html = renderToStaticMarkup(<ExecSummary cards={cards} monthName="October" />);
+    expect(card.reviewed?.lines.map((line) => line.tone)).toEqual(["NEGATIVE", "POSITIVE"]);
+    expect(html).toContain('data-tone="negative"');
+    expect(html).toContain('data-tone="positive"');
   });
 
   it("keeps the sign out of the colour decision", () => {

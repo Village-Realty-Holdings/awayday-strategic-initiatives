@@ -8,6 +8,18 @@ import { deltaTone, resolveDirection, type StatusTone } from "@/lib/kpi-status";
 // Presentation only: every number shown here was shaped from KpiObservation by
 // review-report.ts. Missing values render "—" rather than a guess.
 
+/**
+ * The stored tone of a reviewed comparison line as text colour. Green and red
+ * mean better and worse as the reviewer judged them, never "the number is
+ * positive": a positive EBITDA can still be under budget.
+ */
+const REVIEWED_TONE_CLASS: Record<"POSITIVE" | "WARNING" | "NEGATIVE" | "NEUTRAL", string> = {
+  POSITIVE: "text-ok",
+  WARNING: "text-warn",
+  NEGATIVE: "text-risk",
+  NEUTRAL: "text-ink-muted",
+};
+
 const TONE_CLASS: Record<StatusTone, string> = {
   good: "text-ok",
   warn: "text-warn",
@@ -196,29 +208,45 @@ export function ExecSummary({ cards, monthName }: { cards: ExecCard[]; monthName
             {card.value ? (
               <>
                 <p className="tabular text-3xl font-semibold leading-none tracking-tight text-ink">{card.value}</p>
-                {/* A loaded value with no comparison says so once, in the sentence
-                    below that names what is missing; repeating the label here read
-                    as two separate absences. */}
-                {(card.delta.display || card.missingIdentities.length === 0) && (
-                  <p className="text-xs leading-5 text-ink-muted">
-                    {card.delta.display ? (
-                      <>
+                {/* The reviewed report's own comparison, line by line, with the
+                    colour the reviewer gave each line. It is presentation data, so
+                    it can quote a budget this application does not hold without
+                    inventing one. */}
+                {card.reviewed && card.reviewed.lines.length > 0 ? (
+                  <p
+                    className="text-xs leading-5 text-ink-muted"
+                    data-exec-comparison={card.id}
+                    title={card.reviewed.sourceDocumentName ? `Reviewed comparison from ${card.reviewed.sourceDocumentName}` : undefined}
+                  >
+                    {card.reviewed.lines.map((line, index) => (
+                      <span key={`${line.text}-${index}`}>
+                        {index > 0 && <span aria-hidden> · </span>}
+                        <span className={`font-medium ${REVIEWED_TONE_CLASS[line.tone ?? "NEUTRAL"]}`} data-tone={(line.tone ?? "NEUTRAL").toLowerCase()}>
+                          {line.text}
+                        </span>
+                      </span>
+                    ))}
+                  </p>
+                ) : (
+                  <>
+                    {/* No reviewed statement for this month: show the comparison the
+                        application can calculate, and say plainly when it has none.
+                        The exact missing identities live in Admin > Review data
+                        quality, not on the executive page. */}
+                    {card.delta.display && (
+                      <p className="text-xs leading-5 text-ink-muted">
                         <span className={`tabular font-medium ${tone ? TONE_CLASS[tone] : ""}`} data-tone={tone ?? undefined}>
                           {card.delta.display}
                         </span>{" "}
                         {card.deltaLabel}
-                      </>
-                    ) : (
-                      card.deltaLabel
+                      </p>
                     )}
-                  </p>
-                )}
-                {/* The value is present; only its comparison is absent. Name the exact
-                    identities needed rather than implying the figure failed to load. */}
-                {card.missingIdentities.length > 0 && (
-                  <p className="text-note leading-4 text-ink-faint" data-missing-comparison={card.id}>
-                    Required to compare: {card.missingIdentities.join(" · ")}.
-                  </p>
+                    {!card.delta.display && (
+                      <p className="text-xs leading-5 text-ink-muted" data-exec-comparison-missing={card.id}>
+                        No comparison recorded for this month.
+                      </p>
+                    )}
+                  </>
                 )}
               </>
             ) : (
