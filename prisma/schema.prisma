@@ -538,8 +538,9 @@ model ReviewPeriod {
   dataAsOf       DateTime?          @db.Date
   publishedAt    DateTime?
   publishedBy    String?
-  soWhats        ReviewSoWhat[]
-  pillarStatuses ReviewPillarStatus[]
+  soWhats          ReviewSoWhat[]
+  pillarStatuses   ReviewPillarStatus[]
+  execComparisons  ReviewExecComparison[]
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 }
@@ -581,6 +582,35 @@ model ReviewSoWhat {
   updatedAt DateTime     @updatedAt
 
   @@index([periodId, scope, order])
+}
+
+// One line of a reviewed executive-summary comparison: what the report printed
+// under a headline card for one month, and the colour it gave that line. This is
+// presentation data, not a measurement — it never creates, changes or stands in
+// for a KpiObservation, so a report that compared a figure with a budget the
+// application does not hold can still be reproduced exactly.
+//
+// The card is identified by the report's own card key, and the text is stored
+// as plain text one line at a time: the order of the lines and the tone of each
+// are the reviewer's, and neither is inferred from the wording.
+model ReviewExecComparison {
+  id                 String        @id @default(cuid())
+  periodId           String
+  period             ReviewPeriod  @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  /// ExecCard id from review-report.ts, e.g. "month-adjusted-ebitda".
+  cardKey            String
+  /// Reading order of the lines under one card.
+  order              Int           @default(0)
+  text               String        @db.Text
+  /// The colour the reviewer gave this line; null reads neutrally.
+  tone               SoWhatTone?
+  /// The document the reviewed statement came from, for provenance.
+  sourceDocumentName String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@unique([periodId, cardKey, order])
+  @@index([periodId, cardKey, order])
 }
 
 // The four tones a so-what can carry. Deliberately not CSS class names: the

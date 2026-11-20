@@ -521,6 +521,25 @@ export function ReviewView({
       <section id="exec" className="scroll-mt-20">
         <SectionTitle>Executive summary · {period.monthName}</SectionTitle>
         <ExecSummary cards={report.execCards} monthName={period.monthName} />
+        {/* The reviewed report puts its four "so what" bullets directly under the
+            headline cards, and so does this page: the takeaways belong with the
+            figures they are drawn from, not further down the page. */}
+        <Editable
+          label="summary so-whats"
+          periodLocked
+          wide
+          className="mt-4"
+          editor={<SoWhatsEditor periodId={period.id} scope={SUMMARY_SCOPE} scopeLabel="summary" items={period.summary} />}
+        >
+          {period.summary.length > 0 ? (
+            <Card className="gap-0 p-5">
+              <p className="mb-3 text-xs font-semibold text-ink">So what</p>
+              <SoWhatList items={soWhatItems(period.summary)} tone={toneForStatuses(pillars.map(measureStatus))} />
+            </Card>
+          ) : (
+            <NoDataNote>Strategy hasn&apos;t written the so-whats for {period.label} yet.</NoDataNote>
+          )}
+        </Editable>
         <p className="mt-2 text-note text-ink-faint">
           {report.counts.metricsWithValues > 0
             ? `${report.counts.metricsWithValues} reviewed metrics have a value for ${period.label}, across ${report.counts.populations} reporting ${report.counts.populations === 1 ? "population" : "populations"}. Each card names the population it belongs to; values are never carried across populations.`
@@ -610,16 +629,6 @@ export function ReviewView({
 
       <section id="summary" className="scroll-mt-20">
         <SectionTitle>Where the pillars stand · {period.monthName}</SectionTitle>
-        <Editable label="summary so-whats" periodLocked wide className="mb-4" editor={<SoWhatsEditor periodId={period.id} scope={SUMMARY_SCOPE} scopeLabel="summary" items={period.summary} />}>
-          {period.summary.length > 0 ? (
-            <Card className="gap-0 p-5">
-              <p className="mb-3 text-xs font-semibold text-ink">So what</p>
-              <SoWhatList items={soWhatItems(period.summary)} tone={toneForStatuses(pillars.map(measureStatus))} />
-            </Card>
-          ) : (
-            <NoDataNote>Strategy hasn&apos;t written the so-whats for {period.label} yet.</NoDataNote>
-          )}
-        </Editable>
         {withMeasure.length > 0 ? (
           <Card className="gap-0 p-5">
             <DataTable
