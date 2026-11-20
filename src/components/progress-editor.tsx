@@ -59,7 +59,7 @@ export function ProgressForm({
     <form action={updateProgress} className="grid gap-2">
       <input type="hidden" name="initiativeId" value={initiativeId} />
       <p className="text-note text-ink-faint">
-        Enter the value realized so far. The tracking target is only used to calculate percent (e.g. 850k of 1.5M = 57%, and it can exceed 100%); the stated target is the charter's EBITDA value. Without both, percent follows the first KPI.
+        Enter the value realized so far. The tracking target is only used to calculate percent (e.g. 850k of 1.5M = 57%, and it can exceed 100%); the stated target is the EBITDA value in the charter. Without both, percent follows the first KPI.
       </p>
       <div className="flex flex-wrap items-end gap-2">
         <Label className="grid gap-1 text-xs font-medium text-ink-muted">
