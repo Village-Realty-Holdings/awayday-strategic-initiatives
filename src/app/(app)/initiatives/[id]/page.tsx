@@ -94,11 +94,6 @@ export default async function InitiativeDetail({
   // The area often carries the driver's own name ("M&A"); only show it when it adds something.
   const area = i.strategicArea && i.strategicArea.name !== i.cimDriver ? i.strategicArea.name : null;
 
-  const objectiveLine =
-    i.quantMetric || i.quantTarget
-      ? `${i.quantMetric ?? ""}${i.quantTarget ? ` → ${i.quantTarget}` : ""}`
-      : null;
-
   const editHref = `/admin/initiatives/${i.id}/edit`;
 
   return (
@@ -144,13 +139,11 @@ export default async function InitiativeDetail({
                 <ProgressSummary
                   pct={i.pctComplete}
                   paceNote={p ? { behind: Boolean(behind), text: behind ? `Behind pace. Expected ~${Math.round(p.expected * 100)}% by today.` : `On pace. Expected ~${Math.round(p.expected * 100)}% by today.` } : null}
-                  kpiLine={objectiveLine}
                 />
               ) : (
                 <div className="grid gap-1">
                   <StatusBadge status={i.status} />
                   <p className="text-note text-ink-faint">Non-value initiative. Completion is tracked by status, not dollars.</p>
-                  {objectiveLine && <p className="mt-1 text-xs text-ink-muted">KPI: <span className="text-ink">{objectiveLine}</span></p>}
                 </div>
               )}
             </RailGroup>
@@ -185,14 +178,15 @@ export default async function InitiativeDetail({
               </dl>
             </RailGroup>
 
-            {isValue && (
-              <RailGroup title="Value">
-                <dl className="grid gap-2">
-                  <RailRow label="Targeted value" value={formatMoney(i.progressTarget)} tabular />
-                  <RailRow label="Value realized" value={formatMoney(i.progressActual)} tabular />
-                </dl>
-              </RailGroup>
-            )}
+            {/* Mirrors the charter's Value section in the main column: same fields, same labels, same text. */}
+            <RailGroup title="Value">
+              <dl className="grid gap-2">
+                <RailRow label="Metric" value={i.quantMetric ?? "Not set"} muted={!i.quantMetric} />
+                <RailRow label="FY27 target + stretch" value={i.quantTarget ?? "Not set"} muted={!i.quantTarget} />
+                <RailRow label="EBITDA value ($)" value={i.ebitdaValue ?? "Not set"} muted={!i.ebitdaValue} />
+                {isValue && <RailRow label="Value realized" value={formatMoney(i.progressActual)} tabular />}
+              </dl>
+            </RailGroup>
 
           </div>
         </aside>
@@ -223,18 +217,16 @@ export default async function InitiativeDetail({
           {isValue && (
             <DetailSection
               icon={TrendingUp}
-              title="Value & progress"
+              title="Progress"
               count={`${Math.round(i.pctComplete * 100)}% complete`}
-              isEmpty={i.progressTarget == null && i.progressActual == null}
-              emptyText="No value figures yet."
-              addLabel={editable ? "Update value" : undefined}
+              isEmpty={i.progressActual == null}
+              emptyText="No value realized yet."
+              addLabel={editable ? "Update progress" : undefined}
               addForm={editable && <ProgressForm initiativeId={i.id} pct={i.pctComplete} actual={i.progressActual} target={i.progressTarget} />}
             >
               <p className="text-sm text-ink">
                 <span className="tabular font-semibold">{formatMoney(i.progressActual)}</span>
-                <span className="text-ink-muted"> created of </span>
-                <span className="tabular font-semibold">{formatMoney(i.progressTarget)}</span>
-                <span className="text-ink-muted"> to create</span>
+                <span className="text-ink-muted"> value realized to date</span>
               </p>
             </DetailSection>
           )}

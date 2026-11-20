@@ -33,7 +33,7 @@ export function ProgressSummary({
   );
 }
 
-/** Value created / value to create form; the percent is calculated from the two. */
+/** Value realized / tracking target form; the percent is calculated from the two. */
 export function ProgressForm({
   initiativeId,
   pct,
@@ -59,15 +59,15 @@ export function ProgressForm({
     <form action={updateProgress} className="grid gap-2">
       <input type="hidden" name="initiativeId" value={initiativeId} />
       <p className="text-note text-ink-faint">
-        Enter value created and the value-to-create goal; percent is calculated (e.g. 850k of 1.5M = 57%, and it can exceed 100%). Without both, percent follows the first KPI.
+        Enter the value realized so far. The tracking target is only used to calculate percent (e.g. 850k of 1.5M = 57%, and it can exceed 100%); the stated target is the charter's EBITDA value. Without both, percent follows the first KPI.
       </p>
       <div className="flex flex-wrap items-end gap-2">
         <Label className="grid gap-1 text-xs font-medium text-ink-muted">
-          Value created ($)
+          Value realized ($)
           <Input size="sm" value={a} onChange={(e) => setA(e.target.value)} onBlur={() => setA(formatDollarsInput(a))} inputMode="decimal" placeholder="e.g. 850,000" className="tabular w-40" name="actual" />
         </Label>
         <Label className="grid gap-1 text-xs font-medium text-ink-muted">
-          Value to create ($)
+          Tracking target ($)
           <Input size="sm" value={t} onChange={(e) => setT(e.target.value)} onBlur={() => setT(formatDollarsInput(t))} inputMode="decimal" placeholder="e.g. 1,500,000" className="tabular w-40" name="target" />
         </Label>
         <span className="pb-2 text-xs text-ink-muted">Preview: <span className="tabular font-semibold text-navy-deep">{preview}%</span></span>
