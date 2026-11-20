@@ -1,7 +1,7 @@
 # Status
 
-_Last updated 2026-11-19. **The October parity presentation corrections and the
-follow-up status/FY27 wording correction are merged and deployed.** PR #30 squashed to `a3ee1c5`; Cloudflare Workers Builds
+_Last updated 2026-11-20. **The October parity corrections and the executive
+summary reproduction are merged and deployed.** PR #30 squashed to `a3ee1c5`; Cloudflare Workers Builds
 reported success for that commit and deployed version `58331ab7` at 100% traffic.
 The seven October So-What tones are stored; the two October goal-line corrections
 remain prepared but **not applied** because this session had no production
@@ -16,13 +16,42 @@ database credentials (see below)._
 | PR #28 (status hotfix) | Merged (`master` `2deeed2`, 2026-11-19T16:09Z); Workers Builds deployed version `1fd934a6` at 100% traffic 2026-11-19T16:13Z |
 | PR #30 (October parity corrections) | Merged (`master` `a3ee1c5`, squash, 2026-11-19T17:36Z); Workers Builds check for `a3ee1c5` = success; deployed version `58331ab7` at 100% traffic 2026-11-19T17:42Z |
 | PR #32 (approved status + reviewed FY27 wording) | Merged (`master` `f7fbcb2`, squash, 2026-11-19); GitHub `Analyze` and CodeQL pass, Workers Builds check for `f7fbcb2` = success and the production build for that commit completed. Post-deploy smoke test: `/login` 200, `/`, `/review/2026-10`, `/review/2026-09` 307 to `/login`, `/api/mcp` GET 405 / POST 401 |
-| Production migrations | **19 applied.** `20261118220000_kpi_mapping_direction_optional` and `20261119044941_review_so_what_tone` applied 2026-11-19 with `prisma migrate deploy` on the direct (non-pooler) endpoint; 0 failed, 0 rolled back, schema up to date |
+| PR #34 (executive summary parity) | Merged (`master` `4dbbc66`, squash, 2026-11-20); GitHub `Analyze` and CodeQL pass, Workers Builds check for `4dbbc66` = success. Post-deploy smoke test: `/login` 200, `/`, `/review/2026-09`, `/review/2026-11` 307 to `/login`, `/api/mcp` GET 405 / POST 401 |
+| Production migrations | **20 applied.** `20261118220000_kpi_mapping_direction_optional` and `20261119044941_review_so_what_tone` applied 2026-11-19 with `prisma migrate deploy` on the direct (non-pooler) endpoint; 0 failed, 0 rolled back, schema up to date |
 | Migration data safety | Verified on the live branch: mapping, So-What and observation fingerprints identical before/after; 5 mappings kept `true/true/false/true/true`; 0 rows carry a tone; 7 So-What rows intact |
 | Production business data | **Unchanged.** No observation, target, pillar status or So-What was written; no import was run |
 | Post-deploy verification | Every authenticated route redirects to `/login` (307) with no 5xx; `/login` 200; `/api/mcp` 405 on GET; the review page's exact `reviewPeriod` + `soWhats(tone)` query and the five-pillar primary query both succeed against the migrated schema. Authenticated browser rendering was not performed (no production sign-in on this machine) |
 | Pillar colours (hotfix) | **Restored.** The reviewed 2026 primary measures are applied and the five October status statements are stored; the house renders green / green / red / amber / amber with the combined wording. See `docs/october-2026-status-regression-hotfix.md` |
 | So-What tones | **Stored.** All 7 October rows carry a semantic tone — POSITIVE 1, WARNING 5, NEGATIVE 1 — applied by `prisma/configure-october-2026-so-what-tones.ts`. The script writes its snapshot `.october-so-what-tones-before.json` only after the serializable write transaction commits, so the snapshot timestamp (2026-11-19T17:20:41Z) evidences a successful production write; identity, scope, order and wording were not touched and each record has an audit row. This session had no production credentials, so the rows were not re-read afterwards |
 | October goal lines | **Prepared, not applied.** `prisma/configure-october-2026-goal-lines.ts` computes the Grow and M&A `KpiDefinition.target` corrections and refuses to write on drift, but no production snapshot exists, so the write has not been made. It needs a production `DATABASE_URL` (dry run first, then `--apply --snapshot`). Until then Grow shows no goal line and M&A keeps its stored `$26M total` wording — which the gauge no longer plots as a goal |
+
+## Latest: the executive summary reproduces the reviewed report (PR #34, `4dbbc66`, 2026-11-20)
+
+The four executive cards carried the right figures but no business comparison,
+and the block beneath them was a single AI-drafted summary. Both now match the
+reviewed HTML (see `docs/october-2026-executive-summary.md`).
+
+- **New table `ReviewExecComparison`** (migration `20261120120000`, applied to the
+  production branch as migration 20): per month and card, the printed comparison
+  lines as plain text, each with the reviewer's tone and the source document. No
+  synthetic budget or prior-year observation was created — the report compares
+  against values this application does not hold, and inventing them would have
+  put fabricated measurements into the financial record.
+- **Cards** render those lines with their own colours (`$1.8M under the $0.6M
+  budget` red · `$1.3M under PY` red; `+3.6% vs budget` and `+9.0% vs PY` green;
+  the LTM lines neutral; Shop NOI red on budget and green on prior year). The
+  technical "Required to compare" sentence is gone from the executive page.
+- **So what**: the report's four bullets sit directly under the cards with their
+  exact text, order, bold leads and tones (NEGATIVE, POSITIVE, POSITIVE,
+  NEGATIVE). Bullet 1 keeps the id of the record production held; three bullets
+  were added. October now holds 10 so-whats (4 SUMMARY + 6 section).
+- **Admin**: new `/admin/review-data-quality` (admin only) carries the missing
+  observation identities, the comparison state and the reviewed source.
+- **Verified end to end** by rendering the merged code locally against the
+  production branch: all four cards, both comparison lines each, the four bullets
+  and the admin table match the reference. Production data after the write:
+  224 observations, 72 definitions, 9 mappings, 9 pillar statuses — unchanged;
+  8 reviewed comparison lines; 10 so-whats; 12 audit rows.
 
 ## Latest: the approved status and the reviewed FY27 wording now win (PR #32, `f7fbcb2`, 2026-11-19)
 
